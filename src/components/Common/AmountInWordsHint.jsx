@@ -96,8 +96,21 @@ export function numberToBankingWords(rawAmount) {
     return null;
   }
 
+  if (parsedNum >= 1_000_000_000_000) {
+    if (parsedNum > Number.MAX_SAFE_INTEGER) {
+      return null;
+    }
+    return {
+      formattedFigures: parsedNum.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+      words: null,
+    };
+  }
+
   const totalCents = Math.round((parsedNum + Number.EPSILON) * 100);
-  if (totalCents <= 0) {
+  if (!Number.isFinite(totalCents) || totalCents <= 0) {
     return null;
   }
 

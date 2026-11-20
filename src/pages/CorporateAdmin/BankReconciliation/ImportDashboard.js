@@ -107,8 +107,8 @@ const ImportDashboard = () => {
 
         try {
             await apiRequest(`/reconciliation/statements/${statementId}`, 'DELETE');
-            // Refresh list
-            fetchStatements();
+            // Refresh statements and live cash positions derived from statements
+            await Promise.all([fetchStatements(), fetchCashPositions()]);
         } catch (error) {
             console.error("Failed to delete statement:", error);
             alert("Failed to delete statement. " + (error.message || ""));

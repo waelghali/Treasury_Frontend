@@ -6,6 +6,7 @@ import { X } from 'lucide-react';
 import { apiRequest } from 'services/apiService'; // ADDED: For authenticated API call
 import { toast } from 'react-toastify'; // ADDED: For user feedback
 import { formatDateTime } from 'utils/dateFormat';
+import { openPendingTab } from 'utils/navUtils';
 
 function TrialRegistrationDetailsModal({ registration, onClose }) {
   if (!registration) return null;
@@ -21,6 +22,7 @@ function TrialRegistrationDetailsModal({ registration, onClose }) {
         return;
     }
 
+    const tab = openPendingTab('Loading Document...');
     try {
       // 1. Call backend securely to get the signed URL
       // This uses apiRequest() which includes the Authorization header
@@ -31,11 +33,13 @@ function TrialRegistrationDetailsModal({ registration, onClose }) {
       
       // 2. Open the signed URL (which is temporary and self-authenticating) in a new tab
       if (response && response.url) {
-        window.open(response.url, '_blank');
+        tab.setUrl(response.url);
       } else {
+        tab.close();
         toast.error("Failed to retrieve document URL.");
       }
     } catch (err) {
+      tab.close();
       console.error("Error fetching document URL:", err);
       toast.error(`Error opening document: ${err.message}`);
     }

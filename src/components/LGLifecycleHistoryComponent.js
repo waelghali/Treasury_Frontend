@@ -1,6 +1,6 @@
 // frontend/src/components/LGLifecycleHistoryComponent.js
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { apiRequest, getAuthToken } from '../services/apiService';
+import { apiRequest, API_BASE_URL, getAuthToken } from '../services/apiService';
 import { format, differenceInDays, startOfDay, endOfDay } from 'date-fns';
 import { 
     Loader, AlertCircle, Truck, Building, RotateCcw, FileText, ChevronDown, 
@@ -12,6 +12,7 @@ import DocumentInspectorModal from './Modals/DocumentInspectorModal';
 import FormattedDateInput from 'components/FormattedDateInput';
 import { toast } from 'react-toastify';
 import { getEventIcon, formatActionTypeLabel } from '../utils/timelineHelpers';
+import { openPendingTab } from '../utils/navUtils';
 
 // --- CONFIGURATION: Categories for Filtering (Updated for accuracy) ---
 
@@ -350,17 +351,36 @@ const LGLifecycleHistoryComponent = ({
         return null;
     }, [instructionsMap, instructionsBySerialMap]);
 
+    const getReminderInstruction = useCallback((originalInstructionId) => {
+        if (originalInstructionId === null || originalInstructionId === undefined) return null;
+        const originalObj = instructionsMap.get(originalInstructionId);
+        const origSerial = originalObj?.serial_number;
+        for (const inst of instructionsMap.values()) {
+            if (!inst || inst.is_deleted) continue;
+            if (inst.instruction_type !== 'LG_REMINDER_TO_BANKS') continue;
+            const det = inst.details || {};
+            if (det.original_instruction_id != null && String(det.original_instruction_id) === String(originalInstructionId)) {
+                return inst;
+            }
+            if (origSerial && det.original_instruction_serial && String(det.original_instruction_serial) === String(origSerial)) {
+                return inst;
+            }
+        }
+        return null;
+    }, [instructionsMap]);
+
     const hasReminderBeenSent = useCallback((originalInstructionId) => {
         if (originalInstructionId === null || originalInstructionId === undefined) return false;
+        if (getReminderInstruction(originalInstructionId)) return true;
         const sentInAuditLog = events.some(eventItem =>
             eventItem.action_type === 'LG_REMINDER_SENT_TO_BANK' &&
             eventItem.details &&
             String(eventItem.details.original_instruction_id) === String(originalInstructionId)
         );
         const instructionObject = instructionsMap.get(originalInstructionId);
-        const sentInObjectFlag = instructionObject ? instructionObject.has_reminder_sent : false;
+        const sentInObjectFlag = instructionObject ? Boolean(instructionObject.has_reminder_sent) : false;
         return sentInAuditLog || sentInObjectFlag;
-    }, [events, instructionsMap]);
+    }, [events, instructionsMap, getReminderInstruction]);
 
 
     // --- Smart Formatting to Remove "N/A" Clutter (Preserved) ---
@@ -521,25 +541,32 @@ const LGLifecycleHistoryComponent = ({
 
     const handleSendReminderLocal = async (instructionId, serialNumber) => {
         if (isGracePeriod) { toast.warn("This action is disabled during your subscription's grace period."); return; }
+        const authToken = getAuthToken();
+        if (!authToken) { toast.error("Authentication required to send reminder."); return; }
+        const tab = openPendingTab('Generating Bank Reminder Letter...');
         try {
-            const authToken = getAuthToken();
-            if (!authToken) { toast.error("Authentication required to send reminder."); return; }
             const response = await apiRequest(`/end-user/lg-records/instructions/${instructionId}/send-reminder-to-bank`, 'POST', null, 'text/html', 'text');
             if (response) {
-                const newWindow = window.open('', '_blank');
-                if (newWindow) {
-                    newWindow.document.write(response);
-                    newWindow.document.close();
-                    toast.info(`Generating reminder PDF for instruction ${serialNumber}.`);
-                    setTimeout(() => { fetchLifecycleHistoryAndConfig(); }, 1000);
+                if (tab.setHtml(response)) {
+                    toast.info(`Reminder generated for instruction ${serialNumber}.`);
                 } else {
-                    toast.error("Failed to open new tab. Please ensure your browser allows pop-ups.");
+                    toast.warn("Reminder sent, but the print tab was blocked by your browser. Click Reminder Sent to view it.");
                 }
+                setTimeout(() => {
+                    fetchLifecycleHistoryAndConfig();
+                    if (typeof onRefreshLgRecord === 'function') onRefreshLgRecord();
+                }, 800);
             } else {
+                tab.close();
                 toast.error("Failed to generate reminder content from the server.");
             }
         } catch (error) {
+            tab.close();
             toast.error(`Failed to send reminder: ${error.message || 'An unexpected error occurred.'}`);
+            if (String(error?.message || '').toLowerCase().includes('already been sent')) {
+                fetchLifecycleHistoryAndConfig();
+                if (typeof onRefreshLgRecord === 'function') onRefreshLgRecord();
+            }
         }
     };
     
@@ -822,7 +849,8 @@ const LGLifecycleHistoryComponent = ({
                 const hasDeliveryDate = instruction && (instruction.delivery_date !== null && instruction.delivery_date !== "");
                 const hasBankReplyDate = instruction && (instruction.bank_reply_date !== null && instruction.bank_reply_date !== "");
                 const isReminderInstruction = instruction && instruction.instruction_type === 'LG_REMINDER_TO_BANKS';
-                const hasBeenRemindedPreviously = hasReminderBeenSent(instruction?.id);
+                const reminderInstruction = !isReminderInstruction ? getReminderInstruction(instruction?.id) : null;
+                const hasBeenRemindedPreviously = Boolean(reminderInstruction) || hasReminderBeenSent(instruction?.id);
 
                 const showSendReminderButtonForEndUser = !isCorporateAdminView && instruction && Number.isInteger(instruction.id) && (instruction.bank_reply_date === null || instruction.bank_reply_date === "") && !isReminderInstruction && isReminderApplicableByTime(instruction) && !hasBeenRemindedPreviously && !!onSendReminder;
                 const showViewIssuedReminderButton = instruction && Number.isInteger(instruction.id) && (hasBeenRemindedPreviously || isReminderInstruction);
@@ -1244,11 +1272,25 @@ const LGLifecycleHistoryComponent = ({
                                                 </GracePeriodTooltip>
                                             ) : showViewIssuedReminderButton ? (
                                                 <button
-                                                    onClick={() => onViewInstructionLetter(instruction.id)}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const targetReminderId = isReminderInstruction
+                                                            ? instruction.id
+                                                            : (reminderInstruction?.id || instruction.reminder_instruction_id);
+                                                        if (targetReminderId) {
+                                                            onViewInstructionLetter(targetReminderId);
+                                                        } else {
+                                                            const authToken = getAuthToken();
+                                                            const url = `${API_BASE_URL}/end-user/lg-records/instructions/${instruction.id}/view-reminder-letter${authToken ? `?token=${authToken}&print=true` : '?print=true'}`;
+                                                            const popup = window.open(url, '_blank');
+                                                            if (!popup) toast.error('Popup was blocked by your browser. Please allow popups for this site.');
+                                                        }
+                                                    }}
                                                     className="inline-flex items-center px-3 py-1.5 border border-amber-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors"
-                                                    title="View Issued Reminder"
+                                                    title={`Reminder already sent${reminderInstruction?.serial_number ? ` (${reminderInstruction.serial_number})` : ''} — click to view/reprint reminder letter`}
                                                 >
-                                                    <Eye className="h-4 w-4 mr-1.5" /> View Issued Reminder
+                                                    <CheckCircle2 className="h-4 w-4 mr-1.5 text-amber-600" />
+                                                    Reminder Sent{reminderInstruction?.instruction_date ? ` · ${format(new Date(reminderInstruction.instruction_date), 'd MMM')}` : ''}
                                                 </button>
                                             ) : (
                                                 showAllActionButtons && (

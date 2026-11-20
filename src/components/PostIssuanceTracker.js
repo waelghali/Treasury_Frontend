@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { apiRequest } from 'services/apiService';
 import { toast } from 'react-toastify';
-import { openInNewTab } from 'utils/navUtils';
+import { openInNewTab, openPendingTab } from 'utils/navUtils';
 import FormattedDateInput from 'components/FormattedDateInput';
 import { formatDate } from 'utils/dateFormat';
 import {
@@ -1144,14 +1144,16 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                                             toast.error('The detected discrepancy is an internal bank mismatch. It cannot be sent to the bank in a correction letter. Please update the facility or re-upload the correct LG.');
                                                                                             return;
                                                                                         }
-                                                                                        const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', {
-                                                                                            discrepancies: mismatched,
-                                                                                            bank_lg_number: replyForm.bank_lg_number || aiResult.extracted?.bank_lg_number || data?.record?.bank_lg_number,
-                                                                                            bank_name: replyForm.issuing_bank_name || data?.record?.bank?.name || data?.bank_name
-                                                                                        }, 'application/json', 'blob');
-                                                                                        const url = URL.createObjectURL(blob);
-                                                                                        window.open(url, '_blank');
-                                                                                        toast.success('Correction letter generated!');
+                                                                                        const tab = openPendingTab('Generating Correction Letter...');
+                                                                                        try {
+                                                                                            const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', {
+                                                                                                discrepancies: mismatched,
+                                                                                                bank_lg_number: replyForm.bank_lg_number || aiResult.extracted?.bank_lg_number || data?.record?.bank_lg_number,
+                                                                                                bank_name: replyForm.issuing_bank_name || data?.record?.bank?.name || data?.bank_name
+                                                                                            }, 'application/json', 'blob');
+                                                                                            tab.setBlob(blob);
+                                                                                            toast.success('Correction letter generated!');
+                                                                                        } catch (err) { tab.close(); throw err; }
                                                                                     } catch (err) { toast.error(err.message); }
                                                                                 }}
                                                                                     disabled={actionLoading}
@@ -1473,13 +1475,16 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                                     toast.error('No bank-correctable discrepancies found (internal bank mismatches cannot be sent to the bank).');
                                                                                     return;
                                                                                 }
-                                                                                const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', {
-                                                                                    discrepancies: discList,
-                                                                                    bank_lg_number: data?.record?.bank_lg_number,
-                                                                                    bank_name: data?.record?.bank?.name || data?.bank_name
-                                                                                }, 'application/json', 'blob');
-                                                                                window.open(URL.createObjectURL(blob), '_blank');
-                                                                                toast.success('Correction letter generated!');
+                                                                                const tab = openPendingTab('Generating Correction Letter...');
+                                                                                try {
+                                                                                    const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', {
+                                                                                        discrepancies: discList,
+                                                                                        bank_lg_number: data?.record?.bank_lg_number,
+                                                                                        bank_name: data?.record?.bank?.name || data?.bank_name
+                                                                                    }, 'application/json', 'blob');
+                                                                                    tab.setBlob(blob);
+                                                                                    toast.success('Correction letter generated!');
+                                                                                } catch (err) { tab.close(); throw err; }
                                                                             } catch (err) { toast.error(err.message); }
                                                                         }}
                                                                             disabled={actionLoading}
@@ -1824,13 +1829,16 @@ export default function PostIssuanceTracker({ lgId, onStatusChange, readOnly = f
                                                                                     toast.error('No bank-correctable discrepancies found (internal bank mismatches cannot be sent to the bank).');
                                                                                     return;
                                                                                 }
-                                                                                const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', {
-                                                                                    discrepancies: discList,
-                                                                                    bank_lg_number: data?.record?.bank_lg_number,
-                                                                                    bank_name: data?.record?.bank?.name || data?.bank_name
-                                                                                }, 'application/json', 'blob');
-                                                                                window.open(URL.createObjectURL(blob), '_blank');
-                                                                                toast.success('Correction letter generated!');
+                                                                                const tab = openPendingTab('Generating Correction Letter...');
+                                                                                try {
+                                                                                    const blob = await apiRequest(`/issuance/lg-records/${lgId}/generate-correction-letter`, 'POST', {
+                                                                                        discrepancies: discList,
+                                                                                        bank_lg_number: data?.record?.bank_lg_number,
+                                                                                        bank_name: data?.record?.bank?.name || data?.bank_name
+                                                                                    }, 'application/json', 'blob');
+                                                                                    tab.setBlob(blob);
+                                                                                    toast.success('Correction letter generated!');
+                                                                                } catch (err) { tab.close(); throw err; }
                                                                             } catch (err) { toast.error(err.message); }
                                                                         }}
                                                                             className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors">

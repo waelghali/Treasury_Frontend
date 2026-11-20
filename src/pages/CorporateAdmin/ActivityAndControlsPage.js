@@ -12,6 +12,7 @@ import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
 import FormattedDateInput from 'components/FormattedDateInput';
 import { formatDate } from '../../utils/dateFormat';
+import { openPendingTab } from '../../utils/navUtils';
 
 const MODULE_META = {
   ALL: { label: 'All Modules', icon: Activity, pill: 'bg-slate-100 text-slate-700 border-slate-200' },
@@ -244,6 +245,7 @@ function ActivityAndControlsPage({
       return;
     }
     if (maintenanceActionId) {
+      const tab = openPendingTab('Loading Maintenance Letter...');
       try {
         const blob = await apiRequest(
           `/issuance/maintenance/${maintenanceActionId}/document/letter`,
@@ -252,9 +254,9 @@ function ActivityAndControlsPage({
           'application/json',
           'blob'
         );
-        const blobUrl = window.URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
+        tab.setBlob(blob);
       } catch (err) {
+        tab.close();
         toast.error(`Could not preview maintenance letter: ${err.message || 'Not available'}`);
       }
     }

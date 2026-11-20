@@ -247,7 +247,7 @@ export default function InboxPage() {
 
     const fetchBanks = async () => {
         try {
-            const data = await apiRequest('/issuance/banks');
+            const data = await apiRequest('/inbox/banks');
             setBanks(data || []);
         } catch (e) {
             console.error('Error loading banks:', e);
@@ -398,7 +398,7 @@ export default function InboxPage() {
         setConfirmPdfPassword('');
         setSavePdfPassword(false);
         setPdfPasswordRequired(
-            Boolean(item.classification_signals?.pdf_password_required) ||
+            Boolean(item.pdf_password_required || item.classification_signals?.pdf_password_required) ||
             (item.error_message || '').includes('PDF_PASSWORD_REQUIRED')
         );
         if (item.classification === 'CASH_POSITION_SNAPSHOT') {
@@ -424,21 +424,40 @@ export default function InboxPage() {
 
         try {
             const payload = {};
-            if (confirmBankId) payload.override_bank_id = parseInt(confirmBankId);
+            if (confirmBankId) payload.override_bank_id = parseInt(confirmBankId, 10);
             if (confirmPositionDate) payload.override_position_date = confirmPositionDate;
             if (confirmPdfPassword && confirmPdfPassword.trim()) {
                 payload.pdf_password = confirmPdfPassword.trim();
                 payload.save_pdf_password = Boolean(savePdfPassword);
             }
             if (confirmModalItem.classification === 'CASH_POSITION_SNAPSHOT' && confirmBalances.length > 0) {
-                payload.override_balances = confirmBalances
-                    .filter(b => b.available_balance !== '' && b.available_balance !== null)
-                    .map(b => ({
+                const parsedBalances = [];
+                for (const b of confirmBalances) {
+                    const availStr = String(b.available_balance ?? '').trim();
+                    const ledgerStr = String(b.ledger_balance ?? '').trim();
+                    if (!availStr && !ledgerStr) continue;
+                    const normalizedAvail = availStr.replace(/,/g, '');
+                    const availNum = availStr ? Number(normalizedAvail) : null;
+                    if (availStr && !Number.isFinite(availNum)) {
+                        toast.error('Please enter a valid numeric Available Balance.');
+                        setActioningId(null);
+                        return;
+                    }
+                    const normalizedLedger = ledgerStr.replace(/,/g, '');
+                    const ledgerNum = ledgerStr ? Number(normalizedLedger) : null;
+                    if (ledgerStr && !Number.isFinite(ledgerNum)) {
+                        toast.error('Please enter a valid numeric Ledger Balance.');
+                        setActioningId(null);
+                        return;
+                    }
+                    parsedBalances.push({
                         account_number: b.account_number || null,
                         currency: (b.currency || 'EGP').toUpperCase(),
-                        available_balance: parseFloat(b.available_balance),
-                        ledger_balance: b.ledger_balance !== '' && b.ledger_balance !== null ? parseFloat(b.ledger_balance) : null,
-                    }));
+                        available_balance: availNum !== null ? availNum : ledgerNum,
+                        ledger_balance: ledgerNum,
+                    });
+                }
+                payload.override_balances = parsedBalances;
             }
 
             const res = await apiRequest(`/inbox/items/${confirmModalItem.id}/confirm`, 'POST', payload);
@@ -454,7 +473,7 @@ export default function InboxPage() {
                     <div>
                         <span>Reconciliation Session #{res.session_id} is ready.</span>{' '}
                         <button
-                            onClick={() => navigate(`/end-user/issuance/reconciliation?sessionId=${res.session_id}`)}
+                            onClick={() => navigate(`${basePrefix}/issuance/reconciliation?sessionId=${res.session_id}`)}
                             className="font-bold underline ml-2 text-blue-800"
                         >
                             Open Reconciliation
@@ -580,7 +599,13 @@ export default function InboxPage() {
     const handleDownloadWatcherScript = async () => {
         try {
             const hint = createdPlaintextToken || 'PASTE_YOUR_GWS_SYNC_TOKEN_HERE';
-            const blob = await apiRequest(`/inbox/sync-watcher-script?token_hint=${encodeURIComponent(hint)}`, 'GET', null, {}, 'blob');
+            const blob = await apiRequest(
+                '/inbox/sync-watcher-script',
+                'POST',
+                { token_hint: hint },
+                'application/json',
+                'blob'
+            );
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -641,14 +666,16 @@ export default function InboxPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-end sm:self-auto">
-                    <button
-                        onClick={() => navigate('/corporate-admin/inbox/schedule')}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition shadow-xs"
-                        title="Configure Automated Bank Schedules"
-                    >
-                        <Settings className="w-4 h-4 text-gray-500" />
-                        <span>Schedules</span>
-                    </button>
+                    {basePrefix === '/corporate-admin' && (
+                        <button
+                            onClick={() => navigate('/corporate-admin/inbox/schedule')}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition shadow-xs"
+                            title="Configure Automated Bank Schedules"
+                        >
+                            <Settings className="w-4 h-4 text-gray-500" />
+                            <span>Schedules</span>
+                        </button>
+                    )}
 
                     <button
                         onClick={() => {
@@ -1225,7 +1252,7 @@ export default function InboxPage() {
                                                     Actioned ({item.action_reference_type} #{item.action_reference_id})
                                                     {item.action_reference_type === 'ReconciliationSession' && (
                                                         <button
-                                                            onClick={() => navigate(`/end-user/issuance/reconciliation?sessionId=${item.action_reference_id}`)}
+                                                            onClick={() => navigate(`${basePrefix}/issuance/reconciliation?sessionId=${item.action_reference_id}`)}
                                                             className="underline font-bold text-emerald-800 ml-1"
                                                         >
                                                             View
@@ -1381,7 +1408,7 @@ export default function InboxPage() {
                                 </div>
                             )}
 
-                            {confirmModalItem.classification === 'BANK_STATEMENT' &&
+                            {(confirmModalItem.classification === 'BANK_STATEMENT' || confirmModalItem.classification === 'CASH_POSITION_SNAPSHOT') &&
                                 ((confirmModalItem.primary_attachment_type || '').toUpperCase() === 'PDF' || pdfPasswordRequired) && (
                                 <div className={`p-3 rounded-lg border space-y-2 ${pdfPasswordRequired ? 'bg-amber-50 border-amber-300' : 'bg-white border-gray-200'}`}>
                                     <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">

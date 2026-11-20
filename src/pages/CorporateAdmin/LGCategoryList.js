@@ -36,7 +36,7 @@ function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
   const [showDeleted, setShowDeleted] = useState(false); // NEW state variable
   
   // NEW: Determine base API URL and title dynamically based on userRole
-  const isSystemOwner = userRole === 'system-owner';
+  const isSystemOwner = userRole === 'system-owner' || userRole === 'system_owner';
   const baseApiUrl = isSystemOwner ? '/system-owner/lg-categories/universal' : '/corporate-admin/lg-categories';
   const pageTitle = isSystemOwner ? 'Universal Categories' : 'LG Categories';
   const singularListName = isSystemOwner ? 'Universal Category' : 'LG Category';
@@ -72,11 +72,11 @@ function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
         toast.warn("This action is disabled during your subscription's grace period.");
         return;
     }
-    if (userRole === 'corporate-admin' && category.customer_id === null) {
+    if (!isSystemOwner && category.customer_id === null) {
       setError("System default categories cannot be edited by Corporate Admins.");
       return;
     }
-    const editUrl = userRole === 'system-owner' 
+    const editUrl = isSystemOwner
         ? `/system-owner/lg-categories/universal/edit/${category.id}` 
         : `/corporate-admin/lg-categories/edit/${category.id}`;
     navigate(editUrl);
@@ -87,14 +87,14 @@ function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
         toast.warn("This action is disabled during your subscription's grace period.");
         return;
     }
-    if (userRole === 'corporate-admin' && category.customer_id === null) {
+    if (!isSystemOwner && category.customer_id === null) {
       setError("System default categories (Universal Categories) cannot be deleted by Corporate Admins.");
       return;
     }
     if (window.confirm(`Are you sure you want to soft-delete "${category.name}"?`)) {
       try {
         setIsLoading(true);
-        const deleteUrl = userRole === 'system-owner'
+        const deleteUrl = isSystemOwner
           ? `/system-owner/lg-categories/universal/${category.id}`
           : `/corporate-admin/lg-categories/${category.id}`;
         await apiRequest(deleteUrl, 'DELETE');
@@ -113,14 +113,14 @@ function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
         toast.warn("This action is disabled during your subscription's grace period.");
         return;
     }
-    if (userRole === 'corporate-admin' && category.customer_id === null) {
+    if (!isSystemOwner && category.customer_id === null) {
         setError("System default categories (Universal Categories) cannot be restored by Corporate Admins.");
         return;
     }
     if (window.confirm(`Are you sure you want to restore "${category.name}"?`)) {
       try {
         setIsLoading(true);
-        const restoreUrl = userRole === 'system-owner'
+        const restoreUrl = isSystemOwner
           ? `/system-owner/lg-categories/universal/${category.id}/restore`
           : `/corporate-admin/lg-categories/${category.id}/restore`;
         await apiRequest(restoreUrl, 'POST');
@@ -193,7 +193,7 @@ function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
           <GracePeriodTooltip isGracePeriod={isGracePeriod}>
               <button
                 onClick={() => {
-                  const newUrl = userRole === 'system-owner' ? '/system-owner/lg-categories/universal/new' : '/corporate-admin/lg-categories/new';
+                  const newUrl = isSystemOwner ? '/system-owner/lg-categories/universal/new' : '/corporate-admin/lg-categories/new';
                   navigate(newUrl);
                 }}
                 className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}

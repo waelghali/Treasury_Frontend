@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, ChevronLeft, Building, FileText, FileSpreadsheet, Wifi, Check, Zap, Loader2, Send, AlertCircle, Lock, AlertTriangle, TrendingUp, Search, DollarSign } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { apiRequest } from '../../services/apiService';
-import { openInNewTab } from '../../utils/navUtils';
+import { openInNewTab, openPendingTab } from '../../utils/navUtils';
 
 /**
  * 3-step Issuance Wizard:
@@ -355,6 +355,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
 
     // Phase 2: Fill PDF with user-provided values, then auto-issue
     const handleFillAndDownload = async (skipEmpty = false) => {
+        const formTab = openPendingTab('Generating Bank Form...');
         setIsExecuting(true);
         try {
             const bankId = getBankId();
@@ -364,8 +365,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                 `/issuance/bank-forms/auto-fill/${request.id}?bank_id=${bankId}`,
                 'POST', values, 'application/json', 'blob'
             );
-            const blobUrl = window.URL.createObjectURL(blob);
-            window.open(blobUrl, '_blank');
+            formTab.setBlob(blob);
             // Show form-type-specific instruction
             const fType = formFillInfo?.form_type || '';
             if (fType === 'PHYSICAL_OVERLAY') {
@@ -435,6 +435,7 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                 onClose();
             }
         } catch (err) {
+            formTab.close();
             toast.error(err.message || 'Failed to fill bank form.');
             // Release lock if it was set and issuance didn't complete
             if (bankLocked && !issuanceCompleted) {
@@ -472,9 +473,14 @@ export default function IssuanceWizardModal({ request, matchedFacilities = [], o
                     }
                 }
                 const url = `/issuance/requests/${request.id}/generate-letter${params.toString() ? '?' + params.toString() : ''}`;
-                const blob = await apiRequest(url, 'GET', null, 'application/json', 'blob');
-                const blobUrl = window.URL.createObjectURL(blob);
-                window.open(blobUrl, '_blank');
+                const letterTab = openPendingTab('Generating Bank Letter...');
+                try {
+                    const blob = await apiRequest(url, 'GET', null, 'application/json', 'blob');
+                    letterTab.setBlob(blob);
+                } catch (err) {
+                    letterTab.close();
+                    throw err;
+                }
             }
 
             // If Bank Form with missing fields still showing: generate PDF then issue

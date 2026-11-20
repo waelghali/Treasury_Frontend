@@ -9,6 +9,7 @@ import { getCurrentUser } from '../../../utils/authUtils';
 import ResultsView from './ResultsView';
 import CorporateMobileAlertsBanner from '../../../components/CorporateMobileAlertsBanner';
 import FormattedDateInput from 'components/FormattedDateInput';
+import FormattedDateTimeInput from '../../../components/FormattedDateTimeInput';
 import AmountInWordsHint from '../../../components/Common/AmountInWordsHint';
 
 const MAX_PAIRS = 4;
@@ -4243,12 +4244,10 @@ export default function QuotationRequestDashboard() {
                                         </span>
                                     )}
                                 </div>
-                                <input
-                                    type="datetime-local"
+                                <FormattedDateTimeInput
                                     required
                                     min={nowLocalIso}
                                     max={maxWindowDateTime}
-                                    className="w-full bg-gray-50 border-none rounded-xl px-4 py-2.5 sm:py-3 text-sm focus:ring-2 focus:ring-black/5 outline-none transition-all"
                                     value={formData.windowStart}
                                     onChange={e => handleWindowStartChange(e.target.value)}
                                 />

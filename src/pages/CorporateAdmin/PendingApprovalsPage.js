@@ -10,6 +10,7 @@ import { Listbox, Transition, Menu } from '@headlessui/react';
 import * as XLSX from 'xlsx';
 import FormattedDateInput from 'components/FormattedDateInput';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
+import { openPendingTab } from '../../utils/navUtils';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -1797,11 +1798,12 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                                 {doc.created_at && <span className="text-[10px] text-gray-400 whitespace-nowrap">{formatDate(doc.created_at)}</span>}
                                                                 <button
                                                                     onClick={async () => {
+                                                                        const tab = openPendingTab('Loading Document...');
                                                                         try {
                                                                             const data = await apiRequest(`/issuance/requests/${lg.request?.id}/documents/${doc.id}/download`, 'GET');
-                                                                            if (data?.download_url) window.open(data.download_url, '_blank');
-                                                                            else toast.error('Download URL not available');
-                                                                        } catch (err) { toast.error('Failed to open document'); }
+                                                                            if (data?.download_url) tab.setUrl(data.download_url);
+                                                                            else { tab.close(); toast.error('Download URL not available'); }
+                                                                        } catch (err) { tab.close(); toast.error('Failed to open document'); }
                                                                     }}
                                                                     className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-indigo-700 bg-indigo-100 rounded-md hover:bg-indigo-200 transition-colors"
                                                                 >

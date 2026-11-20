@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from 'services/apiService.js';
 import { toast } from 'react-toastify';
+import { openPendingTab } from 'utils/navUtils';
 import {
   Eye,
   CheckCircle,
@@ -149,6 +150,7 @@ function TrialRegistrationList() {
       return;
     }
 
+    const tab = openPendingTab('Loading Document...');
     try {
       const response = await apiRequest(
         `/system-owner/trial/get-document-url/?gcs_uri=${encodeURIComponent(gcsPath)}`,
@@ -156,11 +158,13 @@ function TrialRegistrationList() {
       );
 
       if (response && response.url) {
-        window.open(response.url, '_blank');
+        tab.setUrl(response.url);
       } else {
+        tab.close();
         toast.error('Failed to retrieve document URL.');
       }
     } catch (err) {
+      tab.close();
       console.error('Error fetching document URL:', err);
       toast.error(`Error opening document: ${err.message}`);
     }

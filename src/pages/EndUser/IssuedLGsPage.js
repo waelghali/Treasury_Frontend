@@ -22,7 +22,7 @@ import RequestorDirectoryTab from '../../components/Issuance/RequestorDirectoryT
 import CopyBadge from '../../components/CopyBadge';
 import CustomerCashbackWidget from '../../components/CustomerCashbackWidget';
 import CustomExportModal from '../../components/Modals/CustomExportModal';
-import { openInNewTab } from '../../utils/navUtils';
+import { openInNewTab, openPendingTab } from '../../utils/navUtils';
 import FormattedDateInput from 'components/FormattedDateInput';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
 
@@ -89,6 +89,7 @@ function DocumentsTab({ lgId }) {
 
     const handleDownload = async (doc) => {
         setDownloading(doc.id);
+        const tab = openPendingTab('Loading Document...');
         try {
             if (doc.download_type === 'request_doc' && doc.request_id && doc.document_id) {
                 // Use the existing signed-URL download endpoint
@@ -96,48 +97,51 @@ function DocumentsTab({ lgId }) {
                     `/issuance/requests/${doc.request_id}/documents/${doc.document_id}/download`, 'GET'
                 );
                 if (result?.download_url || result?.signed_url) {
-                    openInNewTab(result.download_url || result.signed_url);
+                    tab.setUrl(result.download_url || result.signed_url);
                 } else {
+                    tab.close();
                     toast.error('Could not generate download link');
                 }
             } else if (doc.download_type === 'lg_reprint' && doc.lg_id) {
                 // Same approach as the Reprint Letter button (handleReprint)
                 const blob = await apiRequest(`/issuance/issued-lgs/${doc.lg_id}/reprint`, 'POST', null, 'application/json', 'blob');
                 if (blob && blob.size > 0) {
-                    const url = window.URL.createObjectURL(blob);
-                    window.open(url, '_blank');
+                    tab.setBlob(blob);
                 } else {
+                    tab.close();
                     toast.error('Could not download document');
                 }
             } else if (doc.download_type === 'maintenance_letter' && doc.action_id) {
                 // Open maintenance instruction letter as PDF blob
                 const blob = await apiRequest(`/issuance/maintenance/${doc.action_id}/document/letter`, 'GET', null, 'application/json', 'blob');
-                const url = window.URL.createObjectURL(blob);
-                window.open(url, '_blank');
+                tab.setBlob(blob);
             } else if (doc.download_type === 'maintenance_doc' && doc.action_id) {
                 // Download delivery proof or bank reply doc — may be local (blob) or GCS (signed URL)
                 try {
                     const blob = await apiRequest(`/issuance/maintenance/${doc.action_id}/document/${doc.doc_type}`, 'GET', null, 'application/json', 'blob');
                     if (blob && blob.size > 0 && blob.type !== 'application/json') {
-                        const url = window.URL.createObjectURL(blob);
-                        window.open(url, '_blank');
+                        tab.setBlob(blob);
                     } else {
                         // It was JSON — parse the signed URL
                         const text = await blob.text();
                         const res = JSON.parse(text);
                         if (res?.download_url || res?.signed_url) {
-                            openInNewTab(res.download_url || res.signed_url);
+                            tab.setUrl(res.download_url || res.signed_url);
                         } else {
+                            tab.close();
                             toast.error('Could not generate download link');
                         }
                     }
                 } catch (dlErr) {
+                    tab.close();
                     toast.error('Download failed');
                 }
             } else {
+                tab.close();
                 toast.info('Download not available for this document type');
             }
         } catch (err) {
+            tab.close();
             toast.error('Failed to download document');
         } finally {
             setDownloading(null);
@@ -382,10 +386,10 @@ function ManualPricingPanel({ lgId, initialPricing, readOnly }) {
 // ---------------------------------------------------------------------------
 // Detailed LG Modal
 // ---------------------------------------------------------------------------
-function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
+function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false, initialTab = 'overview' }) {
     const navigate = useNavigate();
     const [reprinting, setReprinting] = useState(false);
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState(initialTab || 'overview');
     const [maintenanceActions, setMaintenanceActions] = useState([]);
     const [loadingActions, setLoadingActions] = useState(false);
     const [actionModal, setActionModal] = useState(null); // {type: 'EXTEND'|'INCREASE_AMOUNT'|...}
@@ -435,13 +439,14 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
 
     const handleReprint = async () => {
         setReprinting(true);
+        const tab = openPendingTab(lg.issuance_method === 'COMPANY_LETTER' ? 'Generating Letter...' : 'Retrieving Document...');
         try {
             toast.info(lg.issuance_method === 'COMPANY_LETTER' ? 'Generating letter...' : 'Retrieving document...');
             const blob = await apiRequest(`/issuance/issued-lgs/${lg.id}/reprint`, 'POST', null, 'application/json', 'blob');
-            const url = window.URL.createObjectURL(blob);
-            window.open(url, '_blank');
+            tab.setBlob(blob);
             toast.success('Document opened.');
         } catch (err) {
+            tab.close();
             const msg = err.message || '';
             if (msg.includes('No uploaded LG document') || msg.includes('404')) {
                 toast.error('No LG document has been uploaded yet. Please upload the LG copy first.');
@@ -1262,11 +1267,12 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                             <button
                                                                 onClick={async (e) => {
                                                                     e.stopPropagation();
+                                                                    const tab = openPendingTab('Loading Instruction Letter...');
                                                                     try {
                                                                         const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/letter`, 'GET', null, 'application/json', 'blob');
-                                                                        const url = window.URL.createObjectURL(blob);
-                                                                        window.open(url, '_blank');
+                                                                        tab.setBlob(blob);
                                                                     } catch (err) {
+                                                                        tab.close();
                                                                         toast.error(err.message || 'Failed to load instruction letter.');
                                                                     }
                                                                 }}
@@ -1292,7 +1298,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                         <div className="flex flex-wrap gap-1.5 mt-1">
                                                             {a.delivery_date ? (
                                                                 a.delivery_document_path ? (
-                                                                    <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/delivery`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) openInNewTab(res.download_url || res.signed_url); } } catch { toast.error('Failed to load delivery document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors" title="Click to download delivery proof">
+                                                                    <button onClick={async (e) => { e.stopPropagation(); const tab = openPendingTab('Loading Delivery Document...'); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/delivery`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { tab.setBlob(blob); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) tab.setUrl(res.download_url || res.signed_url); else tab.close(); } } catch { tab.close(); toast.error('Failed to load delivery document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors" title="Click to download delivery proof">
                                                                         📦 Delivered {formatDate(a.delivery_date)} ⬇
                                                                     </button>
                                                                 ) : (
@@ -1303,7 +1309,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                             ) : null}
                                                             {a.bank_reply_date ? (
                                                                 a.bank_reply_document_path ? (
-                                                                    <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_reply`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) openInNewTab(res.download_url || res.signed_url); } } catch { toast.error('Failed to load bank reply document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 cursor-pointer transition-colors" title="Click to download bank reply document">
+                                                                    <button onClick={async (e) => { e.stopPropagation(); const tab = openPendingTab('Loading Bank Reply Document...'); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_reply`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { tab.setBlob(blob); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) tab.setUrl(res.download_url || res.signed_url); else tab.close(); } } catch { tab.close(); toast.error('Failed to load bank reply document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 cursor-pointer transition-colors" title="Click to download bank reply document">
                                                                         🏦 Replied {formatDate(a.bank_reply_date)} ⬇
                                                                     </button>
                                                                 ) : (
@@ -1337,7 +1343,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                                         {/* Bank-initiated document download (if no badge handles it) */}
                                                         {a.action_data?.bank_document_gcs && (
                                                             <div className="mt-1 flex flex-wrap gap-1.5">
-                                                                <button onClick={async (e) => { e.stopPropagation(); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_initiated`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { window.open(window.URL.createObjectURL(blob), '_blank'); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) openInNewTab(res.download_url || res.signed_url); } } catch { toast.error('Failed to load document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 cursor-pointer transition-colors" title="Click to download bank letter">
+                                                                <button onClick={async (e) => { e.stopPropagation(); const tab = openPendingTab('Loading Bank Letter...'); try { const blob = await apiRequest(`/issuance/maintenance/${a.id}/document/bank_initiated`, 'GET', null, 'application/json', 'blob'); if (blob && blob.size > 0 && blob.type !== 'application/json') { tab.setBlob(blob); } else { const res = JSON.parse(await blob.text()); if (res?.download_url || res?.signed_url) tab.setUrl(res.download_url || res.signed_url); else tab.close(); } } catch { tab.close(); toast.error('Failed to load document'); } }} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 cursor-pointer transition-colors" title="Click to download bank letter">
                                                                     📄 Bank Letter ⬇
                                                                 </button>
                                                             </div>
@@ -1613,7 +1619,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                     instruction={deliveryModal}
                     onClose={() => setDeliveryModal(null)}
                     onSuccess={handleDeliverySuccess}
-                    apiUrl={`/issuance/lg-records/${deliveryModal.issued_lg_id}/record-delivery`}
+                    apiUrl={`/issuance/maintenance/${deliveryModal.id}/delivery`}
                 />
             )}
 
@@ -1760,6 +1766,7 @@ export default function IssuedLGsPage() {
     const [sortDir, setSortDir] = useState('desc');
     const [showFilters, setShowFilters] = useState(false);
     const [selectedLG, setSelectedLG] = useState(null);
+    const [selectedLGInitialTab, setSelectedLGInitialTab] = useState('overview');
     const [pageTab, setPageTab] = useState('LGS'); // 'LGS' | 'REQUESTORS'
     const [showCustomExportModal, setShowCustomExportModal] = useState(false);
 
@@ -1855,6 +1862,7 @@ export default function IssuedLGsPage() {
         if (!openId || records.length === 0) return;
         const target = records.find(r => String(r.id) === String(openId));
         if (target) {
+            setSelectedLGInitialTab(location.state?.openTab || 'overview');
             setSelectedLG(target);
             // Clear state so closing the modal and re-renders don't re-open it
             navigate(location.pathname, { replace: true, state: {} });
@@ -2210,7 +2218,7 @@ export default function IssuedLGsPage() {
                                     return (
                                         <div
                                             key={`mob-lg-${r.id}`}
-                                            onClick={() => setSelectedLG(r)}
+                                            onClick={() => { setSelectedLGInitialTab('overview'); setSelectedLG(r); }}
                                             className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col gap-2.5"
                                         >
                                             <div className="flex items-start justify-between">
@@ -2285,7 +2293,7 @@ export default function IssuedLGsPage() {
                                                     <tr
                                                         key={r.id}
                                                         className="hover:bg-slate-50/70 transition-colors cursor-pointer"
-                                                        onClick={() => setSelectedLG(r)}
+                                                        onClick={() => { setSelectedLGInitialTab('overview'); setSelectedLG(r); }}
                                                     >
                                                         <td className="px-3 py-2.5 whitespace-nowrap">
                                                             <div className="font-semibold text-slate-900">{r.internal_serial || '—'}</div>
@@ -2345,7 +2353,8 @@ export default function IssuedLGsPage() {
             {selectedLG && (
                 <IssuedLGDetailModal
                     lg={selectedLG}
-                    onClose={() => { setSelectedLG(null); fetchRecords(); }}
+                    initialTab={selectedLGInitialTab}
+                    onClose={() => { setSelectedLG(null); setSelectedLGInitialTab('overview'); fetchRecords(); }}
                     readOnly={isCorporateAdmin}
                 />
             )}

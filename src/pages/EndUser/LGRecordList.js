@@ -369,27 +369,26 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     const latestInstruction = getLatestInstruction(record);
 
     if (latestInstruction && latestInstruction.id) {
-      try {
-        if (!isCorporateAdminView) {
-            await apiRequest(
-              `/end-user/lg-records/instructions/${latestInstruction.id}/mark-as-accessed-for-print`,
-              'POST'
-            );
+      const authToken = getAuthToken();
+      let letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${latestInstruction.id}/view-letter`;
+      if (authToken) {
+        letterUrl += `?token=${authToken}&print=true`;
+      }
+      const popup = window.open(letterUrl, '_blank');
+      if (!popup) {
+        toast.error("Popup was blocked by your browser. Please allow popups for this site.");
+        return;
+      }
+      toast.info("Opening letter in new tab.");
+      if (!isCorporateAdminView) {
+        try {
+          await apiRequest(
+            `/end-user/lg-records/instructions/${latestInstruction.id}/mark-as-accessed-for-print`,
+            'POST'
+          );
+        } catch (error) {
+          console.error("Failed to mark instruction as accessed for print:", error);
         }
-
-        const authToken = getAuthToken();
-        let letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${latestInstruction.id}/view-letter`;
-
-        if (authToken) {
-          letterUrl += `?token=${authToken}&print=true`;
-        }
-
-        window.open(letterUrl, '_blank');
-        toast.info("Opening letter in new tab. Please check for pop-up blockers.");
-      } catch (error) {
-        console.error("Failed to mark instruction as accessed for print or open letter:", error);
-        setError("Could not open letter. Please try again later.");
-        toast.error(`Could not open letter. ${error.message || 'An unexpected error occurred.'}`);
       }
     } else {
       setError('No generated letter found for this LG, or instruction ID is missing.');

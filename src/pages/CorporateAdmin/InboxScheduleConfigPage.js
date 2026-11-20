@@ -4,7 +4,7 @@ import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import { formatDate } from '../../utils/dateFormat';
 import {
-    Calendar, Clock, Building2, Check, X, Edit3, Trash2,
+    Calendar, Clock, Building2, X, Edit3, Trash2,
     Plus, Save, AlertCircle, RefreshCw, Send, CheckCircle2, Globe,
     Filter, Search, Layers, ShieldCheck, CheckSquare, Square, Sliders, ArrowLeft,
     FileText, Printer
@@ -54,10 +54,6 @@ export default function InboxScheduleConfigPage() {
     // Standing Instruction Letter Modal
     const [letterModalData, setLetterModalData] = useState(null);
     const [loadingLetterBankId, setLoadingLetterBankId] = useState(null);
-
-    // Bank Domain Quick Edit
-    const [editingDomainBankId, setEditingDomainBankId] = useState(null);
-    const [bankDomainInput, setBankDomainInput] = useState('');
 
     useEffect(() => {
         loadData();
@@ -257,26 +253,15 @@ export default function InboxScheduleConfigPage() {
     };
 
     const handleDeleteConfig = async (configId, bankName) => {
-        if (!window.confirm(`Are you sure you want to remove the automated schedule for ${bankName}?`)) return;
+        if (!window.confirm(`Are you sure you want to remove the automated schedule for ${bankName}?`)) return false;
         try {
             await apiRequest(`/inbox/schedule-configs/${configId}`, 'DELETE');
             toast.info(`Schedule removed for ${bankName}.`);
             await loadData();
+            return true;
         } catch (e) {
             toast.error('Failed to delete schedule');
-        }
-    };
-
-    const handleSaveBankDomain = async (bankId) => {
-        try {
-            await apiRequest(`/inbox/banks/${bankId}/domain`, 'PUT', {
-                email_domain: bankDomainInput.trim() || null
-            });
-            toast.success('Bank domain updated!');
-            setEditingDomainBankId(null);
-            await loadData();
-        } catch (e) {
-            toast.error('Failed to update bank domain');
+            return false;
         }
     };
 
@@ -454,7 +439,6 @@ export default function InboxScheduleConfigPage() {
                         {filteredBanks.map((bank) => {
                             const isSelected = selectedBankIds.includes(bank.id);
                             const sched = bank.schedule;
-                            const isEditingDomain = editingDomainBankId === bank.id;
 
                             return (
                                 <div
@@ -499,50 +483,13 @@ export default function InboxScheduleConfigPage() {
                                                 )}
                                             </div>
 
-                                            {/* Domain mapping inline */}
+                                            {/* Domain mapping (read-only; managed by System Owner) */}
                                             <div className="flex items-center gap-2 text-xs text-gray-600">
                                                 <Globe className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                                                 <span className="text-gray-500">Domain:</span>
-                                                {isEditingDomain ? (
-                                                    <div className="inline-flex items-center gap-1">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="e.g. cibeg.com"
-                                                            value={bankDomainInput}
-                                                            onChange={(e) => setBankDomainInput(e.target.value)}
-                                                            className="px-2 py-0.5 text-xs border rounded w-36 focus:ring-1 focus:ring-blue-500"
-                                                        />
-                                                        <button
-                                                            onClick={() => handleSaveBankDomain(bank.id)}
-                                                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
-                                                            title="Save Domain"
-                                                        >
-                                                            <Check className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setEditingDomainBankId(null)}
-                                                            className="p-1 text-gray-400 hover:bg-gray-100 rounded"
-                                                        >
-                                                            <X className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <div className="inline-flex items-center gap-1.5">
-                                                        <span className={`font-mono text-xs ${bank.email_domain ? 'text-blue-700 font-semibold' : 'text-gray-400 italic'}`}>
-                                                            {bank.email_domain ? `@${bank.email_domain}` : 'Not configured'}
-                                                        </span>
-                                                        <button
-                                                            onClick={() => {
-                                                                setEditingDomainBankId(bank.id);
-                                                                setBankDomainInput(bank.email_domain || '');
-                                                            }}
-                                                            className="text-gray-400 hover:text-blue-600 p-0.5"
-                                                            title="Edit Recognized Domain"
-                                                        >
-                                                            <Edit3 className="w-3 h-3" />
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                <span className={`font-mono text-xs ${bank.email_domain ? 'text-blue-700 font-semibold' : 'text-gray-400 italic'}`}>
+                                                    {bank.email_domain ? `@${bank.email_domain}` : 'Not configured (System Owner)'}
+                                                </span>
                                             </div>
 
                                             {/* Schedule summary */}
@@ -564,6 +511,17 @@ export default function InboxScheduleConfigPage() {
                                                                     {s.last_sent_at && (
                                                                         <span className="opacity-75">· {formatDate(s.last_sent_at)}</span>
                                                                     )}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleDeleteConfig(s.id, `${bank.name} (${meta.short})`);
+                                                                        }}
+                                                                        className="ml-0.5 p-0.5 rounded hover:bg-rose-100 text-rose-600 transition"
+                                                                        title={`Remove ${meta.short} schedule`}
+                                                                    >
+                                                                        <X className="w-3 h-3" />
+                                                                    </button>
                                                                 </span>
                                                             );
                                                         })}
@@ -742,22 +700,43 @@ export default function InboxScheduleConfigPage() {
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
-                            <button
-                                type="button"
-                                onClick={() => setEditingBank(null)}
-                                className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow"
-                            >
-                                {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                Save Schedule
-                            </button>
+                        <div className="flex items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                            <div>
+                                {editingBank?.schedules_by_type?.[requestType] && (
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            const schedToDelete = editingBank.schedules_by_type[requestType];
+                                            const label = `${editingBank.name} (${REQUEST_TYPE_META[requestType]?.short || requestType})`;
+                                            const deleted = await handleDeleteConfig(schedToDelete.id, label);
+                                            if (deleted) {
+                                                setEditingBank(null);
+                                            }
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        Remove Schedule
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingBank(null)}
+                                    className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow"
+                                >
+                                    {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    Save Schedule
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>

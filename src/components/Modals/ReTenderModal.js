@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { RefreshCw, Clock, X, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { RefreshCw, Clock, X, Sparkles } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 import { toast } from 'react-toastify';
+import FormattedDateTimeInput from '../FormattedDateTimeInput';
 
 export default function ReTenderModal({ rfq, onClose, onSuccess }) {
     const [preset, setPreset] = useState('15m');
@@ -180,23 +181,20 @@ export default function ReTenderModal({ rfq, onClose, onSuccess }) {
 
                     {/* Custom DateTime Fields */}
                     {preset === 'custom' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 animate-fade-in">
+                        <div className="space-y-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 animate-fade-in">
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Window Open</label>
-                                <input
-                                    type="datetime-local"
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Window Open</label>
+                                <FormattedDateTimeInput
                                     required
-                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500"
                                     value={customStart}
                                     onChange={(e) => setCustomStart(e.target.value)}
                                 />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Window Close</label>
-                                <input
-                                    type="datetime-local"
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Window Close</label>
+                                <FormattedDateTimeInput
                                     required
-                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500"
+                                    min={customStart || undefined}
                                     value={customEnd}
                                     onChange={(e) => setCustomEnd(e.target.value)}
                                 />

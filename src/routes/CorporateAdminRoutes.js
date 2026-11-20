@@ -78,9 +78,9 @@ function CorporateAdminRoutes({ onLogout, subscriptionStatus, customerId, isTria
   return (
     <Routes>
       <Route path="dashboard" element={nonLgLanding ? <Navigate to={`../${nonLgLanding}`} replace /> : <UnifiedDashboard hasCustodyModule={hasCustodyModule} hasIssuanceModule={hasIssuanceModule} isGracePeriod={isGracePeriod} />} />
-      <Route path="lg-categories" element={<LGCategoryList onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
-      <Route path="lg-categories/new" element={<LGCategoryForm onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
-      <Route path="lg-categories/edit/:id" element={<LGCategoryForm onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
+      <Route path="lg-categories" element={<LGCategoryList onLogout={onLogout} isGracePeriod={isGracePeriod} userRole="corporate-admin" />} />
+      <Route path="lg-categories/new" element={<LGCategoryForm onLogout={onLogout} isGracePeriod={isGracePeriod} userRole="corporate-admin" />} />
+      <Route path="lg-categories/edit/:id" element={<LGCategoryForm onLogout={onLogout} isGracePeriod={isGracePeriod} userRole="corporate-admin" />} />
       <Route path="users" element={<UserManagementPage onLogout={onLogout} isGracePeriod={isGracePeriod} hasIssuanceModule={hasIssuanceModule} />} />
       <Route path="users/new" element={<UserForm onLogout={onLogout} isGracePeriod={isGracePeriod} />} />
       <Route path="users/edit/:id" element={<UserForm onLogout={onLogout} isGracePeriod={isGracePeriod} />} />

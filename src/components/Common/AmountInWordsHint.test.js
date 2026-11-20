@@ -19,9 +19,9 @@ describe('AmountInWordsHint', () => {
       words: 'Twenty-Five Million Only',
     });
 
-    const html = renderToStaticMarkup(<AmountInWordsHint amount={25000000} currencyCode="EGP" />);
-    expect(html).toContain('EGP 25,000,000.00');
-    expect(html).toContain('Twenty-Five Million Only');
+    const view = renderToStaticMarkup(<AmountInWordsHint amount={25000000} currencyCode="EGP" />);
+    expect(view).toContain('EGP 25,000,000.00');
+    expect(view).toContain('Twenty-Five Million Only');
   });
 
   test('formats 125000.5 with USD cleanly', () => {
@@ -31,9 +31,9 @@ describe('AmountInWordsHint', () => {
       words: 'One Hundred Twenty-Five Thousand and 50/100 Only',
     });
 
-    const html = renderToStaticMarkup(<AmountInWordsHint amount="125000.5" currencyCode="USD" />);
-    expect(html).toContain('USD 125,000.50');
-    expect(html).toContain('One Hundred Twenty-Five Thousand and 50/100 Only');
+    const view = renderToStaticMarkup(<AmountInWordsHint amount="125000.5" currencyCode="USD" />);
+    expect(view).toContain('USD 125,000.50');
+    expect(view).toContain('One Hundred Twenty-Five Thousand and 50/100 Only');
   });
 
   test('formats fractional cents under 1 cleanly', () => {
@@ -43,9 +43,9 @@ describe('AmountInWordsHint', () => {
       words: '75/100 Only',
     });
 
-    const html = renderToStaticMarkup(<AmountInWordsHint amount={0.75} />);
-    expect(html).toContain('0.75');
-    expect(html).toContain('75/100 Only');
+    const view = renderToStaticMarkup(<AmountInWordsHint amount={0.75} />);
+    expect(view).toContain('0.75');
+    expect(view).toContain('75/100 Only');
   });
 
   test('handles trillions+ without crashing by returning comma figures only', () => {
@@ -54,5 +54,18 @@ describe('AmountInWordsHint', () => {
       formattedFigures: '1,500,000,000,000.00',
       words: null,
     });
+
+    const roundedTrillion = numberToBankingWords(999999999999.999);
+    expect(roundedTrillion).toEqual({
+      formattedFigures: '1,000,000,000,000.00',
+      words: null,
+    });
+  });
+
+  test('returns null cleanly for extreme floating-point values beyond MAX_SAFE_INTEGER', () => {
+    expect(numberToBankingWords(1e307)).toBeNull();
+    expect(numberToBankingWords(Number.MAX_VALUE)).toBeNull();
+    expect(renderToStaticMarkup(<AmountInWordsHint amount="1e307" currencyCode="EGP" />)).toBe('');
+    expect(renderToStaticMarkup(<AmountInWordsHint amount={Number.MAX_VALUE} currencyCode="USD" />)).toBe('');
   });
 });

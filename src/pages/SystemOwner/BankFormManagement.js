@@ -9,6 +9,7 @@ import {
 import { toast } from 'react-toastify';
 import VisualBankFormDesignerModal from '../../components/Issuance/VisualBankFormDesignerModal';
 import { formatDate } from 'utils/dateFormat';
+import { openPendingTab } from 'utils/navUtils';
 
 const AVAILABLE_SYSTEM_FIELDS = [
     "request_id", "serial_number", "status", "transaction_type",
@@ -286,26 +287,30 @@ export default function BankFormManagement() {
     };
 
     const handleViewPdf = async (formId) => {
+        const tab = openPendingTab('Loading PDF...');
         try {
             const data = await apiRequest(`/issuance/bank-forms/${formId}/download`);
             if (data?.download_url) {
-                window.open(data.download_url, '_blank');
+                tab.setUrl(data.download_url);
             } else {
+                tab.close();
                 toast.error('No download URL returned');
             }
         } catch (err) {
+            tab.close();
             toast.error(err.message || 'Failed to open PDF');
         }
     };
 
     const handlePreviewFill = async (formId) => {
+        const tab = openPendingTab('Generating Preview...');
         try {
             toast.info('Generating preview with dummy data...');
             const blob = await apiRequest(`/issuance/bank-forms/${formId}/preview`, 'POST', null, 'application/json', 'blob');
-            const blobUrl = window.URL.createObjectURL(blob);
-            window.open(blobUrl, '_blank');
+            tab.setBlob(blob);
             toast.success('Preview opened in new tab — verify field positions!');
         } catch (err) {
+            tab.close();
             toast.error(err.message || 'Preview generation failed');
         }
     };

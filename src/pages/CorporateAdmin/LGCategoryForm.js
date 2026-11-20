@@ -30,7 +30,7 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
   const navigate = useNavigate();
 
   // FIX: Declare these variables in the component's scope, outside of useEffect
-  const isSystemOwner = userRole === 'system-owner';
+  const isSystemOwner = userRole === 'system-owner' || userRole === 'system_owner';
   const baseApiUrl = isSystemOwner ? '/system-owner/lg-categories/universal' : '/corporate-admin/lg-categories';
 
   const [formData, setFormData] = useState({
@@ -81,7 +81,7 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
           });
 
           if (!isSystemOwner) {
-            setSelectedEntityIds(category.entities_with_access.map(entity => entity.id));
+            setSelectedEntityIds((category.entities_with_access || []).map(entity => entity.id));
           } else {
             setSelectedEntityIds([]);
           }
@@ -170,7 +170,7 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
     }
     
     // Logic for entity IDs is only for Corporate Admins
-    if (userRole === 'corporate-admin') {
+    if (!isSystemOwner) {
       if (payload.is_default) {
         payload.has_all_entity_access = true;
       }

@@ -21,7 +21,7 @@ import LGActivateNonOperativeModal from '../../components/Modals/LGActivateNonOp
 import { Switch } from '@headlessui/react';
 import CopyBadge from '../../components/CopyBadge';
 import LgTimelineBar from '../../components/LgTimelineBar';
-import { openInNewTab } from '../../utils/navUtils';
+import { openInNewTab, openPendingTab } from '../../utils/navUtils';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -184,25 +184,26 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
         }
 
         if (instructionToUse && instructionToUse.id) {
-            try {
-                if (!isCorporateAdminView) {
+            const authToken = getAuthToken();
+            let letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${instructionToUse.id}/view-letter`;
+            if (authToken) {
+                letterUrl += `?token=${authToken}&print=true`;
+            }
+            const popup = window.open(letterUrl, '_blank');
+            if (!popup) {
+                toast.error("Popup was blocked by your browser. Please allow popups for this site.");
+                return;
+            }
+            toast.info("Opening letter in new tab.");
+            if (!isCorporateAdminView) {
+                try {
                     await apiRequest(
                         `/end-user/lg-records/instructions/${instructionToUse.id}/mark-as-accessed-for-print`,
                         'POST'
                     );
+                } catch (error) {
+                    console.error("Failed to mark instruction as accessed for print:", error);
                 }
-
-                const authToken = getAuthToken();
-                let letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${instructionToUse.id}/view-letter`;
-                if (authToken) {
-                    letterUrl += `?token=${authToken}&print=true`;
-                }
-                window.open(letterUrl, '_blank');
-                toast.info("Opening letter in new tab. Please check for pop-up blockers.");
-            } catch (error) {
-                console.error("Failed to mark instruction as accessed for print or open letter:", error);
-                setError("Could not open letter. Please try again later.");
-                toast.error(`Could not open letter. ${error.message || 'An unexpected error occurred.'}`);
             }
         } else {
             setError('No generated letter found for this LG, or instruction ID is missing.');
@@ -364,18 +365,22 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
             return;
         }
 
+        const tab = openPendingTab('Generating Bank Reminder Letter...');
         setIsRefreshing(true);
         try {
-            const response = await apiRequest(`/end-user/lg-records/instructions/${instruction.id}/send-reminder-to-bank`, 'POST');
-            toast.success(response.message);
-
-            const authToken = getAuthToken();
-            if (authToken && response.new_instruction_id) {
-                const letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${response.new_instruction_id}/view-letter?token=${authToken}&print=true`;
-                window.open(letterUrl, '_blank');
+            const response = await apiRequest(`/end-user/lg-records/instructions/${instruction.id}/send-reminder-to-bank`, 'POST', null, 'application/json', 'text');
+            if (response) {
+                if (tab.setHtml(response)) {
+                    toast.success('Reminder letter generated.');
+                } else {
+                    toast.warn('Reminder sent, but the print tab was blocked by your browser.');
+                }
+            } else {
+                tab.close();
             }
             fetchLgRecord(true);
         } catch (error) {
+            tab.close();
             console.error("Failed to send reminder:", error);
             toast.error(`Failed to send reminder: ${error.message || 'An unexpected error occurred.'}`);
         } finally {
@@ -406,24 +411,29 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 	}, []);
 
     const handleViewInstructionLetterFromHistory = async (instructionId) => {
-        try {
-            if (!isCorporateAdminView) {
+        if (!instructionId) {
+            toast.error("Instruction ID is missing.");
+            return;
+        }
+        const authToken = getAuthToken();
+        let letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${instructionId}/view-letter`;
+        if (authToken) {
+            letterUrl += `?token=${authToken}&print=true`;
+        }
+        const popup = window.open(letterUrl, '_blank');
+        if (!popup) {
+            toast.error("Popup was blocked by your browser. Please allow popups for this site.");
+            return;
+        }
+        if (!isCorporateAdminView) {
+            try {
                 await apiRequest(
                     `/end-user/lg-records/instructions/${instructionId}/mark-as-accessed-for-print`,
                     'POST'
                 );
+            } catch (error) {
+                console.error("Failed to mark instruction as accessed for print:", error);
             }
-
-            const authToken = getAuthToken();
-            let letterUrl = `${API_BASE_URL}/end-user/lg-records/instructions/${instructionId}/view-letter`;
-            if (authToken) {
-                letterUrl += `?token=${authToken}&print=true`;
-            }
-            window.open(letterUrl, '_blank');
-
-        } catch (error) {
-            console.error("Failed to mark instruction as accessed for print or open letter:", error);
-            toast.error("Could not open letter. Please try again later.");
         }
     };
 

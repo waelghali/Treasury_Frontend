@@ -10,7 +10,7 @@ import {
 import { toast } from 'react-toastify';
 import ApprovalProgressTracker from '../ApprovalProgressTracker';
 import IssuanceWizardModal from './IssuanceWizardModal';
-import { openInNewTab } from '../../utils/navUtils';
+import { openInNewTab, openPendingTab } from '../../utils/navUtils';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
 
 export default function IssuanceRequestDetailsModal({ request: requestProp, onClose, onStatusChange }) {
@@ -1745,6 +1745,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                 </button>
                                 <button
                                     onClick={async () => {
+                                        const tab = openPendingTab('Generating Bank Letter...');
                                         try {
                                             setShowLetterDialog(false);
                                             toast.info('Generating bank letter...');
@@ -1752,9 +1753,9 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                             if (letterAdditionalText) params.set('additional_text', letterAdditionalText);
                                             const url = `/issuance/requests/${request.id}/generate-letter${params.toString() ? '?' + params.toString() : ''}`;
                                             const blob = await apiRequest(url, 'GET', null, 'application/json', 'blob');
-                                            const blobUrl = window.URL.createObjectURL(blob);
-                                            window.open(blobUrl, '_blank');
+                                            tab.setBlob(blob);
                                         } catch (err) {
+                                            tab.close();
                                             toast.error(err.message || 'Failed to generate letter.');
                                         }
                                     }}

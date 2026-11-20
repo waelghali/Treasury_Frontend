@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
 import { toast } from 'react-toastify';
+import { openPendingTab } from '../../utils/navUtils';
 
 const AVAILABLE_MAPPED_FIELDS = [
     { key: 'applicant_name', label: 'Applicant / Company Name' },
@@ -479,12 +480,17 @@ export default function VisualBankFormDesignerModal({
                 form_language: f.form_language || 'BILINGUAL',
                 date_format: f.date_format || null,
             }));
-            await apiRequest(`/issuance/bank-forms/${formTemplate.id}/mapping`, 'PUT', payload);
-            
-            const blob = await apiRequest(`/issuance/bank-forms/${formTemplate.id}/preview`, 'POST', null, 'application/json', 'blob');
-            const blobUrl = window.URL.createObjectURL(blob);
-            window.open(blobUrl, '_blank');
-            toast.success('PDF preview generated & opened in new tab');
+            const tab = openPendingTab('Generating PDF Preview...');
+            try {
+                await apiRequest(`/issuance/bank-forms/${formTemplate.id}/mapping`, 'PUT', payload);
+
+                const blob = await apiRequest(`/issuance/bank-forms/${formTemplate.id}/preview`, 'POST', null, 'application/json', 'blob');
+                tab.setBlob(blob);
+                toast.success('PDF preview generated & opened in new tab');
+            } catch (err) {
+                tab.close();
+                throw err;
+            }
         } catch (err) {
             toast.error(err.message || 'Failed to generate PDF preview');
         }

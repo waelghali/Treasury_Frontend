@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
 import {
     Loader2, XCircle, CheckCircle, Download, Repeat, Lock, ShieldAlert,
-    Printer, History, ChevronDown, ChevronUp, ExternalLink, FileText, RefreshCw
+    Printer, History, ChevronDown, ChevronUp, ExternalLink, FileText, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
@@ -35,45 +35,43 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
     const [isProcessing, setIsProcessing] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
+    const [padForDuplex, setPadForDuplex] = useState(false);
 
     // History state
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const [historyBatches, setHistoryBatches] = useState([]);
     const [expandedBatches, setExpandedBatches] = useState({});
     const [reprintingBatchId, setReprintingBatchId] = useState(null);
+    const [historyPadForDuplex, setHistoryPadForDuplex] = useState(false);
+
+    const fetchPreview = useCallback(async () => {
+        setIsLoadingPreview(true);
+        setError('');
+        try {
+            const data = await apiRequest('/end-user/lg-records/auto-renewal-preview', 'GET');
+            setPreviewData(data);
+
+            // Initialize all candidate selections & suggested dates
+            const initialSelected = {};
+            const initialDates = {};
+            (data.candidates || []).forEach(cand => {
+                initialSelected[cand.id] = true; // All candidates pre-checked by default
+                initialDates[cand.id] = cand.suggested_new_expiry_date;
+            });
+            setSelectedLgIds(initialSelected);
+            setCustomDates(initialDates);
+        } catch (err) {
+            console.error("Failed to fetch renewal preview:", err);
+            setError(err.message || 'Failed to load renewal candidates. Please try again.');
+        } finally {
+            setIsLoadingPreview(false);
+        }
+    }, []);
 
     // Fetch candidate preview on modal mount
     useEffect(() => {
-        let isMounted = true;
-        const fetchPreview = async () => {
-            setIsLoadingPreview(true);
-            setError('');
-            try {
-                const data = await apiRequest('/end-user/lg-records/auto-renewal-preview', 'GET');
-                if (!isMounted) return;
-                setPreviewData(data);
-
-                // Initialize all candidate selections & suggested dates
-                const initialSelected = {};
-                const initialDates = {};
-                (data.candidates || []).forEach(cand => {
-                    initialSelected[cand.id] = true; // All candidates pre-checked by default
-                    initialDates[cand.id] = cand.suggested_new_expiry_date;
-                });
-                setSelectedLgIds(initialSelected);
-                setCustomDates(initialDates);
-            } catch (err) {
-                if (!isMounted) return;
-                console.error("Failed to fetch renewal preview:", err);
-                setError(err.message || 'Failed to load renewal candidates. Please try again.');
-            } finally {
-                if (isMounted) setIsLoadingPreview(false);
-            }
-        };
-
         fetchPreview();
-        return () => { isMounted = false; };
-    }, []);
+    }, [fetchPreview]);
 
     const fetchHistory = useCallback(async () => {
         setIsLoadingHistory(true);
@@ -114,7 +112,7 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(fileURL), 5000);
+            setTimeout(() => URL.revokeObjectURL(fileURL), 120000);
             toast.info("Consolidated instruction letter opened in a new tab for printing.");
         } catch (blobError) {
             console.error("Error opening PDF:", blobError);
@@ -160,6 +158,7 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
         try {
             const response = await apiRequest('/end-user/lg-records/auto-renewal-reprint', 'POST', {
                 instruction_ids: instructionIds,
+                pad_for_duplex: historyPadForDuplex,
             });
             if (response?.combined_pdf_base64) {
                 if (mode === 'download') {
@@ -268,9 +267,14 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
         setResult(null);
 
         try {
-            const response = await apiRequest('/end-user/lg-records/run-auto-renewal', 'POST', { renewals });
+            const response = await apiRequest('/end-user/lg-records/run-auto-renewal', 'POST', {
+                renewals,
+                pad_for_duplex: padForDuplex,
+            });
             setResult(response);
+            setActiveTab('result');
             toast.success(response.message);
+            fetchPreview();
             if (onSuccess) onSuccess();
 
             if (response.combined_pdf_base64) {
@@ -338,12 +342,33 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
                         >
                             <Repeat className="h-4 w-4" />
                             <span>New Renewal Run</span>
-                            {previewData?.candidates?.length > 0 && (
-                                <span className="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-700 font-bold">
-                                    {previewData.candidates.length}
+                            {previewData && (
+                                <span className={`ml-1.5 px-2 py-0.5 text-xs rounded-full font-bold ${
+                                    (previewData.candidates || []).length > 0
+                                        ? 'bg-orange-100 text-orange-700'
+                                        : 'bg-gray-200 text-gray-600'
+                                }`}>
+                                    {(previewData.candidates || []).length}
                                 </span>
                             )}
                         </button>
+                        {result && (
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab('result')}
+                                className={`pb-3 pt-2 text-sm font-semibold border-b-2 flex items-center space-x-2 transition-colors ${
+                                    activeTab === 'result'
+                                        ? 'border-emerald-600 text-emerald-700'
+                                        : 'border-transparent text-gray-500 hover:text-gray-800'
+                                }`}
+                            >
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Completed Run</span>
+                                <span className="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-700 font-bold">
+                                    {result.renewed_count}
+                                </span>
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={() => setActiveTab('history')}
@@ -399,10 +424,19 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
                             </div>
                         ) : (
                             <div className="space-y-4">
-                                <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3.5 text-xs text-indigo-900 flex items-center justify-between">
+                                <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3.5 text-xs text-indigo-900 flex flex-wrap items-center justify-between gap-3">
                                     <span>
                                         Need to re-print extension letters after closing the window? Expand any batch below to <strong>re-open/download the combined PDF</strong> or <strong>print individual LG extension letters</strong>.
                                     </span>
+                                    <label className="inline-flex items-center gap-2 font-medium text-indigo-900 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={historyPadForDuplex}
+                                            onChange={(e) => setHistoryPadForDuplex(e.target.checked)}
+                                            className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span>Duplex protection (blank back-pages)</span>
+                                    </label>
                                 </div>
 
                                 {historyBatches.map(batch => {
@@ -563,7 +597,7 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
                                 })}
                             </div>
                         )
-                    ) : result ? (
+                    ) : activeTab === 'result' && result ? (
                         /* Result View after Running Renewal */
                         <div className="py-4 px-2 space-y-6">
                             <div className="text-center">
@@ -602,6 +636,15 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
                                                 <Download className="h-4 w-4 mr-2" /> Download Combined PDF
                                             </button>
                                         </>
+                                    )}
+                                    {(previewData?.candidates || []).length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveTab('candidates')}
+                                            className="inline-flex items-center px-4 py-2.5 border border-orange-300 text-sm font-semibold rounded-xl text-orange-700 bg-orange-50 hover:bg-orange-100 shadow-sm transition-all"
+                                        >
+                                            <Repeat className="h-4 w-4 mr-2" /> Back to Renewal Queue ({previewData.candidates.length} remaining)
+                                        </button>
                                     )}
                                     <button
                                         type="button"
@@ -707,6 +750,25 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
                                 <p className="text-gray-500 text-xs">
                                     For each eligible LG, the system will automatically extend its expiry date, generate an individual instruction letter, and send an individual email notification. A single, combined PDF containing all generated instruction letters will be provided for download and printing, and saved under <strong>Previous Auto-Renewal Runs</strong>.
                                 </p>
+                            </div>
+
+                            {/* Single-Sided Letterhead & Duplex Protection Banner */}
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex flex-col gap-3">
+                                <div className="flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed">
+                                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <strong>Single-Sided Letterhead Printing:</strong> Each extension letter is formatted on 1 A4 page with top letterhead clearance and its own QR security seal. Please print <strong>Single-Sided (1-Sided)</strong> on corporate letterhead.
+                                    </div>
+                                </div>
+                                <label className="inline-flex items-center gap-2 text-xs font-semibold text-amber-900 bg-white border border-amber-200 px-3 py-2 rounded-lg cursor-pointer self-start select-none">
+                                    <input
+                                        type="checkbox"
+                                        checked={padForDuplex}
+                                        onChange={(e) => setPadForDuplex(e.target.checked)}
+                                        className="rounded border-amber-300 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <span>Duplex (2-sided) protection: insert blank back-page</span>
+                                </label>
                             </div>
 
                             {/* Policy Banner */}
@@ -892,7 +954,7 @@ const RunAutoRenewalModal = ({ onClose, onSuccess, isGracePeriod, initialTab = '
                         Close
                     </button>
 
-                    {activeTab === 'candidates' && !result && (
+                    {activeTab === 'candidates' && (previewData?.candidates?.length || 0) > 0 && (
                         <div className="flex items-center space-x-3">
                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                 <button

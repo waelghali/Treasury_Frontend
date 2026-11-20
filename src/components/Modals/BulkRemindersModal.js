@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, Loader2 } from 'lucide-react';
+import { X, Mail, Loader2, AlertTriangle } from 'lucide-react';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 
@@ -26,6 +26,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [processError, setProcessError] = useState('');
+    const [padForDuplex, setPadForDuplex] = useState(false);
 
     const handleGenerateBulkReminders = async () => {
         if (isGracePeriod) {
@@ -35,33 +36,32 @@ const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
         setIsProcessing(true);
         setProcessError('');
         try {
-            // Corrected to use the centralized apiRequest function
             const response = await apiRequest(
-                '/end-user/lg-records/instructions/generate-all-bank-reminders-pdf',
+                `/end-user/lg-records/instructions/generate-all-bank-reminders-pdf?pad_for_duplex=${padForDuplex ? 'true' : 'false'}`,
                 'GET'
             );
             
             if (response && response.combined_pdf_base64) {
-                // Decode the base64 string
                 const pdfData = atob(response.combined_pdf_base64);
                 const pdfBytes = new Uint8Array(pdfData.length);
                 for (let i = 0; i < pdfData.length; i++) {
                     pdfBytes[i] = pdfData.charCodeAt(i);
                 }
 
-                // Create a blob and a URL to open the PDF in a new tab
                 const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
                 const pdfUrl = URL.createObjectURL(pdfBlob);
 
-                // Use an anchor tag for a more reliable download/open experience
-                const link = document.createElement('a');
-                link.href = pdfUrl;
-                link.download = 'Bank_Reminders.pdf'; // Optional: suggests a filename for download
-                link.target = '_blank';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(pdfUrl);
+                const win = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+                if (!win) {
+                    const link = document.createElement('a');
+                    link.href = pdfUrl;
+                    link.download = 'Bank_Reminders.pdf';
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+                setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
 
                 toast.info("Generating and opening consolidated reminder PDF in a new tab. Please ensure pop-ups are allowed.");
                 onSuccess();
@@ -81,7 +81,7 @@ const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
 
     return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 {/* Header */}
                 <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-2.5">
@@ -108,6 +108,25 @@ const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
                             <span>{processError}</span>
                         </div>
                     )}
+
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex flex-col gap-3">
+                        <div className="flex items-start gap-2.5 text-xs text-amber-900 leading-relaxed">
+                            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                                <strong>Single-Sided Letterhead Printing:</strong> Each reminder letter is formatted on 1 A4 page with top letterhead clearance and its own QR security seal. Please print <strong>Single-Sided (1-Sided)</strong> on corporate letterhead.
+                            </div>
+                        </div>
+                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-amber-900 bg-white border border-amber-200 px-3 py-2 rounded-lg cursor-pointer self-start select-none">
+                            <input
+                                type="checkbox"
+                                checked={padForDuplex}
+                                onChange={(e) => setPadForDuplex(e.target.checked)}
+                                disabled={isProcessing}
+                                className="rounded border-amber-300 text-teal-600 focus:ring-teal-500"
+                            />
+                            <span>Duplex (2-sided) protection: insert blank back-page</span>
+                        </label>
+                    </div>
 
                     <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2 text-sm text-slate-700 leading-relaxed">
                         <p>
