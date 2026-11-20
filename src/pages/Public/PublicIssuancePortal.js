@@ -88,7 +88,7 @@ export default function PublicIssuancePortal() {
     }
   };
 
-  const inputCls = "w-full px-4 py-3 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-gray-400";
+  const inputCls = "w-full px-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-slate-400";
 
   return (
     <div className="min-h-screen flex" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
@@ -128,11 +128,11 @@ export default function PublicIssuancePortal() {
             { title: 'Smart Auto-Fill', desc: 'Returning users get pre-filled details from previous requests.' },
             { title: 'Real-Time Tracking', desc: 'Monitor the status of your submissions from your dashboard.' },
           ].map((item, i) => (
-            <div key={i} className="flex items-start space-x-3 p-3 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+            <div key={i} className="flex items-start space-x-3 p-3 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
               <ShieldCheck className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#60a5fa' }} />
               <div>
                 <p className="text-xs font-semibold text-white">{item.title}</p>
-                <p className="text-[11px] text-gray-500">{item.desc}</p>
+                <p className="text-[11px] text-slate-300">{item.desc}</p>
               </div>
             </div>
           ))}
@@ -140,14 +140,13 @@ export default function PublicIssuancePortal() {
       </div>
 
       {/* Right Form Panel */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-gray-50">
+      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-slate-50">
         <div className="w-full max-w-md">
 
           {/* Mobile-only logo */}
           <div className="lg:hidden text-center mb-8">
-            <Link to="/" className="inline-flex items-baseline hover:opacity-90 transition-opacity">
-              <span className="text-2xl font-bold text-gray-900">Grow</span>
-              <span className="text-sm text-blue-600 font-medium ml-2">Business Development</span>
+            <Link to="/" className="inline-flex items-center hover:opacity-95 transition-opacity">
+              <GrowLogo size="md" variant="light" />
             </Link>
           </div>
 
@@ -158,13 +157,13 @@ export default function PublicIssuancePortal() {
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-50 mb-4">
                   <Mail className="w-5 h-5 text-blue-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Issuance Request Portal</h2>
-                <p className="text-sm text-gray-500 mt-1">Enter your corporate email to get started.</p>
+                <h2 className="text-2xl font-bold text-slate-900">Issuance Request Portal</h2>
+                <p className="text-sm text-slate-500 mt-1">Enter your corporate email to get started.</p>
               </div>
 
               <form onSubmit={handleVerifyDomain} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                     Corporate Email Address
                   </label>
                   <input
@@ -209,7 +208,7 @@ export default function PublicIssuancePortal() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
+                  className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -225,11 +224,11 @@ export default function PublicIssuancePortal() {
                 />
               </form>
 
-              <div className="pt-5 border-t border-gray-200 flex flex-col items-center space-y-2 text-sm">
-                <Link to="/login" className="text-gray-500 hover:text-blue-600 font-medium transition-colors">
+              <div className="pt-5 border-t border-slate-200 flex flex-col items-center space-y-2 text-sm">
+                <Link to="/login" className="text-slate-500 hover:text-blue-600 font-medium transition-colors">
                   Treasury Team Sign In
                 </Link>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-slate-400">
                   Evaluating Grow for your company?{' '}
                   <Link
                     to="/free-trial-register?module=issuance"
@@ -246,12 +245,12 @@ export default function PublicIssuancePortal() {
           {step === 'otp' && (
             <div className="space-y-6">
               <div className="text-center lg:text-left">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-green-50 mb-4">
-                  <KeyRound className="w-5 h-5 text-green-600" />
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-50 mb-4">
+                  <KeyRound className="w-5 h-5 text-emerald-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Verify Your Email</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  A code was sent to <span className="font-semibold text-gray-700">{email}</span>
+                <h2 className="text-2xl font-bold text-slate-900">Verify Your Email</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  A code was sent to <span className="font-semibold text-slate-700">{email}</span>
                 </p>
               </div>
 
@@ -265,7 +264,7 @@ export default function PublicIssuancePortal() {
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
                     placeholder="000000"
-                    className="w-full py-4 border-2 border-blue-100 bg-blue-50/30 text-center text-3xl tracking-[0.5em] rounded-lg font-mono text-blue-900 focus:border-blue-500 focus:bg-white outline-none transition-all"
+                    className="w-full py-4 border-2 border-blue-100 bg-blue-50/30 text-center text-3xl tracking-[0.5em] rounded-xl font-mono text-blue-900 focus:border-blue-500 focus:bg-white outline-none transition-all"
                     maxLength={6}
                     autoFocus
                   />
@@ -273,7 +272,7 @@ export default function PublicIssuancePortal() {
                 <button
                   type="submit"
                   disabled={isLoading || otp.length < 6}
-                  className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
+                  className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
                 >
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -284,7 +283,7 @@ export default function PublicIssuancePortal() {
                 <button
                   type="button"
                   onClick={() => { setStep('email'); setOtp(''); }}
-                  className="w-full text-sm text-gray-400 hover:text-blue-600 transition-colors"
+                  className="w-full text-sm text-slate-400 hover:text-blue-600 transition-colors"
                 >
                   ← Use a different email
                 </button>

@@ -7,7 +7,7 @@ import moment from 'moment';
 import { apiRequest } from '../../services/apiService';
 import FormattedDateInput from 'components/FormattedDateInput';
 
-const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-semibold rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
 const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const [isProcessing, setIsProcessing] = useState(false);
@@ -167,11 +167,11 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-0">
+                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-4">
                         <TransitionChild
                             as={Fragment}
                             enter="ease-out duration-300"
@@ -181,212 +181,218 @@ const LGActivateNonOperativeModal = ({ lgRecord, onClose, onSuccess, isGracePeri
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all my-auto sm:my-8 w-full max-w-xl mx-2 sm:mx-auto p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
-                                <div className="absolute right-3 top-3 sm:right-4 sm:top-4 z-10">
+                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white border border-slate-200/80 text-left shadow-2xl transition-all my-auto w-full max-w-xl flex flex-col max-h-[90vh]">
+                                {/* Sticky Header */}
+                                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3 shrink-0">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="p-2 rounded-xl bg-teal-50 text-teal-600 border border-teal-100 shrink-0">
+                                            <Check className="h-4 w-4" />
+                                        </div>
+                                        <DialogTitle as="h3" className="text-base sm:text-lg font-bold leading-6 text-slate-900 tracking-tight truncate">
+                                            Activate LG Record: {lgRecord.lg_number}
+                                        </DialogTitle>
+                                    </div>
                                     <button
                                         type="button"
-                                        className="rounded-full p-1 bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300 shrink-0"
                                         onClick={onClose}
                                     >
                                         <span className="sr-only">Close</span>
                                         <X className="h-5 w-5" aria-hidden="true" />
                                     </button>
                                 </div>
-                                <div className="w-full">
-                                    <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-3 pr-8">
-                                        Activate LG Record: {lgRecord.lg_number}
-                                    </DialogTitle>
-                                    {isLoadingData ? (
-                                        <div className="flex justify-center items-center py-8">
-                                            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                                            <span className="ml-2 text-sm text-gray-600">Loading data...</span>
-                                        </div>
-                                    ) : (
-                                        <div className="mt-2">
+
+                                {isLoadingData ? (
+                                    <div className="flex justify-center items-center py-12 px-5">
+                                        <Loader2 className="h-7 w-7 animate-spin text-indigo-600" />
+                                        <span className="ml-2.5 text-sm font-medium text-slate-600">Loading data...</span>
+                                    </div>
+                                ) : (
+                                    <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                                        <div className="px-5 py-4 space-y-3.5 overflow-y-auto flex-1">
                                             {error && (
-                                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 flex items-center text-xs sm:text-sm">
+                                                <div className="bg-rose-50 border border-rose-200 text-rose-700 px-3.5 py-2.5 rounded-xl flex items-center text-xs sm:text-sm">
                                                     <AlertCircle className="mr-2 h-4 w-4 shrink-0" />
                                                     {error}
                                                 </div>
                                             )}
-                                            <form onSubmit={handleSubmit} className="space-y-4">
-                                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                                    <h4 className="font-bold text-xs text-gray-700 uppercase tracking-wider mb-1">LG Details</h4>
-                                                    <p className="text-xs text-gray-600">
-                                                        <strong>Type:</strong> {lgRecord.lg_type?.name} |
-                                                        <strong> Status:</strong> {lgRecord.lg_operational_status?.name}
-                                                    </p>
-                                                </div>
+                                            <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/80">
+                                                <h4 className="font-semibold text-xs text-slate-600 uppercase tracking-wider mb-1">LG Details</h4>
+                                                <p className="text-xs text-slate-700">
+                                                    <strong>Type:</strong> {lgRecord.lg_type?.name} |{' '}
+                                                    <strong>Status:</strong> {lgRecord.lg_operational_status?.name}
+                                                </p>
+                                            </div>
 
-                                                <div>
-                                                    <h4 className="font-bold text-xs text-gray-700 uppercase tracking-wider mb-2">Payment Information</h4>
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-                                                        <div>
-                                                            <label htmlFor="amount" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Amount*</label>
-                                                            <input
-                                                                type="number"
-                                                                step="0.01"
-                                                                name="amount"
-                                                                id="amount"
-                                                                value={paymentDetails.amount}
-                                                                onChange={handleInputChange}
-                                                                required
-                                                                className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
-                                                                disabled={isProcessing || isGracePeriod}
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label htmlFor="currency_id" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Currency*</label>
-                                                            <select
-                                                                name="currency_id"
-                                                                id="currency_id"
-                                                                value={paymentDetails.currency_id}
-                                                                onChange={handleSelectChange}
-                                                                required
-                                                                className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
-                                                                disabled={isProcessing || isGracePeriod}
-                                                            >
-                                                                <option value="">Select Currency</option>
-                                                                {dropdownData.currencies.map(currency => (
-                                                                    <option key={currency.id} value={currency.id}>{currency.iso_code}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label htmlFor="issuing_bank_id" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Issuing Bank*</label>
-                                                            <select
-                                                                name="issuing_bank_id"
-                                                                id="issuing_bank_id"
-                                                                value={paymentDetails.issuing_bank_id}
-                                                                onChange={handleSelectChange}
-                                                                required
-                                                                className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
-                                                                disabled={isProcessing || isGracePeriod}
-                                                            >
-                                                                <option value="">Select Bank</option>
-                                                                {dropdownData.banks.map(bank => (
-                                                                    <option key={bank.id} value={bank.id}>{bank.name}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label htmlFor="payment_method" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Method*</label>
-                                                            <input
-                                                                type="text"
-                                                                name="payment_method"
-                                                                id="payment_method"
-                                                                list="payment-method-options"
-                                                                placeholder="e.g., Wire Transfer, Check"
-                                                                value={paymentDetails.payment_method}
-                                                                onChange={handleInputChange}
-                                                                required
-                                                                className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
-                                                                disabled={isProcessing || isGracePeriod}
-                                                            />
-                                                            <datalist id="payment-method-options">
-                                                                <option value="Wire Transfer" />
-                                                                <option value="Check" />
-                                                                <option value="Internal Account Transfer" />
-                                                                <option value="SWIFT MT103" />
-                                                            </datalist>
-                                                        </div>
-                                                        <div>
-                                                            <label htmlFor="payment_reference" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Reference (Wire / Check #)*</label>
-                                                            <input
-                                                                type="text"
-                                                                name="payment_reference"
-                                                                id="payment_reference"
-                                                                placeholder="e.g., WIRE-2026-99881"
-                                                                maxLength={100}
-                                                                value={paymentDetails.payment_reference}
-                                                                onChange={handleInputChange}
-                                                                required
-                                                                className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
-                                                                disabled={isProcessing || isGracePeriod}
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label htmlFor="payment_date" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Date*</label>
-                                                            <FormattedDateInput
-                                                                name="payment_date"
-                                                                id="payment_date"
-                                                                max={moment().format('YYYY-MM-DD')}
-                                                                value={paymentDetails.payment_date}
-                                                                onChange={handleInputChange}
-                                                                required
-                                                                className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
-                                                                disabled={isProcessing || isGracePeriod}
-                                                            />
-                                                        </div>
-                                                        <div className="sm:col-span-2">
-                                                            <label htmlFor="notes" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Additional Notes (Optional)</label>
-                                                            <textarea
-                                                                name="notes"
-                                                                id="notes"
-                                                                rows={2}
-                                                                placeholder="Optional notes to include in the activation instruction..."
-                                                                value={paymentDetails.notes}
-                                                                onChange={handleInputChange}
-                                                                className="block w-full rounded-lg border border-gray-300 shadow-sm text-sm p-2"
-                                                                disabled={isProcessing || isGracePeriod}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="border-t pt-3">
-                                                    <label htmlFor="supporting-document-file" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                        Supporting Document {isDocMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
-                                                    </label>
-                                                    <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                                            <div>
+                                                <h4 className="font-semibold text-xs text-slate-600 uppercase tracking-wider mb-2">Payment Information</h4>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
+                                                    <div>
+                                                        <label htmlFor="amount" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Payment Amount*</label>
                                                         <input
-                                                            id="supporting-document-file"
-                                                            name="internal_supporting_document_file"
-                                                            type="file"
-                                                            onChange={handleFileChange}
-                                                            accept=".pdf,image/*"
-                                                            className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                                            type="number"
+                                                            step="0.01"
+                                                            name="amount"
+                                                            id="amount"
+                                                            value={paymentDetails.amount}
+                                                            onChange={handleInputChange}
+                                                            required
+                                                            className="block w-full rounded-xl border border-slate-300 shadow-sm text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                                             disabled={isProcessing || isGracePeriod}
                                                         />
-                                                        {supportingDocument && (
-                                                            <span className="text-xs text-gray-500 truncate">
-                                                                <FileText className="inline-block h-3.5 w-3.5 mr-1" />
-                                                                {supportingDocument.name}
-                                                            </span>
-                                                        )}
                                                     </div>
-                                                    <p className="mt-1 text-xs text-gray-500">Attach any documents related to this request (e.g., proof of advance payment).</p>
+                                                    <div>
+                                                        <label htmlFor="currency_id" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Currency*</label>
+                                                        <select
+                                                            name="currency_id"
+                                                            id="currency_id"
+                                                            value={paymentDetails.currency_id}
+                                                            onChange={handleSelectChange}
+                                                            required
+                                                            className="block w-full rounded-xl border border-slate-300 bg-white shadow-sm text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                            disabled={isProcessing || isGracePeriod}
+                                                        >
+                                                            <option value="">Select Currency</option>
+                                                            {dropdownData.currencies.map(currency => (
+                                                                <option key={currency.id} value={currency.id}>{currency.iso_code}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="issuing_bank_id" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Issuing Bank*</label>
+                                                        <select
+                                                            name="issuing_bank_id"
+                                                            id="issuing_bank_id"
+                                                            value={paymentDetails.issuing_bank_id}
+                                                            onChange={handleSelectChange}
+                                                            required
+                                                            className="block w-full rounded-xl border border-slate-300 bg-white shadow-sm text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                            disabled={isProcessing || isGracePeriod}
+                                                        >
+                                                            <option value="">Select Bank</option>
+                                                            {dropdownData.banks.map(bank => (
+                                                                <option key={bank.id} value={bank.id}>{bank.name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="payment_method" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Payment Method*</label>
+                                                        <input
+                                                            type="text"
+                                                            name="payment_method"
+                                                            id="payment_method"
+                                                            list="payment-method-options"
+                                                            placeholder="e.g., Wire Transfer, Check"
+                                                            value={paymentDetails.payment_method}
+                                                            onChange={handleInputChange}
+                                                            required
+                                                            className="block w-full rounded-xl border border-slate-300 shadow-sm text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                            disabled={isProcessing || isGracePeriod}
+                                                        />
+                                                        <datalist id="payment-method-options">
+                                                            <option value="Wire Transfer" />
+                                                            <option value="Check" />
+                                                            <option value="Internal Account Transfer" />
+                                                            <option value="SWIFT MT103" />
+                                                        </datalist>
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="payment_reference" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Payment Reference (Wire / Check #)*</label>
+                                                        <input
+                                                            type="text"
+                                                            name="payment_reference"
+                                                            id="payment_reference"
+                                                            placeholder="e.g., WIRE-2026-99881"
+                                                            maxLength={100}
+                                                            value={paymentDetails.payment_reference}
+                                                            onChange={handleInputChange}
+                                                            required
+                                                            className="block w-full rounded-xl border border-slate-300 shadow-sm text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                            disabled={isProcessing || isGracePeriod}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label htmlFor="payment_date" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Payment Date*</label>
+                                                        <FormattedDateInput
+                                                            name="payment_date"
+                                                            id="payment_date"
+                                                            max={moment().format('YYYY-MM-DD')}
+                                                            value={paymentDetails.payment_date}
+                                                            onChange={handleInputChange}
+                                                            required
+                                                            className="block w-full rounded-xl border border-slate-300 shadow-sm text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                            disabled={isProcessing || isGracePeriod}
+                                                        />
+                                                    </div>
+                                                    <div className="sm:col-span-2">
+                                                        <label htmlFor="notes" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Additional Notes (Optional)</label>
+                                                        <textarea
+                                                            name="notes"
+                                                            id="notes"
+                                                            rows={2}
+                                                            placeholder="Optional notes to include in the activation instruction..."
+                                                            value={paymentDetails.notes}
+                                                            onChange={handleInputChange}
+                                                            className="block w-full rounded-xl border border-slate-300 shadow-sm text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                            disabled={isProcessing || isGracePeriod}
+                                                        />
+                                                    </div>
                                                 </div>
+                                            </div>
 
-                                                <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 pt-2 border-t border-gray-100">
-                                                    <button
-                                                        type="button"
-                                                        className={classNames(
-                                                            buttonBaseClassNames,
-                                                            "justify-center w-full sm:w-auto text-gray-700 bg-gray-100 hover:bg-gray-200 py-2.5"
-                                                        )}
-                                                        onClick={onClose}
-                                                        disabled={isProcessing}
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                    <button
-                                                        type="submit"
-                                                        className={classNames(
-                                                            buttonBaseClassNames,
-                                                            "justify-center w-full sm:w-auto bg-teal-600 text-white hover:bg-teal-700 py-2.5 font-bold shadow-md",
-                                                            !isFormValid || isProcessing || isGracePeriod ? "opacity-50 cursor-not-allowed" : ""
-                                                        )}
-                                                        disabled={!isFormValid || isProcessing || isGracePeriod}
-                                                    >
-                                                        {isProcessing ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Check className="h-5 w-5 mr-2" />}
-                                                        {isProcessing ? 'Activating...' : 'Activate LG'}
-                                                    </button>
+                                            <div className="border-t border-slate-200 pt-3">
+                                                <label htmlFor="supporting-document-file" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                    Supporting Document {isDocMandatory ? <span className="text-rose-500">*</span> : '(Optional)'}
+                                                </label>
+                                                <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                                                    <input
+                                                        id="supporting-document-file"
+                                                        name="internal_supporting_document_file"
+                                                        type="file"
+                                                        onChange={handleFileChange}
+                                                        accept=".pdf,image/*"
+                                                        className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                                        disabled={isProcessing || isGracePeriod}
+                                                    />
+                                                    {supportingDocument && (
+                                                        <span className="text-xs text-slate-500 truncate">
+                                                            <FileText className="inline-block h-3.5 w-3.5 mr-1" />
+                                                            {supportingDocument.name}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                            </form>
+                                                <p className="mt-1 text-xs text-slate-500">Attach any documents related to this request (e.g., proof of advance payment).</p>
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
+
+                                        {/* Sticky Footer */}
+                                        <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 shrink-0">
+                                            <button
+                                                type="button"
+                                                className={classNames(
+                                                    buttonBaseClassNames,
+                                                    "justify-center w-full sm:w-auto rounded-xl text-slate-700 bg-white border border-slate-300 hover:bg-slate-50"
+                                                )}
+                                                onClick={onClose}
+                                                disabled={isProcessing}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className={classNames(
+                                                    buttonBaseClassNames,
+                                                    "justify-center w-full sm:w-auto rounded-xl bg-teal-600 text-white hover:bg-teal-700",
+                                                    !isFormValid || isProcessing || isGracePeriod ? "opacity-50 cursor-not-allowed" : ""
+                                                )}
+                                                disabled={!isFormValid || isProcessing || isGracePeriod}
+                                            >
+                                                {isProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                                                {isProcessing ? 'Activating...' : 'Activate LG'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
                             </DialogPanel>
                         </TransitionChild>
                     </div>

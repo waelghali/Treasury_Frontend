@@ -8,7 +8,7 @@ import {
 import {
     FileText, CheckCircle, AlertCircle, Clock, DollarSign,
     Briefcase, Truck, Building, Mail, User, PlayCircle,
-    RotateCcw, Info, Repeat, Edit, FileMinus, MinusCircle, Users
+    RotateCcw, Info, Repeat, Edit, FileMinus, MinusCircle, Users, Tag
 } from 'lucide-react';
 
 // Helper to format currency
@@ -59,6 +59,9 @@ export const getEventIcon = (actionType, size = 16) => {
         case 'LG_OWNER_DETAILS_UPDATED': 
         case 'INTERNAL_OWNER_CHANGE':
             return <Users size={size} className="text-pink-600" />;
+        case 'LG_SINGLE_CATEGORY_CHANGED':
+        case 'LG_BULK_CATEGORY_CHANGED':
+            return <Tag size={size} className="text-indigo-600" />;
         case 'NOTIFICATION_SENT': 
         case 'NOTIFICATION_FAILED': 
             return <Mail size={size} className="text-blue-400" />;
@@ -164,6 +167,21 @@ export const formatEventDetails = (actionType, details) => {
         case 'INTERNAL_OWNER_CHANGE':
             detailString = `Owner changed from ${details.old_owner_email || 'N/A'} to ${details.new_owner_email || 'N/A'}.`;
             break;
+        case 'LG_SINGLE_CATEGORY_CHANGED':
+        case 'LG_BULK_CATEGORY_CHANGED': {
+            const oldExtra = details.old_additional_field_values
+                ? Object.entries(details.old_additional_field_values).map(([k, v]) => `${k}: ${v}`).join(', ')
+                : null;
+            const newExtra = details.new_additional_field_values
+                ? Object.entries(details.new_additional_field_values).map(([k, v]) => `${k}: ${v}`).join(', ')
+                : null;
+            const extraPart = (oldExtra || newExtra)
+                ? ` Custom field: ${oldExtra || 'None'} → ${newExtra || 'Cleared'}.`
+                : '';
+            const reasonPart = details.reason ? ` Reason: ${details.reason}.` : '';
+            detailString = `Category changed from ${details.old_category_name || 'N/A'} to ${details.new_category_name || 'N/A'}.${extraPart}${reasonPart}`;
+            break;
+        }
         case 'LG_AMENDED':
             const changes = details.amended_fields || details.diff || details.changes;
             const changeList = changes ? Object.keys(changes).join(', ') : 'fields';
@@ -188,11 +206,11 @@ export const formatEventDetails = (actionType, details) => {
 // ==========================================
 export const getExpiryBarProps = (lgRecord) => {
     const defaultProps = {
-        barColorClass: 'bg-gray-200',
-        fillColorClass: 'bg-gray-500',
+        barColorClass: 'bg-slate-100 border border-slate-200/80',
+        fillColorClass: 'bg-slate-200',
         labelText: 'Status Unavailable',
         percentage: 100,
-        indicatorColor: 'text-gray-800',
+        indicatorColor: 'text-slate-800',
         glowShadow: 'none'
     };
 
@@ -213,7 +231,6 @@ export const getExpiryBarProps = (lgRecord) => {
         let fillColor = '';
         let label = '';
         let calculatedPercentage = 0;
-        let glowRgb = '';
 
         // Calculate ratios
         let completionRatio = 1;
@@ -224,67 +241,47 @@ export const getExpiryBarProps = (lgRecord) => {
         }
 
         if (remainingDays <= 0) {
-            fillColor = 'bg-red-500';
+            fillColor = 'bg-rose-200/90';
             label = 'Expired';
             calculatedPercentage = 100;
         } else if (remainingDays <= CRITICAL_DAYS) {
-            fillColor = 'bg-red-500';
+            fillColor = 'bg-rose-200/90';
             label = `${remainingDays} days remaining (Critical)`;
             calculatedPercentage = completionRatio * 100;
         } else if (remainingDays <= MODERATE_DAYS) {
-            fillColor = 'bg-orange-500';
+            fillColor = 'bg-amber-200/90';
             label = `${remainingDays} days remaining (Approaching expiry)`;
             calculatedPercentage = completionRatio * 100;
         } else {
             // GREEN BAR: Percentage represents ELAPSED time
-            fillColor = 'bg-green-500';
+            fillColor = 'bg-emerald-200/90';
             label = `${remainingDays} days remaining`;
             calculatedPercentage = completionRatio * 100;
         }
 
-        const getRgbFromTailwind = (colorClass) => {
-            switch (colorClass) {
-                case 'bg-green-500': return '59, 201, 107';
-                case 'bg-orange-500': return '255, 165, 0';
-                case 'bg-red-500': return '239, 68, 68';
-                default: return '255, 255, 255';
-            }
-        };
-
-        glowRgb = getRgbFromTailwind(fillColor);
-        const glowShadow = `0 0 8px rgba(${glowRgb}, 0.7), 0 0 15px rgba(${glowRgb}, 0.4)`;
-
         return {
-            barColorClass: 'bg-gray-200',
+            barColorClass: 'bg-slate-100 border border-slate-200/80',
             fillColorClass: fillColor,
             labelText: label,
             percentage: Math.min(100, Math.max(0, calculatedPercentage)),
-            indicatorColor: 'text-gray-800',
-            glowShadow: glowShadow
+            indicatorColor: 'text-slate-800',
+            glowShadow: 'none'
         };
     } else {
         // Non-Valid Statuses (Released, Liquidated, etc)
         let barFillColor = '';
-        if (statusName === 'Expired') barFillColor = 'bg-red-500';
-        else if (statusName === 'Released') barFillColor = 'bg-gray-500';
-        else if (statusName === 'Liquidated') barFillColor = 'bg-purple-500';
-        else barFillColor = 'bg-gray-500';
-
-        // Helper for glow
-        const getRgbFromTailwind = (c) => {
-            if (c.includes('red')) return '239, 68, 68';
-            if (c.includes('purple')) return '168, 85, 247';
-            return '107, 114, 128'; // gray
-        };
-        const barGlowRgb = getRgbFromTailwind(barFillColor);
+        if (statusName === 'Expired') barFillColor = 'bg-rose-200/90';
+        else if (statusName === 'Released') barFillColor = 'bg-slate-200';
+        else if (statusName === 'Liquidated') barFillColor = 'bg-violet-200/90';
+        else barFillColor = 'bg-slate-200';
 
         return {
-            barColorClass: 'bg-gray-200',
+            barColorClass: 'bg-slate-100 border border-slate-200/80',
             fillColorClass: barFillColor,
             labelText: statusName,
             percentage: 100,
-            indicatorColor: 'text-gray-800',
-            glowShadow: `0 0 8px rgba(${barGlowRgb}, 0.7), 0 0 15px rgba(${barGlowRgb}, 0.4)`
+            indicatorColor: 'text-slate-800',
+            glowShadow: 'none'
         };
     }
 };

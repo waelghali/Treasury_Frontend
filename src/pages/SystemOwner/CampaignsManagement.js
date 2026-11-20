@@ -24,7 +24,8 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronUp,
-  Pencil
+  Pencil,
+  X
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 import FormattedDateInput from 'components/FormattedDateInput';
@@ -454,13 +455,13 @@ const CampaignsManagement = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Gift className="w-7 h-7 text-indigo-600" />
-            Partner Campaigns & Cashback
+            Partner Campaigns &amp; Cashback
           </h1>
           <p className="text-sm text-slate-600 mt-1">
             Configure partner promotional offers, manage cashback rules, and settle monthly claims.
@@ -469,14 +470,14 @@ const CampaignsManagement = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={fetchData}
-            className="p-2 text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+            className="p-2 text-slate-600 hover:text-slate-900 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition"
             title="Refresh Data"
           >
-            <RefreshCw className="w-5 h-5" />
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white font-medium text-sm rounded-lg hover:bg-indigo-700 transition shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold text-sm rounded-xl hover:bg-indigo-700 transition shadow-sm"
           >
             <Plus className="w-4 h-4" />
             New Campaign
@@ -486,30 +487,30 @@ const CampaignsManagement = () => {
 
       {/* KPI Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Campaigns</span>
-            <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+            <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
               <Gift className="w-5 h-5" />
             </span>
           </div>
           <p className="text-2xl font-bold text-slate-900 mt-2">{stats.total_active_campaigns || 0}</p>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Claims</span>
-            <span className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+            <span className="p-2 bg-blue-50 text-blue-600 rounded-xl">
               <Clock className="w-5 h-5" />
             </span>
           </div>
           <p className="text-2xl font-bold text-slate-900 mt-2">{stats.total_claims || 0}</p>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Accrued Cashback</span>
-            <span className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+            <span className="p-2 bg-amber-50 text-amber-600 rounded-xl">
               <DollarSign className="w-5 h-5" />
             </span>
           </div>
@@ -518,10 +519,10 @@ const CampaignsManagement = () => {
           </p>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Settled & Paid</span>
-            <span className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Settled &amp; Paid</span>
+            <span className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
               <CheckCircle2 className="w-5 h-5" />
             </span>
           </div>
@@ -535,7 +536,7 @@ const CampaignsManagement = () => {
       <div className="flex border-b border-slate-200 gap-6">
         <button
           onClick={() => setActiveTab('campaigns')}
-          className={`pb-3 text-sm font-semibold border-b-2 transition ${
+          className={`pb-3 text-sm font-semibold border-b-2 rounded-none transition ${
             activeTab === 'campaigns'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -545,7 +546,7 @@ const CampaignsManagement = () => {
         </button>
         <button
           onClick={() => setActiveTab('claims')}
-          className={`pb-3 text-sm font-semibold border-b-2 transition ${
+          className={`pb-3 text-sm font-semibold border-b-2 rounded-none transition ${
             activeTab === 'claims'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -557,8 +558,13 @@ const CampaignsManagement = () => {
 
       {/* Tab 1: Campaigns List */}
       {activeTab === 'campaigns' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {campaigns.length === 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {loading && campaigns.length === 0 ? (
+            <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-slate-200 p-8">
+              <RefreshCw className="w-7 h-7 text-indigo-600 animate-spin mx-auto mb-2" />
+              <p className="text-sm font-medium text-slate-500">Loading promotional campaigns...</p>
+            </div>
+          ) : campaigns.length === 0 ? (
             <div className="col-span-full text-center py-12 bg-white rounded-xl border border-slate-200 p-8">
               <Gift className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <h3 className="text-base font-semibold text-slate-800">No campaigns launched yet</h3>
@@ -883,9 +889,10 @@ const CampaignsManagement = () => {
                 </button>
                 <button
                   onClick={() => setSelectedCustomerBreakdown(null)}
-                  className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1"
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                  aria-label="Close"
                 >
-                  &times;
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -988,8 +995,12 @@ const CampaignsManagement = () => {
                 <ShieldCheck className="w-5 h-5 text-teal-600" />
                 Manual Verification & Audit Confirmation
               </h3>
-              <button onClick={() => setManualVerifyClaimModal(null)} className="text-slate-400 hover:text-slate-600">
-                &times;
+              <button
+                onClick={() => setManualVerifyClaimModal(null)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -1054,8 +1065,12 @@ const CampaignsManagement = () => {
                 <Gift className="w-5 h-5 text-indigo-600" />
                 {editingCampaignId ? 'Edit Promotional Campaign' : 'Launch Promotional Campaign'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600">
-                &times;
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 

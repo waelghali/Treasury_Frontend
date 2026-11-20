@@ -1,10 +1,11 @@
 // src/pages/Auth/ForgotPasswordPage.js
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from 'services/apiService';
-import { Mail, Loader2, ArrowLeft, CheckCircle, Clock } from 'lucide-react';
+import { Mail, Loader2, ArrowLeft, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import HoneypotField from '../../components/Security/HoneypotField';
+import GrowLogo from '../../components/Common/GrowLogo';
 
 const COOLDOWN_STORAGE_KEY = 'grow_pwd_reset_cooldown_until';
 const DEFAULT_COOLDOWN_SECONDS = 60;
@@ -90,7 +91,7 @@ function ForgotPasswordPage() {
     }
   };
 
-  const inputCls = "block w-full px-4 py-3 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-gray-400";
+  const inputCls = "block w-full px-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-slate-400";
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", backgroundColor: '#1e2a4a' }}>
@@ -106,9 +107,8 @@ function ForgotPasswordPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center justify-center space-x-2 mb-6 hover:opacity-90 transition-opacity">
-            <span className="text-xl font-bold text-white tracking-tight">Grow</span>
-            <span className="text-xs text-blue-400 font-medium">Business Development</span>
+          <Link to="/" className="inline-flex items-center justify-center mb-6 hover:opacity-95 transition-opacity">
+            <GrowLogo size="md" />
           </Link>
         </div>
 
@@ -118,15 +118,15 @@ function ForgotPasswordPage() {
             <div className="mx-auto w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mb-4">
               <Mail className="w-5 h-5 text-blue-600" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Forgot Password?</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="text-xl font-bold text-slate-900">Forgot Password?</h2>
+            <p className="text-sm text-slate-500 mt-1">
               Enter your email and we'll send you a reset link.
             </p>
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <label htmlFor="email" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                 Email Address
               </label>
               <input
@@ -143,21 +143,22 @@ function ForgotPasswordPage() {
             </div>
 
             {message && (
-              <div className="flex items-start space-x-2 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+              <div className="flex items-start space-x-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm">
                 <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{message}</span>
               </div>
             )}
 
             {error && (
-              <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-r-lg text-sm">
-                {error}
+              <div className="flex items-start space-x-2 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm">
+                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading || cooldown > 0}
             >
               {isLoading ? (
@@ -173,7 +174,7 @@ function ForgotPasswordPage() {
             <HoneypotField name="website_url" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} />
           </form>
 
-          <div className="text-center pt-4 border-t border-gray-100">
+          <div className="text-center pt-4 border-t border-slate-100">
             <Link to="/login" className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors">
               <ArrowLeft className="w-3 h-3 mr-1" /> Back to Sign In
             </Link>

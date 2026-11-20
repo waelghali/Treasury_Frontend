@@ -1091,7 +1091,7 @@ function CorporateAdminLayout({
       )}
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 pb-24 overflow-y-auto relative z-10 flex flex-col min-w-0">
+      <main className="flex-1 pb-12 overflow-y-auto overflow-x-hidden relative z-10 flex flex-col min-w-0">
         {(isGrace || isExpired) && (
           <div className="sticky top-0 z-20">
             <SubscriptionBanner
@@ -1102,7 +1102,7 @@ function CorporateAdminLayout({
           </div>
         )}
 
-        <div className="p-3.5 sm:p-5 md:p-6 flex-1 min-w-0">
+        <div className="p-3.5 sm:p-4 md:p-5 flex-1 min-w-0">
           {!isLoadingNotifs && notifications.length > 0 && (
             <div className="mb-4">
               <NotificationBanner notifications={notifications} />

@@ -5,7 +5,7 @@ import {
   Settings2, Archive, RotateCcw, Eye, EyeOff,
   Landmark, ShieldCheck, Coins, Globe, ArrowUpRight, Clock,
   FolderOpen, Paperclip, Trash2, Edit3, ChevronDown, ChevronUp,
-  FileSearch, CheckCircle, XCircle, AlertTriangle
+  FileSearch, CheckCircle, XCircle, AlertTriangle, Flame, BarChart3, X
 } from 'lucide-react';
 import FacilityFormModal from '../../components/Modals/FacilityFormModal';
 import { SkeletonCards } from '../../components/SkeletonLoader';
@@ -124,132 +124,136 @@ export default function FacilitiesPage() {
   });
 
   return (
-    <div className="w-full min-w-0 space-y-6">
+    <div className="w-full min-w-0 space-y-4">
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <Landmark className="text-blue-600" size={32} />
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <Landmark className="text-blue-600" size={26} />
             Bank Facilities
           </h1>
-          <p className="text-slate-500 font-medium">Global credit lines and issuance governance</p>
+          <p className="text-sm text-slate-500">Global credit lines and issuance governance</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => setShowArchived(!showArchived)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl border-2 font-black text-[11px] uppercase tracking-wider transition-all shadow-sm ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border font-semibold text-xs transition-colors shadow-sm ${showArchived ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
               }`}
           >
-            {showArchived ? <EyeOff size={16} /> : <Eye size={16} />}
+            {showArchived ? <EyeOff size={15} /> : <Eye size={15} />}
             {showArchived ? "Hide Archived" : "Show Archived"}
           </button>
 
           <button
             onClick={() => { setSelectedFacility(null); setShowModal(true); }}
-            className="flex items-center gap-2 bg-slate-900 hover:bg-blue-600 text-white px-6 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all shadow-xl hover:shadow-blue-500/20"
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold transition-colors shadow-sm"
           >
-            <Plus size={16} strokeWidth={3} />
+            <Plus size={15} strokeWidth={2.5} />
             Create Facility
           </button>
         </div>
       </div>
 
       {/* QUICK STATS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-start mb-2">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><TrendingUp size={20} /></div>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Facility Limits</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+          <div className="flex justify-between items-start mb-1.5">
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><TrendingUp size={18} /></div>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Facility Limits</span>
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1">
             {Object.entries(limitsByCurrency).map(([code, amount]) => (
-              <span key={code} className="text-lg font-black text-slate-900">{code} <span className="text-base">{amount.toLocaleString()}</span></span>
+              <span key={code} className="text-lg font-bold text-slate-900 tabular-nums">{code} <span className="text-base">{amount.toLocaleString()}</span></span>
             ))}
-            {Object.keys(limitsByCurrency).length === 0 && <span className="text-lg font-black text-slate-400">—</span>}
+            {Object.keys(limitsByCurrency).length === 0 && <span className="text-lg font-bold text-slate-400">—</span>}
           </div>
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-start mb-2">
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><ShieldCheck size={20} /></div>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Lines</span>
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+          <div className="flex justify-between items-start mb-1.5">
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><ShieldCheck size={18} /></div>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Active Lines</span>
           </div>
-          <div className="text-2xl font-black text-slate-900">{stats.activeCount} <span className="text-sm font-bold text-slate-400 uppercase">Facilities</span></div>
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">{stats.activeCount} <span className="text-xs font-semibold text-slate-400 uppercase">Facilities</span></div>
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-start mb-2">
-            <div className="p-2 bg-purple-50 text-purple-600 rounded-xl"><Coins size={20} /></div>
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Multi-Currency</span>
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+          <div className="flex justify-between items-start mb-1.5">
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-xl"><Coins size={18} /></div>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Multi-Currency</span>
           </div>
-          <div className="text-2xl font-black text-slate-900">{stats.multiCcyCount} <span className="text-sm font-bold text-slate-400 uppercase">Enabled</span></div>
+          <div className="text-2xl font-bold text-slate-900 tabular-nums">{stats.multiCcyCount} <span className="text-xs font-semibold text-slate-400 uppercase">Enabled</span></div>
         </div>
         {stats.fxSuspendedCount > 0 && (
-          <div className="bg-red-50 p-6 rounded-3xl border-2 border-red-200 shadow-sm col-span-full md:col-span-1">
-            <div className="flex justify-between items-start mb-2">
-              <div className="p-2 bg-red-100 text-red-600 rounded-xl"><AlertCircle size={20} /></div>
-              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">FX Suspended</span>
+          <div className="bg-rose-50 p-4 sm:p-5 rounded-2xl border border-rose-200 shadow-sm col-span-full md:col-span-1">
+            <div className="flex justify-between items-start mb-1.5">
+              <div className="p-2 bg-rose-100 text-rose-600 rounded-xl"><AlertCircle size={18} /></div>
+              <span className="text-[11px] font-semibold text-rose-600 uppercase tracking-wider">FX Suspended</span>
             </div>
-            <div className="text-2xl font-black text-red-700">{stats.fxSuspendedCount} <span className="text-sm font-bold text-red-400 uppercase">Facilities</span></div>
-            <p className="text-[10px] text-red-500 mt-1 font-bold">Auto-suspended due to FX rate breach</p>
+            <div className="text-2xl font-bold text-rose-700 tabular-nums">{stats.fxSuspendedCount} <span className="text-xs font-semibold text-rose-500 uppercase">Facilities</span></div>
+            <p className="text-[11px] text-rose-600 mt-1 font-medium">Auto-suspended due to FX rate breach</p>
           </div>
         )}
       </div>
 
       {/* PROJECTS MANAGEMENT (collapsible) */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <button onClick={() => setShowProjects(!showProjects)} className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <button onClick={() => setShowProjects(!showProjects)} className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-50 text-orange-600 rounded-xl"><FolderOpen size={18} /></div>
+            <div className="p-2 bg-orange-50 text-orange-600 rounded-xl"><FolderOpen size={17} /></div>
             <div className="text-left">
-              <span className="font-black text-slate-900 text-sm">Projects & Contracts</span>
-              <span className="text-[10px] text-slate-400 ml-2 font-bold">{projects.length} registered</span>
+              <span className="font-semibold text-slate-900 text-sm">Projects & Contracts</span>
+              <span className="text-xs text-slate-400 ml-2 font-medium">{projects.length} registered</span>
             </div>
           </div>
-          {showProjects ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+          {showProjects ? <ChevronUp size={17} className="text-slate-400" /> : <ChevronDown size={17} className="text-slate-400" />}
         </button>
         {showProjects && (
-          <div className="border-t border-slate-100 p-5 space-y-3">
+          <div className="border-t border-slate-100 p-4 space-y-2.5">
             {projects.map(p => (
               editingProject?.id === p.id ? (
-                <div key={p.id} className="flex items-center gap-2 bg-orange-50 p-3 rounded-xl border border-orange-200">
-                  <input className="flex-1 px-2 py-1 border rounded text-[11px] font-bold" value={editingProject.name} onChange={e => setEditingProject({ ...editingProject, name: e.target.value })} />
-                  <select className="px-2 py-1 border rounded text-[11px] font-bold" value={editingProject.project_type} onChange={e => setEditingProject({ ...editingProject, project_type: e.target.value })}>
+                <div key={p.id} className="flex flex-wrap items-center gap-2 bg-orange-50/70 p-2.5 rounded-xl border border-orange-200">
+                  <input className="flex-1 min-w-[140px] px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-medium bg-white" value={editingProject.name} onChange={e => setEditingProject({ ...editingProject, name: e.target.value })} />
+                  <select className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-medium bg-white" value={editingProject.project_type} onChange={e => setEditingProject({ ...editingProject, project_type: e.target.value })}>
                     <option value="PROJECT">Project</option><option value="CONTRACT">Contract</option><option value="PURCHASE_ORDER">Purchase Order</option><option value="TENDER">Tender</option><option value="OTHER">Other</option>
                   </select>
-                  <select className="px-2 py-1 border rounded text-[11px] font-bold" value={editingProject.status} onChange={e => setEditingProject({ ...editingProject, status: e.target.value })}>
+                  <select className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-medium bg-white" value={editingProject.status} onChange={e => setEditingProject({ ...editingProject, status: e.target.value })}>
                     <option value="ACTIVE">Active</option><option value="COMPLETED">Completed</option><option value="CANCELLED">Cancelled</option>
                   </select>
-                  <button onClick={() => handleUpdateProject(editingProject)} className="px-3 py-1 bg-orange-600 text-white text-[10px] font-bold rounded-lg">Save</button>
-                  <button onClick={() => setEditingProject(null)} className="text-slate-400 hover:text-slate-600">×</button>
+                  <button onClick={() => handleUpdateProject(editingProject)} className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition-colors">Save</button>
+                  <button onClick={() => setEditingProject(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-white/80" aria-label="Cancel">
+                    <X size={14} />
+                  </button>
                 </div>
               ) : (
-                <div key={p.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all">
-                  <div className="flex items-center gap-3">
-                    <Paperclip size={14} className="text-orange-400" />
-                    <span className="text-[12px] font-bold text-slate-800">{p.name}</span>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 uppercase">{p.project_type}</span>
-                    {p.reference_number && <span className="text-[9px] text-slate-400 font-bold">#{p.reference_number}</span>}
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : p.status === 'COMPLETED' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{p.status}</span>
+                <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Paperclip size={14} className="text-orange-400 shrink-0" />
+                    <span className="text-xs font-semibold text-slate-800 truncate">{p.name}</span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 uppercase shrink-0">{p.project_type}</span>
+                    {p.reference_number && <span className="text-[11px] text-slate-400 font-mono shrink-0">#{p.reference_number}</span>}
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase shrink-0 ${p.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : p.status === 'COMPLETED' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>{p.status}</span>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 shrink-0">
                     <button onClick={() => setEditingProject({ ...p })} className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-blue-600 transition-colors"><Edit3 size={14} /></button>
-                    <button onClick={() => handleDeleteProject(p.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={14} /></button>
+                    <button onClick={() => handleDeleteProject(p.id)} className="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={14} /></button>
                   </div>
                 </div>
               )
             ))}
             {showNewForm ? (
-              <div className="flex items-center gap-2 bg-orange-50 p-3 rounded-xl border border-orange-200">
-                <input placeholder="Project name" className="flex-1 px-2 py-1 border rounded text-[11px] font-bold" value={newProject.name} onChange={e => setNewProject({ ...newProject, name: e.target.value })} />
-                <select className="px-2 py-1 border rounded text-[11px] font-bold" value={newProject.project_type} onChange={e => setNewProject({ ...newProject, project_type: e.target.value })}>
+              <div className="flex flex-wrap items-center gap-2 bg-orange-50/70 p-2.5 rounded-xl border border-orange-200">
+                <input placeholder="Project name" className="flex-1 min-w-[140px] px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-medium bg-white" value={newProject.name} onChange={e => setNewProject({ ...newProject, name: e.target.value })} />
+                <select className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-medium bg-white" value={newProject.project_type} onChange={e => setNewProject({ ...newProject, project_type: e.target.value })}>
                   <option value="PROJECT">Project</option><option value="CONTRACT">Contract</option><option value="PO">PO</option><option value="TENDER">Tender</option><option value="OTHER">Other</option>
                 </select>
-                <input placeholder="Ref #" className="w-24 px-2 py-1 border rounded text-[11px] font-bold" value={newProject.reference_number} onChange={e => setNewProject({ ...newProject, reference_number: e.target.value })} />
-                <button onClick={handleSaveProject} className="px-3 py-1 bg-orange-600 text-white text-[10px] font-bold rounded-lg">Add</button>
-                <button onClick={() => setShowNewForm(false)} className="text-slate-400 hover:text-slate-600">×</button>
+                <input placeholder="Ref #" className="w-24 px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-medium bg-white" value={newProject.reference_number} onChange={e => setNewProject({ ...newProject, reference_number: e.target.value })} />
+                <button onClick={handleSaveProject} className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition-colors">Add</button>
+                <button onClick={() => setShowNewForm(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-white/80" aria-label="Cancel">
+                  <X size={14} />
+                </button>
               </div>
             ) : (
-              <button onClick={() => setShowNewForm(true)} className="flex items-center gap-2 text-[11px] font-bold text-orange-600 hover:text-orange-700 px-3 py-2">
+              <button onClick={() => setShowNewForm(true)} className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-700 px-3 py-1.5">
                 <Plus size={14} /> Add Project / Contract
               </button>
             )}
@@ -260,12 +264,12 @@ export default function FacilitiesPage() {
       {loading ? (
         <SkeletonCards count={3} />
       ) : facilities.length === 0 ? (
-        <div className="text-center py-24 bg-white rounded-[2rem] border-2 border-dashed border-slate-200 shadow-inner">
-          <Building2 className="mx-auto text-slate-200 mb-4" size={64} />
-          <p className="text-slate-500 font-bold">No facilities found. Initialize a new credit line to begin.</p>
+        <div className="text-center py-14 bg-white rounded-2xl border border-dashed border-slate-300 shadow-sm">
+          <Building2 className="mx-auto text-slate-300 mb-3" size={48} />
+          <p className="text-sm text-slate-600 font-semibold">No facilities found. Initialize a new credit line to begin.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
           {facilities.map(fac => {
             const total = Number(fac.total_limit_amount) || 0;
             const utilized = Number(fac.utilized_amount) || 0;
@@ -278,24 +282,24 @@ export default function FacilitiesPage() {
             const isArchived = fac.status === 'ARCHIVED' || fac.status === 'SUSPENDED' || isFxSuspended;
 
             return (
-              <div key={fac.id} className={`group bg-white rounded-[2rem] shadow-sm border-2 transition-all hover:shadow-2xl hover:-translate-y-1 ${isArchived ? 'opacity-75 grayscale border-slate-200' : 'border-white hover:border-blue-100'}`}>
-                <div className="p-6">
+              <div key={fac.id} className={`group bg-white rounded-2xl shadow-sm border transition-all hover:shadow-md ${isArchived ? 'opacity-75 grayscale border-slate-200' : 'border-slate-200/80 hover:border-blue-200'}`}>
+                <div className="p-5">
                   {/* Card Header */}
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="flex gap-4">
-                      <div className={`p-4 rounded-2xl shadow-inner ${isArchived ? 'bg-slate-100 text-slate-400' : 'bg-slate-900 text-white group-hover:bg-blue-600 transition-colors'}`}>
-                        <Landmark size={24} />
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex gap-3 min-w-0">
+                      <div className={`p-3 rounded-xl shrink-0 ${isArchived ? 'bg-slate-100 text-slate-400' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors'}`}>
+                        <Landmark size={20} />
                       </div>
-                      <div>
-                        <h3 className="font-black text-slate-900 leading-tight tracking-tight text-lg">{fac.facility_name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] font-black text-blue-600 uppercase tracking-wider">{fac.bank?.name}</span>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-slate-900 leading-tight tracking-tight text-base truncate" title={fac.facility_name}>{fac.facility_name}</h3>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[11px] font-semibold text-blue-600 uppercase tracking-wider truncate">{fac.bank?.name}</span>
                           <span className="text-slate-300">•</span>
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{fac.currency?.iso_code}</span>
+                          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{fac.currency?.iso_code}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 opacity-75 group-hover:opacity-100 transition-opacity shrink-0">
                       {!isArchived ? (
                         <>
                           <input
@@ -307,29 +311,29 @@ export default function FacilitiesPage() {
                             onClick={() => agreementInputRefs[fac.id]?.click()}
                             disabled={analyzingFacility === fac.id}
                             title="Verify facility agreement with AI"
-                            className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-xl transition-all"
+                            className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
                           >
-                            {analyzingFacility === fac.id ? <Loader2 size={18} className="animate-spin" /> : <FileSearch size={18} />}
+                            {analyzingFacility === fac.id ? <Loader2 size={16} className="animate-spin" /> : <FileSearch size={16} />}
                           </button>
-                          <button onClick={() => handleEdit(fac)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"><Settings2 size={18} /></button>
-                          <button onClick={() => handleArchive(fac.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"><Archive size={18} /></button>
+                          <button onClick={() => handleEdit(fac)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Settings2 size={16} /></button>
+                          <button onClick={() => handleArchive(fac.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Archive size={16} /></button>
                         </>
                       ) : (
-                        <button onClick={() => handleRestore(fac.id)} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"><RotateCcw size={18} /></button>
+                        <button onClick={() => handleRestore(fac.id)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><RotateCcw size={16} /></button>
                       )}
                     </div>
                   </div>
 
                   {/* Utilization Meter */}
-                  <div className="space-y-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                      <span className="text-slate-400 flex items-center gap-1"><ArrowUpRight size={12} /> Utilization</span>
-                      <span className={pct > 90 ? 'text-red-600' : 'text-slate-900'}>{pct.toFixed(1)}%</span>
+                  <div className="space-y-2.5 mb-4 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/70">
+                    <div className="flex justify-between text-[11px] font-semibold uppercase tracking-wider">
+                      <span className="text-slate-500 flex items-center gap-1"><ArrowUpRight size={12} /> Utilization</span>
+                      <span className={`tabular-nums ${pct > 90 ? 'text-rose-600' : 'text-slate-900'}`}>{pct.toFixed(1)}%</span>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden flex">
+                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden flex">
                       {issuedPct > 0 && (
                         <div
-                          className={`h-full transition-all duration-1000 ${pct > 90 ? 'bg-red-500' : 'bg-blue-600'}`}
+                          className={`h-full transition-all duration-1000 ${pct > 90 ? 'bg-rose-500' : 'bg-blue-600'}`}
                           style={{ width: `${Math.min(issuedPct, 100)}%` }}
                         ></div>
                       )}
@@ -341,20 +345,20 @@ export default function FacilitiesPage() {
                       )}
                     </div>
                     <div className="flex justify-between items-baseline">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Limit</span>
-                      <span className="text-sm font-black text-slate-700">{fac.currency?.iso_code} {total.toLocaleString()}</span>
+                      <span className="text-[11px] font-medium text-slate-500 uppercase">Limit</span>
+                      <span className="text-sm font-bold text-slate-800 tabular-nums">{fac.currency?.iso_code} {total.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-baseline">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">Utilized</span>
-                      <span className="text-sm font-black text-slate-700">{fac.currency?.iso_code} {utilized.toLocaleString()}</span>
+                      <span className="text-[11px] font-medium text-slate-500 uppercase">Utilized</span>
+                      <span className="text-sm font-bold text-slate-800 tabular-nums">{fac.currency?.iso_code} {utilized.toLocaleString()}</span>
                     </div>
                     {reserved > 0 && (
-                      <div className="flex items-center gap-3 text-[10px] font-bold text-slate-500">
+                      <div className="flex items-center gap-3 text-[11px] font-medium text-slate-600">
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span> Issued: {fac.currency?.iso_code} {issued.toLocaleString()}</span>
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span> Reserved: {fac.currency?.iso_code} {reserved.toLocaleString()}</span>
                       </div>
                     )}
-                    {/* 🧠 Burn Rate Projection */}
+                    {/* Burn Rate Projection */}
                     {pct > 0 && pct < 100 && fac.start_date && (() => {
                       const startDate = new Date(fac.start_date);
                       const now = new Date();
@@ -371,15 +375,17 @@ export default function FacilitiesPage() {
                         const isSoon = monthsToFull <= 6;
 
                         return (
-                          <div className={`flex items-center gap-2 mt-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold ${
-                            isUrgent ? 'bg-red-50 text-red-700 border border-red-100' :
-                            isSoon ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                            'bg-blue-50 text-blue-700 border border-blue-100'
+                          <div className={`flex items-center gap-2 mt-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium ${
+                            isUrgent ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                            isSoon ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                            'bg-blue-50 text-blue-700 border border-blue-200'
                           }`}>
-                            <span className="shrink-0">{isUrgent ? '🔥' : isSoon ? '📈' : '📊'}</span>
+                            <span className="shrink-0">
+                              {isUrgent ? <Flame size={13} /> : isSoon ? <TrendingUp size={13} /> : <BarChart3 size={13} />}
+                            </span>
                             <span>
                               At current pace, fully utilized by <strong>{monthName}</strong>
-                              <span className="ml-1 opacity-70">({Math.ceil(monthsToFull)} mo remaining)</span>
+                              <span className="ml-1 opacity-75">({Math.ceil(monthsToFull)} mo remaining)</span>
                             </span>
                           </div>
                         );
@@ -389,31 +395,31 @@ export default function FacilitiesPage() {
                   </div>
 
                   {/* SLA & Turnaround Intelligence */}
-                  <div className="mb-6 p-3 rounded-2xl bg-gradient-to-br from-slate-50 to-indigo-50/40 border border-slate-100/80">
+                  <div className="mb-4 p-3 rounded-xl bg-gradient-to-br from-slate-50 to-indigo-50/40 border border-slate-200/70">
                     <div className="flex justify-between items-center mb-1.5">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1">
                         <Clock size={12} className="text-indigo-500" /> SLA Turnaround
                       </span>
                       {fac.sla_commitment_pct != null && (
-                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                          Number(fac.sla_commitment_pct) >= 80 ? 'bg-emerald-100 text-emerald-700' :
-                          Number(fac.sla_commitment_pct) >= 60 ? 'bg-amber-100 text-amber-700' :
-                          'bg-rose-100 text-rose-700'
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          Number(fac.sla_commitment_pct) >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                          Number(fac.sla_commitment_pct) >= 60 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-rose-50 text-rose-700 border-rose-200'
                         }`}>
                           {Math.round(Number(fac.sla_commitment_pct))}% On-Time
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
                       <div>
-                        <span className="text-[10px] text-slate-400 font-semibold block">Agreed</span>
+                        <span className="text-[10px] text-slate-400 font-medium block">Agreed</span>
                         <span>{fac.sla_agreement_days ? `${fac.sla_agreement_days} days` : 'Not set'}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] text-slate-400 font-semibold block">Actual (Moving Avg)</span>
+                        <span className="text-[10px] text-slate-400 font-medium block">Actual (Moving Avg)</span>
                         <span className={
                           fac.actual_avg_sla_days && fac.sla_agreement_days && Number(fac.actual_avg_sla_days) > Number(fac.sla_agreement_days) + 1
-                            ? 'text-rose-600 font-extrabold'
+                            ? 'text-rose-600 font-bold'
                             : 'text-slate-800'
                         }>
                           {fac.actual_avg_sla_days ? `${Number(fac.actual_avg_sla_days).toFixed(1)} days (${fac.total_completed_issuances || 0} LGs)` : 'No track record yet'}
@@ -423,48 +429,48 @@ export default function FacilitiesPage() {
                   </div>
 
                   {/* Features Grid */}
-                  <div className="grid grid-cols-2 gap-3 mb-6">
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.multi_currency_allowed ? 'border-blue-100 bg-blue-50/50 text-blue-700' : 'border-slate-100 text-slate-400'}`}>
-                      <Coins size={14} />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">Multi-CCY</span>
+                  <div className="grid grid-cols-2 gap-2.5 mb-4">
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.multi_currency_allowed ? 'border-blue-200 bg-blue-50/50 text-blue-700' : 'border-slate-200/80 text-slate-400'}`}>
+                      <Coins size={13} />
+                      <span className="text-[11px] font-semibold uppercase tracking-tight">Multi-CCY</span>
                     </div>
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.allow_cross_border ? 'border-emerald-100 bg-emerald-50/50 text-emerald-700' : 'border-slate-100 text-slate-400'}`}>
-                      <Globe size={14} />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">Cross-Border</span>
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.allow_cross_border ? 'border-emerald-200 bg-emerald-50/50 text-emerald-700' : 'border-slate-200/80 text-slate-400'}`}>
+                      <Globe size={13} />
+                      <span className="text-[11px] font-semibold uppercase tracking-tight">Cross-Border</span>
                     </div>
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.fx_breach_auto_suspend ? 'border-amber-100 bg-amber-50/50 text-amber-700' : 'border-slate-100 text-slate-400'}`}>
-                      <AlertCircle size={14} />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">FX Protection</span>
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.fx_breach_auto_suspend ? 'border-amber-200 bg-amber-50/50 text-amber-700' : 'border-slate-200/80 text-slate-400'}`}>
+                      <AlertCircle size={13} />
+                      <span className="text-[11px] font-semibold uppercase tracking-tight">FX Protection</span>
                     </div>
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.expiry_date ? 'border-slate-200 bg-slate-50 text-slate-600' : 'border-slate-100 text-slate-400'}`}>
-                      <Clock size={14} />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">{fac.expiry_date ? formatDate(fac.expiry_date) : 'No Expiry'}</span>
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${fac.expiry_date ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-slate-200/80 text-slate-400'}`}>
+                      <Clock size={13} />
+                      <span className="text-[11px] font-semibold uppercase tracking-tight">{fac.expiry_date ? formatDate(fac.expiry_date) : 'No Expiry'}</span>
                     </div>
                   </div>
 
                   {/* Sub-Limits Peek */}
-                  <div className="space-y-2 border-t border-slate-100 pt-5">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Sub-Limit Allocation</h4>
+                  <div className="space-y-1.5 border-t border-slate-100 pt-3.5">
+                    <h4 className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Sub-Limit Allocation</h4>
                     {fac.sub_limits && fac.sub_limits.slice(0, 3).map(sl => (
-                      <div key={sl.id} className="flex justify-between items-center text-[11px] p-2 hover:bg-slate-50 rounded-xl transition-colors">
-                        <span className="text-slate-600 font-bold">{sl.limit_name || 'General Allocation'}</span>
-                        <span className="text-slate-900 font-black">{Number(sl.limit_amount).toLocaleString()}</span>
+                      <div key={sl.id} className="flex justify-between items-center text-xs px-2 py-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+                        <span className="text-slate-600 font-medium">{sl.limit_name || 'General Allocation'}</span>
+                        <span className="text-slate-900 font-semibold tabular-nums">{Number(sl.limit_amount).toLocaleString()}</span>
                       </div>
                     ))}
                     {fac.sub_limits?.length > 3 && (
-                      <div className="text-center pt-2">
-                        <span className="text-[10px] font-black text-blue-600 uppercase">+{fac.sub_limits.length - 3} More Allocations</span>
+                      <div className="text-center pt-1.5">
+                        <span className="text-[11px] font-semibold text-blue-600 uppercase">+{fac.sub_limits.length - 3} More Allocations</span>
                       </div>
                     )}
                   </div>
                 </div>
                 {isFxSuspended && (
-                  <div className="bg-red-100 py-2.5 text-center text-[10px] font-black text-red-700 uppercase tracking-widest rounded-b-[2rem] flex items-center justify-center gap-2">
+                  <div className="bg-rose-100 py-2 text-center text-[11px] font-semibold text-rose-700 uppercase tracking-wider rounded-b-2xl flex items-center justify-center gap-1.5">
                     <AlertCircle size={14} /> FX Rate Breach — Facility Auto-Suspended
                   </div>
                 )}
                 {isArchived && !isFxSuspended && (
-                  <div className="bg-slate-100 py-2 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest rounded-b-[2rem]">
+                  <div className="bg-slate-100 py-2 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider rounded-b-2xl">
                     Facility Inactive / Archived
                   </div>
                 )}
@@ -476,37 +482,44 @@ export default function FacilitiesPage() {
 
       {/* H1: Agreement Analysis Result Panel */}
       {agreementResult && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setAgreementResult(null)}>
-          <div className="bg-white rounded-3xl max-w-lg w-full mx-4 max-h-[80vh] overflow-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="p-6 border-b border-slate-100">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setAgreementResult(null)}>
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full max-h-[80vh] overflow-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                  <FileSearch size={20} className="text-violet-600" />
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <FileSearch size={18} className="text-violet-600" />
                   Agreement Verification
                 </h3>
-                <button onClick={() => setAgreementResult(null)} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
+                <button onClick={() => setAgreementResult(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" aria-label="Close">
+                  <X size={18} />
+                </button>
               </div>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-3">
               {agreementResult.status === 'TOO_LARGE' && (
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
-                  <AlertTriangle className="text-amber-600 shrink-0" size={20} />
-                  <p className="text-sm font-semibold text-amber-800">{agreementResult.message}</p>
+                <div className="flex items-center gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-200">
+                  <AlertTriangle className="text-amber-600 shrink-0" size={18} />
+                  <p className="text-sm font-medium text-amber-800">{agreementResult.message}</p>
                 </div>
               )}
               {agreementResult.status === 'ERROR' && (
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200">
-                  <XCircle className="text-red-600 shrink-0" size={20} />
-                  <p className="text-sm font-semibold text-red-800">{agreementResult.message}</p>
+                <div className="flex items-center gap-3 p-3.5 rounded-xl bg-rose-50 border border-rose-200">
+                  <XCircle className="text-rose-600 shrink-0" size={18} />
+                  <p className="text-sm font-medium text-rose-800">{agreementResult.message}</p>
                 </div>
               )}
               {agreementResult.status === 'OK' && (
                 <>
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
-                    <span className="text-sm font-bold text-slate-600">
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                    {agreementResult.mismatches === 0 ? (
+                      <CheckCircle size={16} className="text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                    )}
+                    <span className="text-sm font-semibold text-slate-700">
                       {agreementResult.mismatches === 0
-                        ? '✅ All compared fields match the agreement'
-                        : `⚠️ ${agreementResult.mismatches} potential mismatch${agreementResult.mismatches > 1 ? 'es' : ''} found`
+                        ? 'All compared fields match the agreement'
+                        : `${agreementResult.mismatches} potential mismatch${agreementResult.mismatches > 1 ? 'es' : ''} found`
                       }
                     </span>
                   </div>

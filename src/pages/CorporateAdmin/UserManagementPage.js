@@ -318,18 +318,18 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
 
   // --- RENDERERS ---
   const renderTabs = () => (
-    <div className="flex items-center justify-between mb-6">
-      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
-        <button onClick={() => setActiveTab('users')} className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'users' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
-          <Users className="w-4 h-4 mr-2" /> Users
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex space-x-1 bg-slate-100 p-1 rounded-xl w-fit border border-slate-200/70">
+        <button onClick={() => setActiveTab('users')} className={`flex items-center px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'users' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+          <Users className="w-4 h-4 mr-1.5" /> Users
         </button>
         {hasIssuanceModule && (
           <>
-            <button onClick={() => setActiveTab('departments')} className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'departments' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
-              <Building2 className="w-4 h-4 mr-2" /> Departments
+            <button onClick={() => setActiveTab('departments')} className={`flex items-center px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'departments' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+              <Building2 className="w-4 h-4 mr-1.5" /> Departments
             </button>
-            <button onClick={() => setActiveTab('groups')} className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'groups' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}>
-              <ShieldCheck className="w-4 h-4 mr-2" /> Approval Groups
+            <button onClick={() => setActiveTab('groups')} className={`flex items-center px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'groups' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}>
+              <ShieldCheck className="w-4 h-4 mr-1.5" /> Approval Groups
             </button>
           </>
         )}
@@ -338,10 +338,10 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
           <button
             onClick={() => setShowApprovalMatrixModal(true)}
-            className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}
+            className={`inline-flex items-center px-3.5 py-2 text-sm font-medium rounded-xl shadow-sm bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50 transition-colors ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}
             disabled={isGracePeriod}
           >
-            <Shield className="w-4 h-4 mr-2" /> Approval Matrix
+            <Shield className="w-4 h-4 mr-1.5" /> Approval Matrix
           </button>
         </GracePeriodTooltip>
       )}
@@ -350,36 +350,36 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
 
   return (
     <div className="w-full min-w-0">
-      <div className="flex justify-between items-center mb-2">
-        <h1 className="text-2xl font-semibold text-gray-800">Organization & Teams</h1>
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Organization & Teams</h1>
 
         {/* Dynamic Action Button based on Tab */}
         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
           {activeTab === 'users' && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               {deletedUserCount > 0 && (
-                <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
+                <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-xl">
                   <div className="relative">
                     <input type="checkbox" className="sr-only" checked={showDeleted} onChange={() => setShowDeleted(!showDeleted)} />
-                    <div className={`w-9 h-5 rounded-full transition-colors ${showDeleted ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
-                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showDeleted ? 'translate-x-4' : ''}`}></div>
+                    <div className={`w-8 h-4.5 rounded-full transition-colors ${showDeleted ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
+                    <div className={`absolute top-0.5 left-0.5 w-3.5 h-3.5 bg-white rounded-full shadow transition-transform ${showDeleted ? 'translate-x-3.5' : ''}`}></div>
                   </div>
                   Show Deleted ({deletedUserCount})
                 </label>
               )}
-              <Link to="/corporate-admin/users/new" className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}>
-                <PlusCircle className="h-4 w-4 mr-2" /> Add User
+              <Link to="/corporate-admin/users/new" className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-xl shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}>
+                <PlusCircle className="h-4 w-4 mr-1.5" /> Add User
               </Link>
             </div>
           )}
           {activeTab === 'departments' && (
-            <button onClick={() => { setEditingItem(null); setDeptForm({ name: '', manager_id: '' }); setShowDeptModal(true); }} className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}>
-              <PlusCircle className="h-4 w-4 mr-2" /> Add Department
+            <button onClick={() => { setEditingItem(null); setDeptForm({ name: '', manager_id: '' }); setShowDeptModal(true); }} className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-xl shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}>
+              <PlusCircle className="h-4 w-4 mr-1.5" /> Add Department
             </button>
           )}
           {activeTab === 'groups' && (
-            <button onClick={() => { setEditingItem(null); setGroupForm({ name: '', user_ids: [] }); setShowGroupModal(true); }} className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}>
-              <PlusCircle className="h-4 w-4 mr-2" /> Add Group
+            <button onClick={() => { setEditingItem(null); setGroupForm({ name: '', user_ids: [] }); setShowGroupModal(true); }} className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-xl shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}>
+              <PlusCircle className="h-4 w-4 mr-1.5" /> Add Group
             </button>
           )}
         </GracePeriodTooltip>
@@ -388,37 +388,43 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
       {renderTabs()}
 
       {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="animate-spin h-7 w-7 text-blue-600" /></div>
       ) : (
-        <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-x-auto">
+        <div className="bg-white shadow-sm border border-slate-200/80 rounded-2xl overflow-x-auto">
 
           {/* USERS TAB */}
           {activeTab === 'users' && (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50/80">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-100">
                 {filteredUsers.map(user => (
-                  <tr key={user.id} className={user.is_deleted ? 'bg-gray-50 opacity-60' : ''}>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{user.email}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{user.role}</td>
-                    <td className="px-6 py-4 text-sm">
-                      {user.is_deleted ? <span className="text-red-600 flex items-center"><XCircle className="w-4 h-4 mr-1" /> Deleted</span> : <span className="text-green-600 flex items-center"><CheckCircle className="w-4 h-4 mr-1" /> Active</span>}
+                  <tr key={user.id} className={`transition-colors hover:bg-slate-50/70 ${user.is_deleted ? 'bg-slate-50 opacity-60' : ''}`}>
+                    <td className="px-4 py-2.5 text-sm font-medium text-slate-900 max-w-[240px] truncate" title={user.email}>{user.email}</td>
+                    <td className="px-4 py-2.5 text-xs">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-700 border border-slate-200">{user.role}</span>
                     </td>
-                    <td className="px-6 py-4 text-right text-sm font-medium">
+                    <td className="px-4 py-2.5 text-xs">
+                      {user.is_deleted ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-rose-50 text-rose-700 border border-rose-200"><XCircle className="w-3.5 h-3.5" /> Deleted</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><CheckCircle className="w-3.5 h-3.5" /> Active</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-sm font-medium whitespace-nowrap">
                       {!user.is_deleted && (
                         <button
                           type="button"
                           disabled={sendingResetUserId === user.id || isGracePeriod}
                           onClick={() => handleResendInvitation(user.id, user.email)}
                           title="Dispatch Private Activation / Reset Link"
-                          className="text-emerald-600 hover:text-emerald-900 mx-2 disabled:opacity-50"
+                          className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 mx-0.5 disabled:opacity-50 transition-colors"
                         >
                           {sendingResetUserId === user.id ? (
                             <Loader2 className="w-4 h-4 animate-spin inline" />
@@ -427,11 +433,11 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
                           )}
                         </button>
                       )}
-                      <button onClick={() => handleEditUser(user.id)} title="Edit User" className="text-blue-600 hover:text-blue-900 mx-2"><Edit className="w-4 h-4 inline" /></button>
+                      <button onClick={() => handleEditUser(user.id)} title="Edit User" className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 mx-0.5 transition-colors"><Edit className="w-4 h-4 inline" /></button>
                       {!user.is_deleted ? (
-                        <button onClick={() => handleDeleteUser(user.id, user.email)} title="Deactivate User" className="text-red-600 hover:text-red-900 mx-2"><Trash2 className="w-4 h-4 inline" /></button>
+                        <button onClick={() => handleDeleteUser(user.id, user.email)} title="Deactivate User" className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 mx-0.5 transition-colors"><Trash2 className="w-4 h-4 inline" /></button>
                       ) : (
-                        <button onClick={() => handleRestoreUser(user.id, user.email)} title="Restore User" className="text-green-600 hover:text-green-900 mx-2"><RotateCcw className="w-4 h-4 inline" /></button>
+                        <button onClick={() => handleRestoreUser(user.id, user.email)} title="Restore User" className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 mx-0.5 transition-colors"><RotateCcw className="w-4 h-4 inline" /></button>
                       )}
                     </td>
                   </tr>
@@ -442,23 +448,23 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
 
           {/* DEPARTMENTS TAB */}
           {activeTab === 'departments' && (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50/80">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Manager</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Department Name</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Manager</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {departments.length === 0 && <tr><td colSpan="3" className="px-6 py-8 text-center text-gray-500">No departments configured.</td></tr>}
+              <tbody className="divide-y divide-slate-100">
+                {departments.length === 0 && <tr><td colSpan="3" className="px-4 py-8 text-center text-sm text-slate-500">No departments configured.</td></tr>}
                 {departments.map(dept => (
-                  <tr key={dept.id}>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{dept.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{dept.manager_email || <span className="text-gray-400 italic">No Manager Assigned</span>}</td>
-                    <td className="px-6 py-4 text-right text-sm font-medium">
-                      <button onClick={() => { setEditingItem(dept); setDeptForm({ name: dept.name, manager_id: dept.manager_id || '' }); setShowDeptModal(true); }} className="text-blue-600 hover:text-blue-900 mx-2"><Edit className="w-4 h-4" /></button>
-                      <button onClick={() => handleDeleteDept(dept.id)} className="text-red-600 hover:text-red-900"><Trash2 className="w-4 h-4" /></button>
+                  <tr key={dept.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-4 py-2.5 text-sm font-medium text-slate-900">{dept.name}</td>
+                    <td className="px-4 py-2.5 text-sm text-slate-500 max-w-[240px] truncate" title={dept.manager_email || ''}>{dept.manager_email || <span className="text-slate-400 italic">No Manager Assigned</span>}</td>
+                    <td className="px-4 py-2.5 text-right text-sm font-medium whitespace-nowrap">
+                      <button onClick={() => { setEditingItem(dept); setDeptForm({ name: dept.name, manager_id: dept.manager_id || '' }); setShowDeptModal(true); }} className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 mx-0.5 transition-colors"><Edit className="w-4 h-4 inline" /></button>
+                      <button onClick={() => handleDeleteDept(dept.id)} className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 mx-0.5 transition-colors"><Trash2 className="w-4 h-4 inline" /></button>
                     </td>
                   </tr>
                 ))}
@@ -468,30 +474,30 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
 
           {/* GROUPS TAB */}
           {activeTab === 'groups' && (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50/80">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Group Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Members</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Group Name</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Members</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {approvalGroups.length === 0 && <tr><td colSpan="3" className="px-6 py-8 text-center text-gray-500">No approval groups configured.</td></tr>}
+              <tbody className="divide-y divide-slate-100">
+                {approvalGroups.length === 0 && <tr><td colSpan="3" className="px-4 py-8 text-center text-sm text-slate-500">No approval groups configured.</td></tr>}
                 {approvalGroups.map(group => (
-                  <tr key={group.id}>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                  <tr key={group.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-4 py-2.5 text-sm font-medium text-slate-900">
                       {group.name}
-                      {group.users?.length === 0 && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">Empty Group</span>}
+                      {group.users?.length === 0 && <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">Empty Group</span>}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
+                    <td className="px-4 py-2.5 text-sm text-slate-500">
                       <div className="flex flex-wrap gap-1">
-                        {group.users?.map(u => <span key={u.id} className="bg-gray-100 px-2 py-1 rounded text-xs">{u.email}</span>)}
+                        {group.users?.map(u => <span key={u.id} className="bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md text-xs">{u.email}</span>)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right text-sm font-medium">
-                      <button onClick={() => { setEditingItem(group); setGroupForm({ name: group.name, user_ids: group.users.map(u => u.id) }); setShowGroupModal(true); }} className="text-blue-600 hover:text-blue-900 mx-2"><Edit className="w-4 h-4" /></button>
-                      <button onClick={() => handleDeleteGroup(group.id)} className="text-red-600 hover:text-red-900"><Trash2 className="w-4 h-4" /></button>
+                    <td className="px-4 py-2.5 text-right text-sm font-medium whitespace-nowrap">
+                      <button onClick={() => { setEditingItem(group); setGroupForm({ name: group.name, user_ids: group.users.map(u => u.id) }); setShowGroupModal(true); }} className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 mx-0.5 transition-colors"><Edit className="w-4 h-4 inline" /></button>
+                      <button onClick={() => handleDeleteGroup(group.id)} className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 mx-0.5 transition-colors"><Trash2 className="w-4 h-4 inline" /></button>
                     </td>
                   </tr>
                 ))}
@@ -503,9 +509,9 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
 
       {/* DEPT MODAL */}
       {showDeptModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4">{editingItem ? 'Edit Department' : 'New Department'}</h3>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-md">
+            <h3 className="text-base font-bold text-slate-900 mb-4">{editingItem ? 'Edit Department' : 'New Department'}</h3>
             <form onSubmit={handleSaveDept} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Department Name</label>
@@ -529,8 +535,8 @@ function UserManagementPage({ onLogout, isGracePeriod, currentUserId, hasIssuanc
 
       {/* GROUP MODAL */}
       {showGroupModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 w-full max-w-lg">
             <h3 className="text-lg font-bold mb-4">{editingItem ? 'Edit Approval Group' : 'New Approval Group'}</h3>
             <form onSubmit={handleSaveGroup} className="space-y-4">
               <div>

@@ -5,10 +5,11 @@ import React, { useState, useEffect, useMemo, useCallback, Fragment } from 'reac
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from 'services/apiService.js';
 // Added History to the lucide-react import
-import { PlusCircle, Edit, Eye, Loader2, AlertCircle, CalendarPlus, ChevronUp, ChevronDown, Users, FileText, Filter as FilterIcon, Download, XCircle, History } from 'lucide-react';
+import { PlusCircle, Eye, Loader2, AlertCircle, ChevronUp, ChevronDown, Download, XCircle, History, Search } from 'lucide-react';
 import moment from 'moment';
 import ExtendLGModal from 'components/Modals/ExtendLGModal';
 import ChangeLGOwnerModal from 'components/Modals/ChangeLGOwnerModal';
+import ChangeLGCategoryModal from 'components/Modals/ChangeLGCategoryModal';
 import LGActionsMenu from 'components/LGActionsMenu';
 import ReleaseLGModal from 'components/Modals/ReleaseLGModal';
 import LiquidateLGModal from 'components/Modals/LiquidateLGModal';
@@ -32,9 +33,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return (
       <div className="relative group inline-block">
         {children}
-        <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+        <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
           This action is disabled during your subscription's grace period.
-          <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+          <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
             <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
           </svg>
         </div>
@@ -44,13 +45,14 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
   return children;
 };
 
-const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+const buttonBaseClassNames = "inline-flex items-center px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200";
 
 function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod }) {
   const navigate = useNavigate();
   const location = useLocation();
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const filterByOwnerId = queryParams.get('ownerId');
+  const filterByCategory = queryParams.get('category');
   const [lgRecords, setLgRecords] = useState([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -91,9 +93,24 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [showCriticalOnly, setShowCriticalOnly] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTypes, setSelectedTypes] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState(
+    filterByCategory ? [filterByCategory] : []
+  );
+  const [lgCategories, setLgCategories] = useState([]);
+  const [categoryModalState, setCategoryModalState] = useState({
+    isOpen: false,
+    lgRecord: null,
+  });
+
+  useEffect(() => {
+    if (filterByCategory) {
+      setSelectedCategories([filterByCategory]);
+    }
+  }, [filterByCategory]);
 
   const [allLgRecords, setAllLgRecords] = useState([]);
 
@@ -109,9 +126,15 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
       if (filterByOwnerId) {
           url += `?internal_owner_contact_id=${filterByOwnerId}`;
       }
-      const response = await apiRequest(url, 'GET');
+      const [response, catsResponse] = await Promise.all([
+        apiRequest(url, 'GET'),
+        apiRequest('/end-user/lg-categories/', 'GET').catch(() => []),
+      ]);
       setLgRecords(response);
       setAllLgRecords(response);
+      if (Array.isArray(catsResponse)) {
+        setLgCategories(catsResponse);
+      }
     } catch (err) {
       console.error('Failed to fetch LG records:', err);
       setError(`Failed to load LG Records. ${err.message || 'An unexpected error occurred.'}`);
@@ -241,6 +264,17 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     }
   };
 
+  const handleOpenSingleCategoryModal = (record) => {
+    if (!isCorporateAdminView && !isGracePeriod) {
+      setCategoryModalState({ isOpen: true, lgRecord: record });
+    }
+  };
+
+  const handleCategoryChangeSuccess = () => {
+    setCategoryModalState({ isOpen: false, lgRecord: null });
+    fetchLgRecords(true);
+  };
+
   const handleToggleAutoRenewal = useCallback(async (record, newStatus) => {
     if (isCorporateAdminView || isGracePeriod) {
       if (isGracePeriod) toast.warn("This action is disabled during your subscription's grace period.");
@@ -347,6 +381,28 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     return `01-${String(seq).padStart(4, '0')}`;
   };
 
+  const getRecordVisualMeta = (record) => {
+    const statusName = record?.lg_status?.name || 'N/A';
+    const isValidStatus = statusName === 'Valid';
+    const isInactive = !isValidStatus; // Expired, Released, Liquidated, etc.
+    const daysLeft = record?.expiry_date
+      ? moment(record.expiry_date).startOf('day').diff(moment().startOf('day'), 'days')
+      : null;
+    const isCritical = isValidStatus && daysLeft !== null && daysLeft <= 30;
+    const isApproaching = isValidStatus && daysLeft !== null && daysLeft > 30 && daysLeft <= 60;
+
+    const statusPillClass =
+      statusName === 'Valid'
+        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+        : statusName === 'Expired'
+          ? 'bg-rose-50/80 text-rose-600 border border-rose-200/80'
+          : statusName === 'Liquidated'
+            ? 'bg-purple-50 text-purple-700 border border-purple-200'
+            : 'bg-slate-100 text-slate-600 border border-slate-200'; // Released & others
+
+    return { statusName, isValidStatus, isInactive, daysLeft, isCritical, isApproaching, statusPillClass };
+  };
+
   const handleSort = (column) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -359,9 +415,28 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   const handleClearFilters = () => {
     setSearchTerm('');
     setSelectedStatuses([]);
+    setShowCriticalOnly(false);
     setSelectedDate('');
     setSelectedTypes([]);
+    setSelectedCategories([]);
+    if (filterByCategory) {
+      navigate(
+        filterByOwnerId ? `${location.pathname}?ownerId=${filterByOwnerId}` : location.pathname,
+        { replace: true }
+      );
+    }
   };
+
+  const criticalCount = useMemo(
+    () =>
+      lgRecords.filter(
+        (r) =>
+          r?.lg_status?.name === 'Valid' &&
+          r?.expiry_date &&
+          moment(r.expiry_date).startOf('day').diff(moment().startOf('day'), 'days') <= 30
+      ).length,
+    [lgRecords]
+  );
 
   const uniqueStatuses = useMemo(() => {
     const statuses = new Set();
@@ -381,6 +456,16 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
       }
     });
     return Array.from(types).sort();
+  }, [lgRecords]);
+
+  const uniqueCategories = useMemo(() => {
+    const cats = new Set();
+    lgRecords.forEach(record => {
+      if (record.lg_category?.name) {
+        cats.add(record.lg_category.name);
+      }
+    });
+    return Array.from(cats).sort();
   }, [lgRecords]);
 
   const filteredAndSortedRecords = useMemo(() => {
@@ -413,7 +498,16 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
         const matchesType = selectedTypes.length === 0 ||
                             (record.lg_type?.name && selectedTypes.includes(record.lg_type.name));
 
-        return matchesSearchTerm && matchesStatus && matchesDate && matchesType;
+        const matchesCategory = selectedCategories.length === 0 ||
+                                (record.lg_category?.name && selectedCategories.includes(record.lg_category.name));
+
+        const matchesCritical = !showCriticalOnly || (
+          record.lg_status?.name === 'Valid' &&
+          record.expiry_date &&
+          moment(record.expiry_date).startOf('day').diff(moment().startOf('day'), 'days') <= 30
+        );
+
+        return matchesSearchTerm && matchesStatus && matchesDate && matchesType && matchesCategory && matchesCritical;
     });
 
     const sortableRecords = [...filteredRecords];
@@ -478,7 +572,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     });
 
     return sortableRecords;
-  }, [lgRecords, sortColumn, sortDirection, searchTerm, selectedStatuses, selectedDate, selectedTypes]);
+  }, [lgRecords, sortColumn, sortDirection, searchTerm, selectedStatuses, showCriticalOnly, selectedDate, selectedTypes, selectedCategories]);
 
   const handleExportToExcel = (dataToExport) => {
     const exportData = dataToExport.map(record => {
@@ -554,27 +648,27 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   };
 
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-100 shadow-sm">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               {filterByOwnerId ? `LGs for Owner ID: ${filterByOwnerId}` : `Manage LG Records`}
           </h2>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">View, filter, and manage your Letters of Guarantee portfolio.</p>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">View, filter, and manage your Letters of Guarantee portfolio.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {(searchTerm.length > 0 || selectedStatuses.length > 0 || selectedDate || selectedTypes.length > 0) && (
+        <div className="flex flex-wrap items-center gap-2">
+            {(searchTerm.length > 0 || selectedStatuses.length > 0 || showCriticalOnly || selectedDate || selectedTypes.length > 0 || selectedCategories.length > 0) && (
               <button
                   onClick={handleClearFilters}
-                  className={`${buttonBaseClassNames} bg-gray-600 text-white hover:bg-gray-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2`}
+                  className={`${buttonBaseClassNames} bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs`}
               >
-                  <XCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5" />
+                  <XCircle className="h-4 w-4 mr-1.5 text-slate-500" />
                   Clear Filters
               </button>
             )}
             <Menu as="div" className="relative inline-block text-left">
-              <Menu.Button className={`${buttonBaseClassNames} bg-teal-600 text-white hover:bg-teal-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2`}>
-                <Download className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5" />
+              <Menu.Button className={`${buttonBaseClassNames} bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs`}>
+                <Download className="h-4 w-4 mr-1.5 text-slate-500" />
                 Export
               </Menu.Button>
               <Transition
@@ -586,7 +680,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 leaveFrom="transform opacity-100 scale-100"
                 leaveTo="transform opacity-0 scale-95"
               >
-                <Menu.Items className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                <Menu.Items className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-xl bg-white border border-slate-200 shadow-xl py-1 focus:outline-none">
                   <div className="py-1">
                     <Menu.Item>
                       {({ active }) => (
@@ -594,8 +688,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                           href="#"
                           onClick={() => handleExportToExcel(filteredAndSortedRecords)}
                           className={`
-                            ${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'}
-                            block px-4 py-2 text-sm
+                            ${active ? 'bg-slate-50 text-slate-900' : 'text-slate-700'}
+                            block px-4 py-2 text-xs sm:text-sm
                           `}
                         >
                           Export Filtered Data ({filteredAndSortedRecords.length})
@@ -608,8 +702,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                           href="#"
                           onClick={() => handleExportToExcel(allLgRecords)}
                           className={`
-                            ${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'}
-                            block px-4 py-2 text-sm
+                            ${active ? 'bg-slate-50 text-slate-900' : 'text-slate-700'}
+                            block px-4 py-2 text-xs sm:text-sm
                           `}
                         >
                           Export All Data ({allLgRecords.length})
@@ -623,10 +717,10 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
             <button
                 onClick={() => setShowHistoryModal(true)}
-                className={`${buttonBaseClassNames} bg-indigo-600 text-white hover:bg-indigo-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2`}
+                className={`${buttonBaseClassNames} bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-2xs`}
                 title="Export full audit history of actions"
             >
-                <History className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5" />
+                <History className="h-4 w-4 mr-1.5 text-slate-500" />
                 History
             </button>
 
@@ -634,10 +728,10 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
               <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                 <button
                     onClick={() => navigate('/end-user/lg-records/new')}
-                    className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 text-xs sm:text-sm px-3 py-1.5 sm:px-4 sm:py-2 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 shadow-sm ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                     disabled={isGracePeriod}
                 >
-                    <PlusCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-1.5" />
+                    <PlusCircle className="h-4 w-4 mr-1.5" />
                     Record New LG
                 </button>
               </GracePeriodTooltip>
@@ -646,8 +740,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-          <AlertCircle className="h-5 w-5 mr-2" />
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative mb-4 flex items-center text-sm" role="alert">
+          <AlertCircle className="h-5 w-5 mr-2 shrink-0" />
           <span className="block sm:inline">{error}</span>
         </div>
       )}
@@ -655,24 +749,42 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
       {isInitialLoading ? (
         <SkeletonTable rows={6} cols={8} className="my-4" />
       ) : lgRecords.length === 0 ? (
-        <div className="bg-gray-50 p-6 rounded-lg text-center border border-gray-200">
-          <p className="text-gray-500">No LG records found for your customer.</p>
+        <div className="bg-slate-50 p-6 rounded-2xl text-center border border-slate-200">
+          <p className="text-slate-500 text-sm">No LG records found for your customer.</p>
         </div>
       ) : (
         <>
-          <div className="mb-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            <input
-              type="text"
-              placeholder="Search by LG No., Issuer, Beneficiary, Bank, Category..."
-              className="block flex-1 min-w-0 border border-gray-300 px-3 py-2 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="mb-3 p-2.5 bg-slate-50/70 rounded-xl border border-slate-200/80 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search by LG No., Issuer, Beneficiary, Bank, Category..."
+                className="block w-full border border-slate-200 bg-white pl-9 pr-3 py-1.5 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
 
             <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-              <div className="w-full sm:w-44 shrink-0">
+              {(criticalCount > 0 || showCriticalOnly) && (
+                <button
+                  type="button"
+                  onClick={() => setShowCriticalOnly((prev) => !prev)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all shrink-0 ${
+                    showCriticalOnly
+                      ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                      : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+                  }`}
+                  title="Show only Valid LGs expiring within 30 days"
+                >
+                  <span className={`w-2 h-2 rounded-full ${showCriticalOnly ? 'bg-white' : 'bg-rose-500'}`} />
+                  <span>Critical ({criticalCount})</span>
+                </button>
+              )}
+              <div className="w-full sm:w-36 shrink-0">
                 <FormattedDateInput
-                  className="w-full cursor-pointer rounded-lg border border-gray-300 bg-white py-2 px-3 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white py-1.5 px-3 text-xs sm:text-sm shadow-2xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                   placeholder="Filter by date"
@@ -682,8 +794,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
               <Listbox value={selectedStatuses} onChange={setSelectedStatuses} multiple>
                 {({ open }) => (
-                  <div className="relative w-full sm:w-44 shrink-0">
-                    <Listbox.Button className="w-full cursor-default rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                  <div className="relative w-full sm:w-36 shrink-0">
+                    <Listbox.Button className="w-full cursor-default rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-left shadow-2xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs sm:text-sm">
                       <span className="block truncate">
                         {selectedStatuses.length === 0
                           ? 'Status: All'
@@ -692,7 +804,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                             : selectedStatuses.join(', ')}
                       </span>
                       <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                        <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                        <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden="true" />
                       </span>
                     </Listbox.Button>
 
@@ -703,13 +815,13 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                       leaveFrom="opacity-100"
                       leaveTo="opacity-0"
                     >
-                      <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-sm shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                      <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-48 overflow-auto rounded-xl bg-white py-1 text-xs sm:text-sm shadow-xl border border-slate-200 focus:outline-none">
                         {uniqueStatuses.map((status) => (
                           <Listbox.Option
                             key={status}
                             className={({ active }) =>
                               `relative cursor-default select-none py-2 pl-8 pr-4 ${
-                                active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                active ? 'bg-blue-600 text-white' : 'text-slate-900'
                               }`
                             }
                             value={status}
@@ -740,8 +852,8 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
               <Listbox value={selectedTypes} onChange={setSelectedTypes} multiple>
                 {({ open }) => (
-                  <div className="relative w-full sm:w-44 shrink-0">
-                    <Listbox.Button className="w-full cursor-default rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                  <div className="relative w-full sm:w-36 shrink-0">
+                    <Listbox.Button className="w-full cursor-default rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-left shadow-2xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs sm:text-sm">
                       <span className="block truncate">
                         {selectedTypes.length === 0
                           ? 'Type: All'
@@ -750,7 +862,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                             : selectedTypes.join(', ')}
                       </span>
                       <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                        <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                        <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden="true" />
                       </span>
                     </Listbox.Button>
 
@@ -761,13 +873,13 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                       leaveFrom="opacity-100"
                       leaveTo="opacity-0"
                     >
-                      <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-sm shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                      <Listbox.Options className="absolute z-50 mt-1 max-h-60 w-48 overflow-auto rounded-xl bg-white py-1 text-xs sm:text-sm shadow-xl border border-slate-200 focus:outline-none">
                         {uniqueTypes.map((type) => (
                           <Listbox.Option
                             key={type}
                             className={({ active }) =>
                               `relative cursor-default select-none py-2 pl-8 pr-4 ${
-                                active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                                active ? 'bg-blue-600 text-white' : 'text-slate-900'
                               }`
                             }
                             value={type}
@@ -776,6 +888,64 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                               <>
                                 <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
                                   {type}
+                                </span>
+                                {selected ? (
+                                  <span
+                                    className={`absolute inset-y-0 left-0 flex items-center pl-2 ${
+                                      active ? 'text-white' : 'text-blue-600'
+                                    }`}
+                                  >
+                                    ✓
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
+                          </Listbox.Option>
+                        ))}
+                      </Listbox.Options>
+                    </Transition>
+                  </div>
+                )}
+              </Listbox>
+
+              <Listbox value={selectedCategories} onChange={setSelectedCategories} multiple>
+                {({ open }) => (
+                  <div className="relative w-full sm:w-36 shrink-0">
+                    <Listbox.Button className="w-full cursor-default rounded-xl border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-left shadow-2xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-xs sm:text-sm">
+                      <span className="block truncate">
+                        {selectedCategories.length === 0
+                          ? 'Category: All'
+                          : selectedCategories.length === uniqueCategories.length
+                            ? 'All Categories'
+                            : selectedCategories.join(', ')}
+                      </span>
+                      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                        <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                      </span>
+                    </Listbox.Button>
+
+                    <Transition
+                      show={open}
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                    >
+                      <Listbox.Options className="absolute right-0 z-50 mt-1 max-h-60 w-52 overflow-auto rounded-xl bg-white py-1 text-xs sm:text-sm shadow-xl border border-slate-200 focus:outline-none">
+                        {uniqueCategories.map((catName) => (
+                          <Listbox.Option
+                            key={catName}
+                            className={({ active }) =>
+                              `relative cursor-default select-none py-2 pl-8 pr-4 ${
+                                active ? 'bg-blue-600 text-white' : 'text-gray-900'
+                              }`
+                            }
+                            value={catName}
+                          >
+                            {({ selected, active }) => (
+                              <>
+                                <span className={`block truncate ${selected ? 'font-semibold' : 'font-normal'}`}>
+                                  {catName}
                                 </span>
                                 {selected ? (
                                   <span
@@ -805,31 +975,49 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 No matching LG records found.
               </div>
             ) : (
-              filteredAndSortedRecords.map((record) => (
+              filteredAndSortedRecords.map((record) => {
+                const {
+                  statusName,
+                  isValidStatus,
+                  isInactive,
+                  daysLeft,
+                  isCritical,
+                  isApproaching,
+                  statusPillClass,
+                } = getRecordVisualMeta(record);
+                const isClosedLock = statusName === 'Released' || statusName === 'Liquidated';
+
+                return (
                 <div
                   key={`mobile-${record.id}`}
-                  className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5"
+                  className={`p-4 rounded-xl border shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5 ${
+                    isCritical
+                      ? 'bg-white border-rose-200 border-l-4 border-l-rose-500'
+                      : isInactive
+                        ? 'bg-slate-50/70 border-slate-200 opacity-85'
+                        : 'bg-white border-gray-200'
+                  }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => handleViewDetails(record.id)}
-                      className="font-bold text-base text-blue-600 hover:text-blue-800 text-left truncate"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <span className="px-1.5 py-0.5 text-[11px] font-mono font-semibold bg-slate-100 text-slate-600 rounded border border-slate-200">{formatCustodySerial(record)}</span>
-                        <span>{record.lg_number}</span>
-                      </span>
-                    </button>
-                    <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
-                      record.lg_status?.name === 'Valid' ? 'bg-green-100 text-green-800' :
-                      record.lg_status?.name === 'Expired' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {record.lg_status?.name || 'N/A'}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        onClick={() => handleViewDetails(record.id)}
+                        className={`font-bold text-base text-left truncate ${
+                          isInactive ? 'text-slate-600 hover:text-blue-600' : 'text-blue-600 hover:text-blue-800'
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <span className="px-1.5 py-0.5 text-[11px] font-mono font-semibold bg-slate-100 text-slate-600 rounded border border-slate-200">{formatCustodySerial(record)}</span>
+                          <span>{record.lg_number}</span>
+                        </span>
+                      </button>
+                    </div>
+                    <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${statusPillClass}`}>
+                      {statusName}
                     </span>
                   </div>
 
-                  <div className="text-lg font-extrabold text-gray-900">
+                  <div className={`text-lg font-extrabold ${isInactive ? 'text-slate-600' : 'text-gray-900'}`}>
                     {formatAmount(record.lg_amount, record.lg_currency?.iso_code)}
                   </div>
 
@@ -850,7 +1038,22 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     </div>
                     <div>
                       <span className="text-gray-400 block text-[10px] uppercase font-semibold">Expiry Date</span>
-                      <span className="font-medium text-gray-800 block">{formatDate(record.expiry_date)}</span>
+                      <div className="flex items-center flex-wrap gap-1">
+                        <span className={`font-medium ${isCritical ? 'text-rose-700 font-semibold' : 'text-gray-800'}`}>
+                          {formatDate(record.expiry_date)}
+                        </span>
+                        {isCritical && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                            {daysLeft <= 0 ? 'Due' : `${daysLeft}d left`}
+                          </span>
+                        )}
+                        {isApproaching && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            {daysLeft}d
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -861,10 +1064,16 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                         <Switch
                           checked={record.auto_renewal}
                           onChange={(newStatus) => handleToggleAutoRenewal(record, newStatus)}
-                          disabled={isGracePeriod}
+                          disabled={isGracePeriod || isClosedLock}
                           className={`${
-                            record.auto_renewal ? 'bg-blue-600' : 'bg-gray-200'
-                          } relative inline-flex h-5 w-9 items-center rounded-full transition-colors`}
+                            record.auto_renewal
+                              ? isValidStatus
+                                ? 'bg-blue-600'
+                                : 'bg-slate-400'
+                              : 'bg-gray-200'
+                          } relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                            isInactive ? 'opacity-55' : ''
+                          } ${isGracePeriod || isClosedLock ? 'cursor-not-allowed' : ''}`}
                         >
                           <span className={`${
                             record.auto_renewal ? 'translate-x-4' : 'translate-x-1'
@@ -878,6 +1087,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                           lgRecord={record}
                           onExtend={handleExtend}
                           onChangeOwner={handleChangeOwner}
+                          onChangeCategory={handleOpenSingleCategoryModal}
                           onRelease={handleRelease}
                           onLiquidate={handleLiquidate}
                           onDecreaseAmount={handleDecreaseAmount}
@@ -896,35 +1106,36 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                     </div>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
 
           {/* DESKTOP VIEW: Multi-Column Table (>= md) */}
-          <div className="hidden md:block overflow-auto rounded-lg shadow relative max-h-[75vh]">
+          <div className="hidden md:block overflow-auto rounded-2xl border border-slate-200/90 shadow-sm relative max-h-[72vh]">
             {isRefreshing && (
-                <div className="absolute inset-x-0 top-0 flex items-center justify-center py-1 bg-blue-100 text-blue-700 text-sm font-medium z-10 rounded-t-lg">
+                <div className="absolute inset-x-0 top-0 flex items-center justify-center py-1 bg-blue-50 text-blue-700 text-xs font-medium z-10 rounded-t-2xl">
                   <Loader2 className="animate-spin h-4 w-4 mr-2" /> Refreshing data...
                 </div>
             )}
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50">
                 <tr>
                   {[
                       { key: 'custody_serial', label: 'SN' },
-                      { key: 'lg_number', label: 'LG Number' },
-                      { key: 'issuer_name', label: 'Issuer Name' },
+                      { key: 'lg_number', label: 'LG No.' },
+                      { key: 'issuer_name', label: 'Issuer' },
                       { key: 'beneficiary_corporate', label: 'Beneficiary' },
                       { key: 'lg_amount', label: 'Amount' },
-                      { key: 'issuing_bank', label: 'Issuing Bank' },
+                      { key: 'issuing_bank', label: 'Bank' },
                       { key: 'lg_category', label: 'Category' },
-                      { key: 'expiry_date', label: 'Expiry Date' },
+                      { key: 'expiry_date', label: 'Expiry' },
                       { key: 'lg_status', label: 'Status' },
                   ].map((header) => (
                     <th
                       key={header.key}
                       scope="col"
-                      className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100"
+                      className="sticky top-0 z-20 bg-slate-50 px-2.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none hover:bg-slate-100 whitespace-nowrap"
                       onClick={() => handleSort(header.key)}
                     >
                       <div className="flex items-center">
@@ -934,62 +1145,105 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                   ))}
                   
                   {!isCorporateAdminView && (
-                    <th scope="col" className="sticky top-0 z-20 bg-gray-50 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-					  Auto Renew
+                    <th scope="col" className="sticky top-0 z-20 bg-slate-50 px-2 py-2.5 text-center text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+					  Auto
 					</th>
                   )}
-				  <th scope="col" className="sticky top-0 right-0 z-30 bg-gray-50 border-l border-gray-200 px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider shadow-sm">Actions</th>
+				  <th scope="col" className="sticky top-0 right-0 z-30 bg-slate-50 border-l border-slate-200/80 px-2.5 py-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAndSortedRecords.map((record) => (
+              <tbody className="bg-white divide-y divide-slate-100">
+                {filteredAndSortedRecords.map((record) => {
+                  const {
+                    statusName,
+                    isValidStatus,
+                    isInactive,
+                    daysLeft,
+                    isCritical,
+                    isApproaching,
+                    statusPillClass,
+                  } = getRecordVisualMeta(record);
+                  const isClosedLock = statusName === 'Released' || statusName === 'Liquidated';
+
+                  return (
                   <tr 
                       key={record.id} 
-                      className={`group hover:bg-blue-50 transition-colors cursor-pointer ${record.is_deleted ? 'bg-gray-50 opacity-60' : ''}`}
+                      className={`group transition-colors cursor-pointer ${
+                        record.is_deleted
+                          ? 'bg-slate-50 opacity-60'
+                          : isCritical
+                            ? 'bg-rose-50/25 hover:bg-rose-50/50'
+                            : isInactive
+                              ? 'bg-slate-50/60 hover:bg-slate-100/70'
+                              : 'bg-white hover:bg-slate-50/90'
+                      }`}
                       onClick={() => handleViewDetails(record.id)}
                   >
-                    <td className="px-3 py-3 whitespace-nowrap text-xs font-mono font-semibold text-slate-500">
+                    <td className={`px-2.5 py-2.5 whitespace-nowrap text-xs font-mono font-semibold border-l-[3px] ${
+                      isCritical ? 'border-l-rose-500' : isApproaching ? 'border-l-amber-400' : 'border-l-transparent'
+                    } ${isInactive ? 'text-slate-400' : 'text-slate-500'}`}>
                       {formatCustodySerial(record)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
+                    <td className={`px-2.5 py-2.5 max-w-[120px] truncate text-xs ${
+                      isInactive ? 'text-slate-500 font-medium group-hover:text-blue-600' : 'text-blue-600 font-semibold'
+                    }`} title={record.lg_number}>
                       {record.lg_number}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.issuer_name || 'N/A'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.beneficiary_corporate?.entity_name || 'N/A'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
+                    <td className={`px-2.5 py-2.5 max-w-[135px] truncate text-xs ${isInactive ? 'text-slate-400' : 'text-slate-700'}`} title={record.issuer_name || 'N/A'}>{record.issuer_name || 'N/A'}</td>
+                    <td className={`px-2.5 py-2.5 max-w-[135px] truncate text-xs ${isInactive ? 'text-slate-400' : 'text-slate-700'}`} title={record.beneficiary_corporate?.entity_name || 'N/A'}>{record.beneficiary_corporate?.entity_name || 'N/A'}</td>
+                    <td className={`px-2.5 py-2.5 whitespace-nowrap text-xs tabular-nums ${
+                      isInactive ? 'text-slate-500 font-medium' : 'text-slate-900 font-semibold'
+                    }`}>
                       {formatAmount(record.lg_amount, record.lg_currency?.iso_code)}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">
+                    <td className={`px-2.5 py-2.5 max-w-[125px] truncate text-xs ${isInactive ? 'text-slate-400' : 'text-slate-600'}`} title={record.issuing_bank?.name === 'Foreign Bank' ? record.foreign_bank_name || 'N/A' : record.issuing_bank?.name || 'N/A'}>
                       {record.issuing_bank?.name === 'Foreign Bank' ? record.foreign_bank_name || 'N/A' : record.issuing_bank?.name || 'N/A'}
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{record.lg_category?.name || 'N/A'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(record.expiry_date)}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        record.lg_status?.name === 'Valid' ? 'bg-green-100 text-green-800' :
-                        record.lg_status?.name === 'Expired' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {record.lg_status?.name || 'N/A'}
+                    <td className={`px-2.5 py-2.5 max-w-[110px] truncate text-xs ${isInactive ? 'text-slate-400' : 'text-slate-600'}`} title={record.lg_category?.name || 'N/A'}>{record.lg_category?.name || 'N/A'}</td>
+                    <td className="px-2.5 py-2.5 whitespace-nowrap text-xs tabular-nums">
+                      <span className={isCritical ? 'text-rose-700 font-semibold' : isInactive ? 'text-slate-400' : 'text-slate-600'}>
+                        {formatDate(record.expiry_date)}
+                      </span>
+                      {isCritical && (
+                        <span className="ml-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                          {daysLeft <= 0 ? 'Due' : `${daysLeft}d left`}
+                        </span>
+                      )}
+                      {isApproaching && (
+                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          {daysLeft}d
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2.5 py-2.5 whitespace-nowrap text-xs">
+                      <span className={`px-2 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full ${statusPillClass}`}>
+                        {statusName}
                       </span>
                     </td>
                     {!isCorporateAdminView && (
-                      <td className="px-3 py-3 whitespace-nowrap text-center text-sm">
+                      <td className="px-2 py-2.5 whitespace-nowrap text-center text-xs">
                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                           <div onClick={(e) => handleInteractiveClick(e)}>
                               <Switch
                                   checked={record.auto_renewal}
                                   onChange={(newStatus) => handleToggleAutoRenewal(record, newStatus)}
-                                  disabled={isGracePeriod}
+                                  disabled={isGracePeriod || isClosedLock}
                                   className={`${
-                                      record.auto_renewal ? 'bg-blue-600' : 'bg-gray-200'
-                                  } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      record.auto_renewal
+                                        ? isValidStatus
+                                          ? 'bg-blue-600'
+                                          : 'bg-slate-400'
+                                        : 'bg-slate-200'
+                                  } relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                                      isInactive ? 'opacity-55' : ''
+                                  } ${isGracePeriod || isClosedLock ? 'opacity-50 cursor-not-allowed' : ''}`}
                               >
                                   <span className="sr-only">Enable auto-renewal</span>
                                   <span
                                       className={`${
-                                          record.auto_renewal ? 'translate-x-6' : 'translate-x-1'
-                                      } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                                          record.auto_renewal ? 'translate-x-4' : 'translate-x-1'
+                                      } inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`}
                                   />
                               </Switch>
                           </div>
@@ -997,7 +1251,9 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                       </td>
                     )}
                     
-                    <td className="sticky right-0 z-10 bg-white group-hover:bg-blue-50 border-l border-gray-200 px-4 py-4 whitespace-nowrap text-right text-sm font-medium transition-colors shadow-sm">
+                    <td className={`sticky right-0 z-10 border-l border-slate-100 px-2.5 py-2 whitespace-nowrap text-right text-xs font-medium transition-colors ${
+                      isInactive ? 'bg-slate-50 group-hover:bg-slate-100' : 'bg-white group-hover:bg-slate-50'
+                    }`}>
                       <div className="flex justify-end items-center">
                           
                           {!isCorporateAdminView && !isGracePeriod && (
@@ -1006,6 +1262,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                                       lgRecord={record}
                                       onExtend={handleExtend}
                                       onChangeOwner={handleChangeOwner}
+                                      onChangeCategory={handleOpenSingleCategoryModal}
                                       onRelease={handleRelease}
                                       onLiquidate={handleLiquidate}
                                       onDecreaseAmount={handleDecreaseAmount}
@@ -1019,15 +1276,16 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                           
                           <button
                             onClick={() => handleViewDetails(record.id)}
-                            className="text-gray-400 hover:text-blue-600 p-1 rounded-md transition-colors ml-2"
+                            className="text-slate-400 hover:text-blue-600 p-1 rounded-lg hover:bg-blue-50 transition-colors ml-1.5"
                             title="View Details"
                           >
-                            <Eye className="h-5 w-5" />
+                            <Eye className="h-4 w-4" />
                           </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1109,6 +1367,16 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
                 lg={selectedLgForRecordFunds}
                 onClose={() => setShowRecordFundsModal(false)}
                 onSuccess={handleActionSuccess}
+            />
+          )}
+          {categoryModalState.isOpen && (
+            <ChangeLGCategoryModal
+              initialScope="single"
+              lgRecord={categoryModalState.lgRecord}
+              categories={lgCategories.length > 0 ? lgCategories : null}
+              onClose={() => setCategoryModalState({ isOpen: false, lgRecord: null })}
+              onSuccess={handleCategoryChangeSuccess}
+              isGracePeriod={isGracePeriod}
             />
           )}
         </>

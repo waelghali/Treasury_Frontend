@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Outlet } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
 import AIQueryAssistantModal from './AIQueryAssistantModal';
 
 // Layout Imports
@@ -97,7 +97,7 @@ function ProtectedLayout({ onLogout, userId, userEmail, userName, userRole, user
       else if (currentPath.startsWith('/end-user/lg-records/new')) { activeItem = 'end-user-record-new-lg'; title = 'Record New LG'; }
       else if (currentPath.startsWith('/end-user/lg-records')) { activeItem = 'end-user-manage-lg-records'; title = 'Manage LG Records'; }
       else if (currentPath.startsWith('/end-user/pending-approvals')) { activeItem = 'end-user-pending-approvals'; title = 'Withdraw Request'; }
-      else if (currentPath.startsWith('/end-user/internal-owners')) { activeItem = 'end-user-internal-owners'; title = 'Manage Internal Owners'; }
+      else if (currentPath.startsWith('/end-user/internal-owners') || currentPath.startsWith('/end-user/internal-data')) { activeItem = 'end-user-internal-owners'; title = 'Manage Internal Data'; }
       else if (currentPath.startsWith('/end-user/quotations/active') || currentPath.startsWith('/end-user/quotations/new')) { activeItem = 'end-user-quotations-active'; title = 'New & Active Quotations'; }
       else if (currentPath.startsWith('/end-user/quotations/history') || currentPath.startsWith('/end-user/quotations/dashboard') || currentPath.startsWith('/end-user/quotations')) { activeItem = 'end-user-quotations-history'; title = 'Quotation History'; }
       else if (currentPath.startsWith('/end-user/issuance/requests')) { activeItem = 'issuance-requests'; title = 'Issuance Requests'; }
@@ -725,12 +725,9 @@ function ProtectedLayout({ onLogout, userId, userEmail, userName, userRole, user
     );
   } else {
     return (
-      <div className="text-center py-8">
-        <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p className="mt-2 text-gray-500">Loading...</p>
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <p className="text-sm font-medium text-slate-500">Loading workspace...</p>
       </div>
     );
   }

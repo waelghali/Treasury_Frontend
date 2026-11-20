@@ -12,7 +12,8 @@ import {
   Eye,
   Copy,
   Check,
-  Globe
+  Globe,
+  X
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 import { formatDateTime } from 'utils/dateFormat';
@@ -460,9 +461,9 @@ const UserFeedbackDashboard = () => {
               </div>
               <button
                 onClick={() => setSelectedFeedback(null)}
-                className="text-slate-400 hover:text-slate-600 text-sm p-1"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 

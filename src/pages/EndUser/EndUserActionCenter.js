@@ -45,14 +45,14 @@ const EmptyState = ({ icon: Icon, title, description }) => (
 const StatCard = ({ title, count, icon: Icon, colorClass, bgClass, onClick }) => (
     <div 
         onClick={onClick}
-        className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between transition-all duration-200 hover:shadow-md cursor-pointer hover:-translate-y-1 group select-none"
+        className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/90 flex items-center justify-between transition-all duration-200 hover:shadow-md hover:border-slate-300 cursor-pointer group select-none"
     >
         <div>
-            <p className="text-sm font-medium text-gray-500 mb-1 group-hover:text-gray-700 transition-colors">{title}</p>
-            <h3 className="text-2xl font-bold text-gray-900">{count}</h3>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 group-hover:text-slate-700 transition-colors">{title}</p>
+            <h3 className="text-2xl font-bold text-slate-900 tabular-nums">{count}</h3>
         </div>
-        <div className={`p-3 rounded-lg ${bgClass} group-hover:scale-110 transition-transform duration-200`}>
-            <Icon className={`h-6 w-6 ${colorClass}`} />
+        <div className={`p-2.5 rounded-xl ${bgClass} transition-colors duration-200`}>
+            <Icon className={`h-5 w-5 ${colorClass}`} />
         </div>
     </div>
 );
@@ -375,32 +375,32 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
         <div className="w-full min-w-0">
             
             {/* Header Section */}
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-gray-900">
-                    Action Center {isCorporateAdminView && <span className="text-sm font-normal text-gray-500 ml-2">(Read Only)</span>}
+            <div className="mb-4">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                    Action Center {isCorporateAdminView && <span className="text-sm font-normal text-slate-500 ml-2">(Read Only)</span>}
                 </h1>
-                <p className="mt-1 text-sm text-gray-500">Overview of pending tasks, renewals, and bank communications.</p>
+                <p className="mt-0.5 text-sm text-slate-500">Overview of pending tasks, renewals, and bank communications.</p>
             </div>
 
             {error && (
-                <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-md flex items-start">
-                    <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-0.5" />
+                <div className="mb-4 bg-rose-50 border border-rose-200 p-3.5 rounded-xl flex items-start">
+                    <AlertCircle className="h-5 w-5 text-rose-500 mr-3 mt-0.5 shrink-0" />
                     <div>
-                        <h3 className="text-sm font-medium text-red-800">Error loading data</h3>
-                        <p className="text-sm text-red-700 mt-1">{error}</p>
+                        <h3 className="text-sm font-semibold text-rose-800">Error loading data</h3>
+                        <p className="text-sm text-rose-700 mt-0.5">{error}</p>
                     </div>
                 </div>
             )}
 
             {isLoading ? (
-                <div className="flex flex-col justify-center items-center py-20">
-                    <Loader2 className="animate-spin h-10 w-10 text-indigo-600 mb-4" />
-                    <p className="text-gray-500 font-medium">Synchronizing with records...</p>
+                <div className="flex flex-col justify-center items-center py-14">
+                    <Loader2 className="animate-spin h-9 w-9 text-indigo-600 mb-3" />
+                    <p className="text-sm text-slate-500 font-medium">Synchronizing with records...</p>
                 </div>
             ) : (
                 <>
                     {/* Stats Dashboard — module-aware */}
-                    <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 ${
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-5 ${
                         (hasIssuanceModule && hasCustodyModule) ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
                     }`}>
                         <StatCard 
@@ -451,19 +451,19 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                         />
                     </div>
 
-                    <div className="space-y-10">
+                    <div className="space-y-4">
          {/* 1. Printing Section */}
-<div id="section-printing" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
+<div id="section-printing" className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden scroll-mt-24">
     {/* Header: Consistent Flex Layout */}
     <div 
-        className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
+        className="px-4 py-3 border-b border-slate-100 flex items-center bg-slate-50/60 cursor-pointer gap-3"
         onClick={() => setIsPrintingOpen(!isPrintingOpen)}
     >
         <div className="flex items-center space-x-3 flex-1">
-            <div className="p-2 bg-purple-100 rounded-lg">
-                <Printer className="h-5 w-5 text-purple-600" />
+            <div className="p-2 bg-purple-100 rounded-xl">
+                <Printer className="h-4 w-4 text-purple-600" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 flex-1">Approved Requests Pending Print</h2>
+            <h2 className="text-base font-bold text-slate-900 flex-1">Approved Requests Pending Print</h2>
         </div>
 
         {/* Bulk Print Action */}
@@ -476,16 +476,16 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                             toast.info("Bulk Print functionality coming soon!");
                         }}
                         disabled={isGracePeriod}
-                        className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`inline-flex items-center justify-center px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-xl text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                        <Printer className="h-4 w-4 mr-2" /> Bulk Print
+                        <Printer className="h-4 w-4 mr-1.5" /> Bulk Print
                     </button>
                 </GracePeriodTooltip>
             </div>
         )}
 
         {/* Chevron always last */}
-        {isPrintingOpen ? <ChevronUp className="h-6 w-6 text-gray-400 flex-shrink-0" /> : <ChevronDown className="h-6 w-6 text-gray-400 flex-shrink-0" />}
+        {isPrintingOpen ? <ChevronUp className="h-5 w-5 text-slate-400 flex-shrink-0" /> : <ChevronDown className="h-5 w-5 text-slate-400 flex-shrink-0" />}
     </div>
     
     {/* Content: Conditional rendering based on isPrintingOpen */}
@@ -494,42 +494,42 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
             <EmptyState icon={CheckCircle2} title="All Caught Up" description="No approved requests are waiting to be printed." />
         ) : (
             <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">LG Number</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type & Maker</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Approval Date</th>
-                            {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>}
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">LG Number</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Type & Maker</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Approval Date</th>
+                            {!isCorporateAdminView && <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action</th>}
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-slate-100">
                         {approvedPendingPrints.map((req) => {
                             const isMaint = req._source === 'issuance_maintenance';
                             const isDiscrepancy = req._source === 'custody_discrepancy';
                             return (
-                            <tr key={`${req._source || 'custody'}-${req.id}`} className={`${isDiscrepancy ? 'bg-rose-50/40 hover:bg-rose-50/80' : 'hover:bg-gray-50'} transition-colors`}>
-                                <td className="px-6 py-4 whitespace-nowrap">
+                            <tr key={`${req._source || 'custody'}-${req.id}`} className={`${isDiscrepancy ? 'bg-rose-50/40 hover:bg-rose-50/80' : 'hover:bg-slate-50/80'} transition-colors`}>
+                                <td className="px-4 py-2.5 whitespace-nowrap">
                                     <span className="text-sm font-bold text-indigo-600">
                                         {req._display_lg_number}
                                     </span>
-                                    <div className="text-xs text-gray-500 mt-0.5">
+                                    <div className="text-xs text-slate-500 mt-0.5">
                                         {isMaint ? `Instruction: ${req._display_serial}` : `Ref: ${req._display_serial}`}
                                     </div>
                                     {isMaint && <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded font-medium">Issuance</span>}
                                     {isDiscrepancy && <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 rounded font-semibold">Terms Rejected by Admin</span>}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm font-medium text-gray-900">
+                                <td className="px-4 py-2.5 whitespace-nowrap">
+                                    <div className="text-sm font-medium text-slate-900">
                                         {isDiscrepancy ? 'Discrepancy Notice' : formatActionTypeLabel(req._display_action_type)}
                                     </div>
-                                    <div className="text-xs text-gray-500">
+                                    <div className="text-xs text-slate-500">
                                         {isMaint ? '' : (req.maker_user?.email || '')}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(req._display_date)}</td>
+                                <td className="px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm text-slate-500 tabular-nums">{formatDate(req._display_date)}</td>
                                 {!isCorporateAdminView && (
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                    <td className="px-4 py-2.5 whitespace-nowrap text-right text-sm">
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                             {isDiscrepancy ? (
                                                 <button
@@ -538,9 +538,9 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                                         handlePrintDiscrepancyLetter(req._instruction_id || req.id, req._display_lg_number);
                                                     }}
                                                     disabled={isGracePeriod}
-                                                    className={`inline-flex items-center px-3 py-1.5 border border-rose-300 text-sm font-medium rounded-md text-rose-700 bg-rose-50 hover:bg-rose-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className={`inline-flex items-center px-3 py-1.5 border border-rose-300 text-xs font-semibold rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
-                                                    <Printer className="h-4 w-4 mr-1.5" /> Print Letter
+                                                    <Printer className="h-3.5 w-3.5 mr-1.5" /> Print Letter
                                                 </button>
                                             ) : (
                                                 <button 
@@ -553,9 +553,9 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                                         }
                                                     }}
                                                     disabled={isGracePeriod}
-                                                    className={`inline-flex items-center px-3 py-1.5 border border-purple-200 text-sm font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className={`inline-flex items-center px-3 py-1.5 border border-purple-200 text-xs font-semibold rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
-                                                    <Printer className="h-4 w-4 mr-1.5" /> Print Letter
+                                                    <Printer className="h-3.5 w-3.5 mr-1.5" /> Print Letter
                                                 </button>
                                             )}
                                         </GracePeriodTooltip>
@@ -572,17 +572,17 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
 </div>
 
 {/* 2. Renewals Section — custody module only */}
-{hasCustodyModule && <div id="section-renewals" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
+{hasCustodyModule && <div id="section-renewals" className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden scroll-mt-24">
     {/* Header: Consistent Flex Layout */}
     <div 
-        className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
+        className="px-4 py-3 border-b border-slate-100 flex items-center bg-slate-50/60 cursor-pointer gap-3"
         onClick={() => setIsRenewalsOpen(!isRenewalsOpen)}
     >
-        <div className="flex items-center space-x-3 flex-1">
-            <div className="p-2 bg-orange-100 rounded-lg">
-                <Clock className="h-5 w-5 text-orange-600" />
+        <div className="flex items-center space-x-3 flex-1 flex-wrap gap-2">
+            <div className="p-2 bg-orange-100 rounded-xl">
+                <Clock className="h-4 w-4 text-orange-600" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 flex-1">Approaching Expiry / Renewal</h2>
+            <h2 className="text-base font-bold text-slate-900 flex-1">Approaching Expiry / Renewal</h2>
             {!isCorporateAdminView && (
                 <button
                     type="button"
@@ -591,7 +591,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                         setAutoRenewalModalTab('history');
                         setShowRunAutoRenewalModal(true);
                     }}
-                    className="inline-flex items-center justify-center px-3.5 py-2 text-sm font-medium rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 shadow-sm transition-all active:scale-95"
+                    className="inline-flex items-center justify-center px-3 py-1.5 text-xs sm:text-sm font-medium rounded-xl text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 shadow-2xs transition-all active:scale-95"
                     title="View previous auto-renewal runs and re-print extension letters"
                 >
                     <History className="h-4 w-4 mr-1.5" /> Previous Runs / Re-print
@@ -609,16 +609,16 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                             setShowRunAutoRenewalModal(true);
                         }}
                         disabled={isGracePeriod}
-                        className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-orange-600 hover:bg-orange-700 shadow-sm transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`inline-flex items-center justify-center px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl text-white bg-orange-600 hover:bg-orange-700 shadow-2xs transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                        <Repeat className="h-4 w-4 mr-2" /> Auto Renewal
+                        <Repeat className="h-4 w-4 mr-1.5" /> Auto Renewal
                     </button>
                 </GracePeriodTooltip>
             </div>
         )}
 
         {/* Chevron always last */}
-        {isRenewalsOpen ? <ChevronUp className="h-6 w-6 text-gray-400 flex-shrink-0" /> : <ChevronDown className="h-6 w-6 text-gray-400 flex-shrink-0" />}
+        {isRenewalsOpen ? <ChevronUp className="h-5 w-5 text-slate-400 flex-shrink-0" /> : <ChevronDown className="h-5 w-5 text-slate-400 flex-shrink-0" />}
     </div>
 
     {/* Content: Conditional based on isRenewalsOpen */}
@@ -627,22 +627,22 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
             <EmptyState icon={CheckCircle2} title="No Immediate Risks" description="There are no LGs approaching expiry or requiring renewal." />
         ) : (
             <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">LG Details</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                            {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>}
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">LG Details</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Expiry</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                            {!isCorporateAdminView && <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action</th>}
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-slate-100">
                         {lgRenewalList.map((lg) => {
                             const daysLeft = moment(lg.expiry_date).diff(moment(), 'days');
                             const urgencyStatus = getUrgencyStatus(daysLeft, 'expiry');
                             return (
-                                <tr key={lg.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                <tr key={lg.id} className="hover:bg-slate-50/80 transition-colors">
+                                    <td className="px-4 py-2.5 whitespace-nowrap">
                                         <button 
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -652,17 +652,17 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                         >
                                             {lg.lg_number}
                                         </button>
-                                        <span className="text-xs text-gray-500">{lg.issuer_name || 'N/A'}</span>
-                                        <div className="text-xs font-medium text-gray-700 mt-1">
+                                        <span className="text-xs text-slate-500">{lg.issuer_name || 'N/A'}</span>
+                                        <div className="text-xs font-medium text-slate-700 mt-0.5 tabular-nums">
                                             {formatAmount(lg.lg_amount, lg.lg_currency?.iso_code)}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatDate(lg.expiry_date)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm text-slate-600 tabular-nums">{formatDate(lg.expiry_date)}</td>
+                                    <td className="px-4 py-2.5 whitespace-nowrap">
                                         <StatusBadge type={urgencyStatus}>{daysLeft} Days Left</StatusBadge>
                                     </td>
                                     {!isCorporateAdminView && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                        <td className="px-4 py-2.5 whitespace-nowrap text-right text-sm">
                                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                 <button 
                                                     onClick={(e) => {
@@ -675,9 +675,9 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                                         }
                                                     }}
                                                     disabled={isGracePeriod}
-                                                    className={`inline-flex items-center px-3 py-1.5 border border-indigo-200 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className={`inline-flex items-center px-3 py-1.5 border border-indigo-200 text-xs font-semibold rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
-                                                    <CalendarPlus className="h-4 w-4 mr-1.5" /> Renew
+                                                    <CalendarPlus className="h-3.5 w-3.5 mr-1.5" /> Renew
                                                 </button>
                                             </GracePeriodTooltip>
                                         </td>
@@ -693,18 +693,18 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
 </div>}
 
 {/* 3. Delivery Confirmation Section */}
-<div id="section-delivery" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
+<div id="section-delivery" className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden scroll-mt-24">
     {/* Header: Clickable to toggle */}
     <div 
-        className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
+        className="px-4 py-3 border-b border-slate-100 flex items-center bg-slate-50/60 cursor-pointer gap-3"
         onClick={() => setIsDeliveryOpen(!isDeliveryOpen)}
     >
-        <div className="p-2 bg-blue-100 rounded-lg">
-            <Truck className="h-5 w-5 text-blue-600" />
+        <div className="p-2 bg-blue-100 rounded-xl">
+            <Truck className="h-4 w-4 text-blue-600" />
         </div>
-        <h2 className="text-lg font-semibold text-gray-900 flex-1">Awaiting Delivery Confirmation</h2>
+        <h2 className="text-base font-bold text-slate-900 flex-1">Awaiting Delivery Confirmation</h2>
         {/* Chevron always last */}
-        {isDeliveryOpen ? <ChevronUp className="h-6 w-6 text-gray-400 flex-shrink-0" /> : <ChevronDown className="h-6 w-6 text-gray-400 flex-shrink-0" />}
+        {isDeliveryOpen ? <ChevronUp className="h-5 w-5 text-slate-400 flex-shrink-0" /> : <ChevronDown className="h-5 w-5 text-slate-400 flex-shrink-0" />}
     </div>
 
     {/* Content: Conditional based on isDeliveryOpen */}
@@ -713,16 +713,16 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
             <EmptyState icon={CheckCircle2} title="Deliveries Up to Date" description="All dispatched instructions have been marked as delivered." />
         ) : (
             <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Instruction</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Dates</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Delay</th>
-                            {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>}
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Instruction</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Dates</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Delay</th>
+                            {!isCorporateAdminView && <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action</th>}
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-slate-100">
                         {instructionsUndelivered.map((inst, idx) => {
                             const isIss = inst._issuance;
                             const lgNum = isIss ? (inst.lg_number || '—') : (inst.lg_record?.lg_number || '—');
@@ -734,19 +734,19 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                             const daysStuck = Math.round(moment().diff(moment(issuedDate), 'days', true));
                             const urgencyStatus = getUrgencyStatus(daysStuck, 'undelivered');
                             return (
-                                <tr key={`${isIss ? 'iss' : 'cust'}-${inst.id}-${idx}`} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                <tr key={`${isIss ? 'iss' : 'cust'}-${inst.id}-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                                    <td className="px-4 py-2.5 whitespace-nowrap">
                                         <div className="flex items-center">
-                                            <FileText className="h-4 w-4 text-gray-400 mr-2" />
+                                            <FileText className="h-4 w-4 text-slate-400 mr-2" />
                                             {lgId ? (
                                                 <button onClick={(e) => { e.stopPropagation(); handleViewDetails(lgId); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
                                             ) : issLgId ? (
                                                 <button onClick={(e) => { e.stopPropagation(); navigate(isCorporateAdminView ? '/corporate-admin/issuance/issued-lgs' : '/end-user/issuance/issued-lgs', { state: { openLgId: issLgId } }); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
                                             ) : (
-                                                <span className="text-sm font-bold text-gray-900">{lgNum}</span>
+                                                <span className="text-sm font-bold text-slate-900">{lgNum}</span>
                                             )}
                                         </div>
-                                        <div className="text-xs text-gray-500 mt-1 ml-6 flex items-center gap-2">
+                                        <div className="text-xs text-slate-500 mt-1 ml-6 flex items-center gap-2">
                                             <span>{actionLabel} {serialNum && `#${serialNum}`}</span>
                                             {!isIss && inst.id && (
                                                 <button
@@ -755,7 +755,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                                         e.stopPropagation();
                                                         handleViewLetter(inst.id, lgNum);
                                                     }}
-                                                    className="inline-flex items-center px-2 py-0.5 border border-indigo-200 text-[11px] font-medium rounded text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                                                    className="inline-flex items-center px-2 py-0.5 border border-indigo-200 text-[11px] font-medium rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors"
                                                     title="View / Re-print Instruction Letter"
                                                 >
                                                     <Printer className="h-3 w-3 mr-1" /> Print Letter
@@ -764,12 +764,12 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                         </div>
                                         {isIss && <span className={`inline-block mt-1 ml-6 text-[10px] px-1.5 py-0.5 rounded font-medium ${inst._source === 'issuance_maintenance' ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>{inst._source === 'issuance_maintenance' ? 'Maintenance' : 'Issuance'}</span>}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">Created: {formatDate(issuedDate)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="px-4 py-2.5 whitespace-nowrap text-xs sm:text-sm text-slate-600 tabular-nums">Created: {formatDate(issuedDate)}</td>
+                                    <td className="px-4 py-2.5 whitespace-nowrap">
                                         <StatusBadge type={urgencyStatus}>{daysStuck} Days Pending</StatusBadge>
                                     </td>
                                     {!isCorporateAdminView && (
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                        <td className="px-4 py-2.5 whitespace-nowrap text-right text-sm">
                                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                     <button 
                                                         onClick={(e) => {
@@ -782,9 +782,9 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                                             }
                                                         }}
                                                         disabled={isGracePeriod}
-                                                        className={`inline-flex items-center px-3 py-1.5 border border-blue-200 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        className={`inline-flex items-center px-3 py-1.5 border border-blue-200 text-xs font-semibold rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
-                                                        <CheckCircle2 className="h-4 w-4 mr-1.5" /> Confirm Delivery
+                                                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Confirm Delivery
                                                     </button>
                                                 </GracePeriodTooltip>
                                         </td>
@@ -799,17 +799,17 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
     )}
 </div>
 {/* 4. Awaiting Reply Section */}
-<div id="section-replies" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
+<div id="section-replies" className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden scroll-mt-24">
     {/* Header: Clickable to toggle */}
     <div 
-        className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
+        className="px-4 py-3 border-b border-slate-100 flex items-center bg-slate-50/60 cursor-pointer gap-3"
         onClick={() => setIsRepliesOpen(!isRepliesOpen)}
     >
         <div className="flex items-center space-x-3 flex-1">
-            <div className="p-2 bg-teal-100 rounded-lg">
-                <Building className="h-5 w-5 text-teal-600" />
+            <div className="p-2 bg-teal-100 rounded-xl">
+                <Building className="h-4 w-4 text-teal-600" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 flex-1">Awaiting Bank Reply</h2>
+            <h2 className="text-base font-bold text-slate-900 flex-1">Awaiting Bank Reply</h2>
         </div>
 
         {!isCorporateAdminView && (
@@ -821,16 +821,16 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                             setShowBulkRemindersModal(true);
                         }}
                         disabled={isGracePeriod}
-                        className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`inline-flex items-center justify-center px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-xl text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                        <Mail className="h-4 w-4 mr-2" /> Bulk Reminders
+                        <Mail className="h-4 w-4 mr-1.5" /> Bulk Reminders
                     </button>
                 </GracePeriodTooltip>
             </div>
         )}
 
         {/* Chevron always last */}
-        {isRepliesOpen ? <ChevronUp className="h-6 w-6 text-gray-400 flex-shrink-0" /> : <ChevronDown className="h-6 w-6 text-gray-400 flex-shrink-0" />}
+        {isRepliesOpen ? <ChevronUp className="h-5 w-5 text-slate-400 flex-shrink-0" /> : <ChevronDown className="h-5 w-5 text-slate-400 flex-shrink-0" />}
     </div>
 
     {/* Content: Conditional based on isRepliesOpen */}
@@ -839,16 +839,16 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
             <EmptyState icon={CheckCircle2} title="No Pending Replies" description="The bank has responded to all your instructions." />
         ) : (
             <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">LG Number</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Instruction</th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Timeline</th>
-                            {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>}
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">LG Number</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Instruction</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Timeline</th>
+                            {!isCorporateAdminView && <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>}
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-slate-100">
                         {instructionsNoReply.map((inst, idx) => {
                             const isIss = inst._issuance;
                             const lgNum = isIss ? (inst.lg_number || 'N/A') : (inst.lg_record?.lg_number || 'N/A');
@@ -859,26 +859,26 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                             const delivDate = inst.delivery_date;
                             const isTermsRejected = !isIss && inst.details?.bank_terms_admin_approval?.status === 'REJECTED_BY_ADMIN';
                             return (
-                            <tr key={`${isIss ? 'iss' : 'cust'}-${inst.id}-${idx}`} className={`${isTermsRejected ? 'bg-rose-50/30 hover:bg-rose-50/60' : 'hover:bg-gray-50'} transition-colors`}>
-                                <td className="px-6 py-4 whitespace-nowrap">
+                            <tr key={`${isIss ? 'iss' : 'cust'}-${inst.id}-${idx}`} className={`${isTermsRejected ? 'bg-rose-50/30 hover:bg-rose-50/60' : 'hover:bg-slate-50/80'} transition-colors`}>
+                                <td className="px-4 py-2.5 whitespace-nowrap">
                                     {lgId ? (
                                         <button onClick={(e) => { e.stopPropagation(); handleViewDetails(lgId); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
                                     ) : issLgId ? (
                                         <button onClick={(e) => { e.stopPropagation(); navigate(isCorporateAdminView ? '/corporate-admin/issuance/issued-lgs' : '/end-user/issuance/issued-lgs', { state: { openLgId: issLgId } }); }} className="text-sm font-bold text-indigo-600 hover:underline">{lgNum}</button>
                                     ) : (
-                                        <span className="text-sm font-bold text-gray-900">{lgNum}</span>
+                                        <span className="text-sm font-bold text-slate-900">{lgNum}</span>
                                     )}
                                     {isIss && <span className={`inline-block ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium ${inst._source === 'issuance_maintenance' ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-700'}`}>{inst._source === 'issuance_maintenance' ? 'Maint.' : 'Issuance'}</span>}
                                     {isTermsRejected && <span className="inline-block ml-2 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-rose-100 text-rose-700 border border-rose-200">Terms Rejected</span>}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-sm text-gray-900">{actionLabel}</div>
-                                    {serialNum && <div className="text-xs text-gray-500">#{serialNum}</div>}
+                                <td className="px-4 py-2.5 whitespace-nowrap">
+                                    <div className="text-sm text-slate-900">{actionLabel}</div>
+                                    {serialNum && <div className="text-xs text-slate-500">#{serialNum}</div>}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="text-xs text-gray-500 flex flex-col space-y-1">
+                                <td className="px-4 py-2.5 whitespace-nowrap">
+                                    <div className="text-xs text-slate-500 flex flex-col space-y-1">
                                         {delivDate && (
-                                            <span className="text-green-600 flex items-center">
+                                            <span className="text-emerald-600 flex items-center">
                                                 <CheckCircle2 className="w-3 h-3 mr-1"/> Delivered: {formatDate(delivDate)}
                                             </span>
                                         )}
@@ -893,7 +893,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                     </div>
                                 </td>
                                 {!isCorporateAdminView && (
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                    <td className="px-4 py-2.5 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                         {isTermsRejected && (
                                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                 <button
@@ -902,9 +902,9 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                                         handlePrintDiscrepancyLetter(inst.id, lgNum);
                                                     }}
                                                     disabled={isGracePeriod}
-                                                    className={`inline-flex items-center px-3 py-1.5 border border-rose-300 text-sm font-medium rounded-md text-rose-700 bg-rose-50 hover:bg-rose-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className={`inline-flex items-center px-3 py-1.5 border border-rose-300 text-xs font-semibold rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
-                                                    <Printer className="h-4 w-4 mr-1.5" /> Print Notice
+                                                    <Printer className="h-3.5 w-3.5 mr-1.5" /> Print Notice
                                                 </button>
                                             </GracePeriodTooltip>
                                         )}
@@ -920,9 +920,9 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                                         }
                                                     }}
                                                     disabled={isGracePeriod}
-                                                    className={`inline-flex items-center px-3 py-1.5 border border-green-200 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className={`inline-flex items-center px-3 py-1.5 border border-emerald-200 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 >
-                                                    <ArrowRight className="h-4 w-4 mr-1.5" /> Record Reply
+                                                    <ArrowRight className="h-3.5 w-3.5 mr-1.5" /> Record Reply
                                                 </button>
                                             </GracePeriodTooltip>
                                             
@@ -931,18 +931,18 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
                                             {inst.has_reminder_sent ? (
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); handleViewLetter(inst.id, inst.lg_record?.lg_number || 'N/A'); }}
-                                                    className="inline-flex items-center px-3 py-1.5 border border-yellow-200 text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-all active:scale-95"
+                                                    className="inline-flex items-center px-3 py-1.5 border border-amber-200 text-xs font-semibold rounded-lg text-amber-800 bg-amber-50 hover:bg-amber-100 transition-all active:scale-95"
                                                 >
-                                                    <Eye className="h-4 w-4 mr-1.5" /> View Reminder
+                                                    <Eye className="h-3.5 w-3.5 mr-1.5" /> View Reminder
                                                 </button>
                                             ) : (
                                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                     <button 
                                                         onClick={(e) => { e.stopPropagation(); handleSendReminder(inst.id, inst.serial_number); }}
                                                         disabled={isGracePeriod}
-                                                        className={`inline-flex items-center px-3 py-1.5 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-gray-50 hover:bg-gray-100 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        className={`inline-flex items-center px-3 py-1.5 border border-slate-200 text-xs font-semibold rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition-all active:scale-95 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     >
-                                                        <Mail className="h-4 w-4 mr-1.5" /> Remind
+                                                        <Mail className="h-3.5 w-3.5 mr-1.5" /> Remind
                                                     </button>
                                                 </GracePeriodTooltip>
                                             )}
@@ -964,7 +964,7 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
 {(issuanceApprovedRequests.length > 0 || issuanceApprovedMaintenance.length > 0 || issuanceApproachingExpiry.length > 0) && (
     <>
     {/* Section Divider */}
-    <div className="flex items-center gap-3 mt-6 mb-2">
+    <div className="flex items-center gap-3 mt-4 mb-1">
         <div className="h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300 to-transparent" />
         <span className="text-xs font-semibold uppercase tracking-wider text-indigo-500">LG Issuance Actions</span>
         <div className="h-px flex-1 bg-gradient-to-r from-transparent via-indigo-300 to-transparent" />
@@ -972,39 +972,39 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
 
     {/* Issuance: Approved Requests Ready to Process */}
     {issuanceApprovedRequests.length > 0 && (
-        <div id="section-iss-approved-req" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
+        <div id="section-iss-approved-req" className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden scroll-mt-24">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center bg-slate-50/60 cursor-pointer gap-3"
                  onClick={() => setIsApprovedRequestsOpen(!isApprovedRequestsOpen)}>
                 <div className="flex items-center space-x-3 flex-1">
-                    <div className="p-2 bg-green-100 rounded-lg"><ClipboardCheck className="h-5 w-5 text-green-600" /></div>
-                    <h2 className="text-lg font-semibold text-gray-900 flex-1">Approved Requests — Ready to Process ({issuanceApprovedRequests.length})</h2>
+                    <div className="p-2 bg-green-100 rounded-xl"><ClipboardCheck className="h-4 w-4 text-green-600" /></div>
+                    <h2 className="text-base font-bold text-slate-900 flex-1">Approved Requests — Ready to Process ({issuanceApprovedRequests.length})</h2>
                 </div>
-                {isApprovedRequestsOpen ? <ChevronUp className="h-6 w-6 text-gray-400" /> : <ChevronDown className="h-6 w-6 text-gray-400" />}
+                {isApprovedRequestsOpen ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
             </div>
             {isApprovedRequestsOpen && (
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-slate-200">
+                        <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Serial #</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiary</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Approved</th>
-                                {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Action</th>}
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Serial #</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Beneficiary</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Department</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Approved</th>
+                                {!isCorporateAdminView && <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action</th>}
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-slate-100">
                             {issuanceApprovedRequests.map(r => (
-                                <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(isCorporateAdminView ? '/corporate-admin/issuance/requests' : '/end-user/issuance/requests', { state: { openRequestId: r.id } })}>
-                                    <td className="px-6 py-4 text-sm font-bold text-indigo-600">{r.serial_number}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">{r.beneficiary_name || '—'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{r.department || '—'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">{formatDate(r.approved_at)}</td>
+                                <tr key={r.id} className="hover:bg-slate-50/80 cursor-pointer" onClick={() => navigate(isCorporateAdminView ? '/corporate-admin/issuance/requests' : '/end-user/issuance/requests', { state: { openRequestId: r.id } })}>
+                                    <td className="px-4 py-2.5 text-sm font-bold text-indigo-600 whitespace-nowrap">{r.serial_number}</td>
+                                    <td className="px-4 py-2.5 text-sm text-slate-700 max-w-[200px] truncate" title={r.beneficiary_name || ''}>{r.beneficiary_name || '—'}</td>
+                                    <td className="px-4 py-2.5 text-sm text-slate-600 whitespace-nowrap">{r.department || '—'}</td>
+                                    <td className="px-4 py-2.5 text-sm text-slate-500 whitespace-nowrap tabular-nums">{formatDate(r.approved_at)}</td>
                                     {!isCorporateAdminView && (
-                                        <td className="px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
+                                        <td className="px-4 py-2.5 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                                             <button onClick={() => navigate(isCorporateAdminView ? '/corporate-admin/issuance/requests' : '/end-user/issuance/requests', { state: { openRequestId: r.id } })}
-                                                className="inline-flex items-center px-3 py-1.5 border border-green-200 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-all active:scale-95">
-                                                <ArrowRight className="h-4 w-4 mr-1.5" /> Process
+                                                className="inline-flex items-center px-3 py-1.5 border border-emerald-200 text-xs font-semibold rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all active:scale-95">
+                                                <ArrowRight className="h-3.5 w-3.5 mr-1.5" /> Process
                                             </button>
                                         </td>
                                     )}
@@ -1019,39 +1019,39 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
 
     {/* Issuance: Approved Maintenance Ready to Execute */}
     {issuanceApprovedMaintenance.length > 0 && (
-        <div id="section-iss-approved-maint" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
+        <div id="section-iss-approved-maint" className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden scroll-mt-24">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center bg-slate-50/60 cursor-pointer gap-3"
                  onClick={() => setIsApprovedMaintenanceOpen(!isApprovedMaintenanceOpen)}>
                 <div className="flex items-center space-x-3 flex-1">
-                    <div className="p-2 bg-rose-100 rounded-lg"><Wrench className="h-5 w-5 text-rose-600" /></div>
-                    <h2 className="text-lg font-semibold text-gray-900 flex-1">Approved Maintenance — Ready to Execute ({issuanceApprovedMaintenance.length})</h2>
+                    <div className="p-2 bg-rose-100 rounded-xl"><Wrench className="h-4 w-4 text-rose-600" /></div>
+                    <h2 className="text-base font-bold text-slate-900 flex-1">Approved Maintenance — Ready to Execute ({issuanceApprovedMaintenance.length})</h2>
                 </div>
-                {isApprovedMaintenanceOpen ? <ChevronUp className="h-6 w-6 text-gray-400" /> : <ChevronDown className="h-6 w-6 text-gray-400" />}
+                {isApprovedMaintenanceOpen ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
             </div>
             {isApprovedMaintenanceOpen && (
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-slate-200">
+                        <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LG Number</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action Type</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiary</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Approved</th>
-                                {!isCorporateAdminView && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Action</th>}
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">LG Number</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action Type</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Beneficiary</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Approved</th>
+                                {!isCorporateAdminView && <th className="px-4 py-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action</th>}
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-slate-100">
                             {issuanceApprovedMaintenance.map(a => (
-                                <tr key={a.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{a.lg_number || '—'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{formatActionTypeLabel(a.action_type)}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{a.beneficiary || '—'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">{formatDate(a.approved_at)}</td>
+                                <tr key={a.id} className="hover:bg-slate-50/80">
+                                    <td className="px-4 py-2.5 text-sm font-medium text-slate-900 whitespace-nowrap">{a.lg_number || '—'}</td>
+                                    <td className="px-4 py-2.5 text-sm text-slate-600 whitespace-nowrap">{formatActionTypeLabel(a.action_type)}</td>
+                                    <td className="px-4 py-2.5 text-sm text-slate-600 max-w-[200px] truncate" title={a.beneficiary || ''}>{a.beneficiary || '—'}</td>
+                                    <td className="px-4 py-2.5 text-sm text-slate-500 whitespace-nowrap tabular-nums">{formatDate(a.approved_at)}</td>
                                     {!isCorporateAdminView && (
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-4 py-2.5 text-right whitespace-nowrap">
                                             <button onClick={() => navigate(isCorporateAdminView ? '/corporate-admin/issuance/issued-lgs' : '/end-user/issuance/issued-lgs', { state: { openLgNumber: a.lg_number, actionId: a.id } })}
-                                                className="inline-flex items-center px-3 py-1.5 border border-rose-200 text-sm font-medium rounded-md text-rose-700 bg-rose-50 hover:bg-rose-100 transition-all active:scale-95">
-                                                <ArrowRight className="h-4 w-4 mr-1.5" /> Execute
+                                                className="inline-flex items-center px-3 py-1.5 border border-rose-200 text-xs font-semibold rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 transition-all active:scale-95">
+                                                <ArrowRight className="h-3.5 w-3.5 mr-1.5" /> Execute
                                             </button>
                                         </td>
                                     )}
@@ -1066,43 +1066,43 @@ function EndUserActionCenter({ isGracePeriod, isCorporateAdminView = false }) {
 
     {/* Issuance: Approaching Expiry */}
     {issuanceApproachingExpiry.length > 0 && (
-        <div id="section-iss-expiry" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-24">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center bg-gray-50/50 cursor-pointer gap-4"
+        <div id="section-iss-expiry" className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden scroll-mt-24">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center bg-slate-50/60 cursor-pointer gap-3"
                  onClick={() => setIsIssuanceApproachingExpiryOpen(!isIssuanceApproachingExpiryOpen)}>
                 <div className="flex items-center space-x-3 flex-1">
-                    <div className="p-2 bg-amber-100 rounded-lg"><AlertCircle className="h-5 w-5 text-amber-600" /></div>
-                    <h2 className="text-lg font-semibold text-gray-900 flex-1">Issuance — Approaching Expiry ({issuanceApproachingExpiry.length})</h2>
+                    <div className="p-2 bg-amber-100 rounded-xl"><AlertCircle className="h-4 w-4 text-amber-600" /></div>
+                    <h2 className="text-base font-bold text-slate-900 flex-1">Issuance — Approaching Expiry ({issuanceApproachingExpiry.length})</h2>
                 </div>
-                {isIssuanceApproachingExpiryOpen ? <ChevronUp className="h-6 w-6 text-gray-400" /> : <ChevronDown className="h-6 w-6 text-gray-400" />}
+                {isIssuanceApproachingExpiryOpen ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
             </div>
             {isIssuanceApproachingExpiryOpen && (
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-slate-200">
+                        <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LG Number</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beneficiary</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expiry Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days Left</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Suggestion</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">LG Number</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Beneficiary</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Amount</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Expiry Date</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Days Left</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Suggestion</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-slate-100">
                             {issuanceApproachingExpiry.map(lg => (
-                                <tr key={lg.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{lg.lg_number || '—'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{lg.beneficiary_name || '—'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{lg.amount ? `${lg.currency || ''} ${parseFloat(lg.amount).toLocaleString()}` : '—'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-600">{formatDate(lg.bank_lg_expiry_date)}</td>
-                                    <td className="px-6 py-4 text-sm">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                            lg.days_to_expiry <= 7 ? 'bg-red-100 text-red-700' :
-                                            lg.days_to_expiry <= 14 ? 'bg-amber-100 text-amber-700' :
-                                            'bg-green-100 text-green-700'
+                                <tr key={lg.id} className="hover:bg-slate-50/80">
+                                    <td className="px-4 py-2.5 text-sm font-medium text-slate-900 whitespace-nowrap">{lg.lg_number || '—'}</td>
+                                    <td className="px-4 py-2.5 text-sm text-slate-600 max-w-[180px] truncate" title={lg.beneficiary_name || ''}>{lg.beneficiary_name || '—'}</td>
+                                    <td className="px-4 py-2.5 text-sm text-slate-600 whitespace-nowrap tabular-nums">{lg.amount ? `${lg.currency || ''} ${parseFloat(lg.amount).toLocaleString()}` : '—'}</td>
+                                    <td className="px-4 py-2.5 text-sm text-slate-600 whitespace-nowrap tabular-nums">{formatDate(lg.bank_lg_expiry_date)}</td>
+                                    <td className="px-4 py-2.5 text-sm whitespace-nowrap">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                            lg.days_to_expiry <= 7 ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                                            lg.days_to_expiry <= 14 ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                            'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                         }`}>{lg.days_to_expiry} days</span>
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-indigo-600">{lg.suggestion}</td>
+                                    <td className="px-4 py-2.5 text-sm text-indigo-600 max-w-[200px] truncate" title={lg.suggestion || ''}>{lg.suggestion}</td>
                                 </tr>
                             ))}
                         </tbody>

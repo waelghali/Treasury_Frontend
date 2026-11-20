@@ -49,9 +49,9 @@ function CountryMultiSelect({ selected = [], onChange, ruleType }) {
       {selected.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-1.5">
           {selected.map(code => (
-            <span key={code} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold ${ruleType === 'ALLOW' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+            <span key={code} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold ${ruleType === 'ALLOW' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
               {label(code)}
-              <button type="button" onClick={() => toggle(code)} className="hover:opacity-70">×</button>
+              <button type="button" onClick={() => toggle(code)} className="hover:opacity-70 p-0.5" aria-label="Remove country"><X size={10} /></button>
             </span>
           ))}
         </div>
@@ -352,30 +352,30 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
     <button
       type="button"
       onClick={() => setActiveTab(id)}
-      className={`flex items-center gap-2 px-6 py-3 border-b-2 font-bold text-[12px] transition-all ${activeTab === id ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+      className={`flex items-center gap-2 px-5 py-3 rounded-none border-b-2 font-bold text-xs tracking-wide transition-all ${activeTab === id ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
     >
       <Icon size={14} /> {label.toUpperCase()}
     </button>
   );
 
   return (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full h-full flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xl w-full max-w-7xl max-h-[92vh] h-full flex flex-col overflow-hidden">
 
         {/* HEADER */}
-        <div className="p-4 bg-slate-900 text-white flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl shadow-lg"><Landmark size={24} /></div>
+        <div className="px-5 py-3.5 bg-slate-900 text-white flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-3.5">
+            <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-700 rounded-xl shadow-sm"><Landmark size={20} /></div>
             <div>
-              <h2 className="text-xl font-black tracking-tight">{isEdit ? 'Update Facility' : 'Create Issuance Facility'}</h2>
-              <p className="text-slate-400 text-[12px] font-bold uppercase tracking-widest">Model Version: Issuance-v2.1 (Multi-CCY Enabled)</p>
+              <h2 className="text-lg font-bold tracking-tight">{isEdit ? 'Update Facility' : 'Create Issuance Facility'}</h2>
+              <p className="text-slate-400 text-[11px] font-semibold uppercase tracking-wider">Model Version: Issuance-v2.1 (Multi-CCY Enabled)</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full transition-colors"><X size={20} /></button>
+          <button onClick={onClose} className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors" aria-label="Close"><X size={20} /></button>
         </div>
 
         {/* TABS NAVIGATION */}
-        <div className="flex bg-slate-50 border-b border-slate-200 px-4">
+        <div className="flex bg-slate-50 border-b border-slate-200 px-4 shrink-0">
           <TabButton id="basic" label="Basic Info" icon={Building2} />
           <TabButton id="risk" label="Risk & Governance" icon={ShieldCheck} />
           <TabButton id="sublimits" label="Sub-Limits & Pricing" icon={Settings2} />
@@ -876,7 +876,7 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
                                 return proj ? (
                                   <span key={pid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-orange-100 text-orange-700">
                                     {proj.name}
-                                    <button type="button" onClick={() => updateSubLimit(index, 'dedicated_project_ids', (sl.dedicated_project_ids || []).filter(id => id !== pid))} className="hover:opacity-70">×</button>
+                                    <button type="button" onClick={() => updateSubLimit(index, 'dedicated_project_ids', (sl.dedicated_project_ids || []).filter(id => id !== pid))} className="hover:opacity-70 p-0.5" aria-label="Remove project"><X size={10} /></button>
                                   </span>
                                 ) : null;
                               })}
@@ -893,12 +893,12 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
         </form>
 
         {/* FOOTER */}
-        <div className="p-6 border-t bg-slate-50 flex justify-between items-center">
-          <div className="flex items-center gap-2 text-slate-400 font-bold text-[9px] uppercase tracking-widest"><Info size={12} /> Issuance-v2.1 Full Schema Compliant</div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="px-6 py-2.5 text-[12px] font-black text-slate-500 hover:bg-slate-200 rounded-xl transition-all uppercase tracking-tighter">Discard</button>
-            <button onClick={handleSubmit} disabled={loading || isUploading} className="px-10 py-2.5 bg-slate-900 text-white text-[12px] font-black rounded-xl shadow-xl hover:shadow-blue-500/20 disabled:opacity-50 flex items-center gap-2 transition-all uppercase tracking-tighter">
-              {(loading || isUploading) ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-wider"><Info size={12} /> Issuance-v2.1 Full Schema Compliant</div>
+          <div className="flex gap-2.5">
+            <button onClick={onClose} className="px-5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl shadow-sm transition-colors uppercase tracking-wide">Discard</button>
+            <button onClick={handleSubmit} disabled={loading || isUploading} className="px-7 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50 flex items-center gap-2 transition-colors uppercase tracking-wide">
+              {(loading || isUploading) ? <Loader2 className="animate-spin" size={15} /> : <ShieldCheck size={15} />}
               {isUploading ? 'UPLOADING...' : (isEdit ? 'AUTHORIZE & UPDATE FACILITY' : 'AUTHORIZE & SAVE FACILITY')}
             </button>
           </div>

@@ -238,7 +238,7 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject, 
                     enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100"
                     leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-gray-500/75 transition-opacity" />
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -248,9 +248,9 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject, 
                             enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100"
                             leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95"
                         >
-                            <DialogPanel className="relative w-full max-w-5xl transform rounded-2xl bg-white shadow-2xl transition-all">
+                            <DialogPanel className="relative w-full max-w-5xl transform overflow-hidden rounded-2xl bg-white border border-slate-200/80 shadow-2xl transition-all flex flex-col max-h-[90vh]">
                                 {/* ── Header ── */}
-                                <div className="bg-gradient-to-r from-teal-600 to-teal-700 rounded-t-2xl px-6 py-4 flex items-center justify-between">
+                                <div className="bg-gradient-to-r from-teal-600 to-teal-700 px-6 py-4 flex items-center justify-between shrink-0">
                                     <div>
                                         <DialogTitle className="text-lg font-bold text-white tracking-tight">
                                             Review Maintenance Action
@@ -274,12 +274,12 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject, 
                                             </span>
                                         </div>
                                     </div>
-                                    <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
-                                        <X className="h-6 w-6" />
+                                    <button onClick={onClose} className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors" aria-label="Close">
+                                        <X className="h-5 w-5" />
                                     </button>
                                 </div>
 
-                                <div className="px-6 py-5 space-y-5 max-h-[75vh] overflow-y-auto">
+                                <div className="px-6 py-5 space-y-5 flex-1 overflow-y-auto">
                                     {/* ── LG Context (compact) ── */}
                                     <section>
                                         <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">
@@ -379,11 +379,11 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject, 
                                 </div>
 
                                 {/* ── Footer: Reject reason + Actions (only when PENDING_APPROVAL) ── */}
-                                <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 rounded-b-2xl">
+                                <div className="border-t border-slate-200 px-6 py-3.5 bg-slate-50 shrink-0">
                                     {isPending ? (
                                         <>
                                             <div className="mb-3">
-                                                <label className="block text-xs font-medium text-gray-500 mb-1">
+                                                <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                                                     Rejection reason (optional)
                                                 </label>
                                                 <input
@@ -391,7 +391,7 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject, 
                                                     value={rejectionReason}
                                                     onChange={(e) => setRejectionReason(e.target.value)}
                                                     placeholder="Enter reason..."
-                                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                                                     disabled={isProcessing || isGracePeriod}
                                                 />
                                             </div>
@@ -403,11 +403,11 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject, 
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex justify-end gap-3">
+                                                <div className="flex justify-end gap-2.5">
                                                     <button
                                                         onClick={handleReject}
                                                         disabled={isProcessing || isGracePeriod}
-                                                        className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors"
+                                                        className="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-xl text-rose-700 bg-white border border-rose-300 hover:bg-rose-50 disabled:opacity-50 transition-colors shadow-sm"
                                                     >
                                                         {isProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <X className="h-4 w-4 mr-1.5" />}
                                                         Reject
@@ -416,7 +416,7 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject, 
                                                         onClick={handleApprove}
                                                         disabled={isProcessing || isGracePeriod || isSelfInitiated}
                                                         title={isSelfInitiated ? 'You cannot approve your own action' : 'Approve'}
-                                                        className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                                                        className="inline-flex items-center px-5 py-2 text-sm font-semibold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                                                     >
                                                         {isProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Check className="h-4 w-4 mr-1.5" />}
                                                         Approve
@@ -426,14 +426,14 @@ const MaintenanceActionApprovalModal = ({ action, onClose, onApprove, onReject, 
                                         </>
                                     ) : (
                                         <div className="flex items-center justify-between">
-                                            <span className="text-xs text-gray-500">
+                                            <span className="text-xs text-slate-500">
                                                 {action.status === 'AUTO_REJECTED_EXPIRED'
                                                     ? 'This maintenance request exceeded the maximum pending approval window and was automatically rejected.'
                                                     : `This maintenance request is already ${action.status?.replace(/_/g, ' ').toLowerCase()} and can no longer be actioned.`}
                                             </span>
                                             <button
                                                 onClick={onClose}
-                                                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors"
+                                                className="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-xl text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition-colors shadow-sm"
                                             >
                                                 Close
                                             </button>

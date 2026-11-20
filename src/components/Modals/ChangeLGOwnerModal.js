@@ -13,9 +13,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
         return (
             <div className="relative group inline-block">
                 {children}
-                <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+                <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-xl py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
                     This action is disabled during your subscription's grace period.
-                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                    <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                         <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
                     </svg>
                 </div>
@@ -25,7 +25,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-semibold rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
 const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
     const [existingOwners, setExistingOwners] = useState([]);
@@ -165,11 +165,11 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-0">
+                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-4">
                         <TransitionChild
                             as={React.Fragment}
                             enter="ease-out duration-300"
@@ -179,189 +179,195 @@ const ChangeLGOwnerModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => 
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all my-auto sm:my-8 w-full max-w-xl mx-2 sm:mx-auto p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
-                                <div className="absolute right-3 top-3 sm:right-4 sm:top-4 z-10">
+                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white border border-slate-200/80 text-left shadow-2xl transition-all my-auto w-full max-w-xl flex flex-col max-h-[90vh]">
+                                {/* Sticky Header */}
+                                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3 shrink-0">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">
+                                            <Users className="h-4 w-4" />
+                                        </div>
+                                        <DialogTitle as="h3" className="text-base sm:text-lg font-bold leading-6 text-slate-900 tracking-tight truncate">
+                                            Change Internal Owner: {lgRecord.lg_number}
+                                        </DialogTitle>
+                                    </div>
                                     <button
                                         type="button"
-                                        className="rounded-full p-1 bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300 shrink-0"
                                         onClick={onClose}
                                     >
                                         <span className="sr-only">Close</span>
                                         <X className="h-5 w-5" aria-hidden="true" />
                                     </button>
                                 </div>
-                                <div className="w-full">
-                                    <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-4 pr-8">
-                                        Change Internal Owner: {lgRecord.lg_number}
-                                    </DialogTitle>
-                                    <div className="mt-2">
-                                        <Formik
-                                            initialValues={initialValues}
-                                            validationSchema={ChangeOwnerSchema}
-                                            onSubmit={handleSubmit}
-                                        >
-                                            {({ isSubmitting, errors, touched, values, setFieldValue }) => (
-                                                <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
-                                                    <div className="p-3 border border-blue-200 rounded-lg bg-blue-50 text-xs sm:text-sm">
-                                                        <h4 className="font-bold text-blue-900 mb-1">Current Owner:</h4>
-                                                        <p><strong>Email:</strong> {lgRecord.internal_owner_contact?.email || 'N/A'}</p>
-                                                        <p><strong>Phone:</strong> {lgRecord.internal_owner_contact?.phone_number || 'N/A'}</p>
-                                                        <p><strong>Manager:</strong> {lgRecord.internal_owner_contact?.manager_email || 'N/A'}</p>
-                                                    </div>
 
-                                                    <div className="flex items-center space-x-2 my-3">
-                                                        <input
-                                                            id="isCreatingNewOwner"
-                                                            name="isCreatingNewOwner"
-                                                            type="checkbox"
-                                                            checked={isCreatingNewOwner}
-                                                            onChange={() => {
-                                                                setIsCreatingNewOwner(!isCreatingNewOwner);
-                                                                setFieldValue('newOwnerId', '');
-                                                                setFieldValue('newOwnerEmail', '');
-                                                                setFieldValue('newOwnerPhoneNumber', '');
-                                                                setFieldValue('newOwnerInternalId', '');
-                                                                setFieldValue('newOwnerManagerEmail', '');
-                                                            }}
-                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                            disabled={isGracePeriod || isOwnerFieldsLocked}
-                                                        />
-                                                        <label htmlFor="isCreatingNewOwner" className="text-xs sm:text-sm font-medium text-gray-700">
-                                                            Create a New Internal Owner Contact
-                                                        </label>
-                                                    </div>
+                                <Formik
+                                    initialValues={initialValues}
+                                    validationSchema={ChangeOwnerSchema}
+                                    onSubmit={handleSubmit}
+                                >
+                                    {({ isSubmitting, errors, touched, values, setFieldValue }) => (
+                                        <Form className={`flex flex-col flex-1 min-h-0 ${isGracePeriod ? 'opacity-50' : ''}`}>
+                                            <div className="px-5 py-4 space-y-3.5 overflow-y-auto flex-1">
+                                                <div className="p-3 border border-indigo-200/80 rounded-xl bg-indigo-50/60 text-xs sm:text-sm text-indigo-950 space-y-0.5">
+                                                    <h4 className="font-bold text-indigo-900 mb-1">Current Owner:</h4>
+                                                    <p><strong>Email:</strong> {lgRecord.internal_owner_contact?.email || 'N/A'}</p>
+                                                    <p><strong>Phone:</strong> {lgRecord.internal_owner_contact?.phone_number || 'N/A'}</p>
+                                                    <p><strong>Manager:</strong> {lgRecord.internal_owner_contact?.manager_email || 'N/A'}</p>
+                                                </div>
 
-                                                    {isCreatingNewOwner ? (
-                                                        <div className="space-y-3 border p-3 rounded-lg shadow-sm bg-gray-50 text-xs sm:text-sm">
-                                                            <h4 className="font-bold text-gray-700 mb-1">New Owner Contact Details:</h4>
-                                                            <div>
-                                                                <label htmlFor="newOwnerEmail" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                                    Email
-                                                                </label>
-                                                                <Field
-                                                                    type="email"
-                                                                    id="newOwnerEmail"
-                                                                    name="newOwnerEmail"
-                                                                    onBlur={(e) => handleEmailLookup(e.target.value, setFieldValue)}
-                                                                    className={`block w-full px-3 py-2 rounded-lg border text-sm ${errors.newOwnerEmail && touched.newOwnerEmail ? 'border-red-500' : 'border-gray-300'}`}
-                                                                    disabled={isGracePeriod || isOwnerFieldsLocked}
-                                                                />
-                                                                <ErrorMessage name="newOwnerEmail" component="div" className="text-red-600 text-xs mt-1" />
-                                                            </div>
-                                                            <div>
-                                                                <label htmlFor="newOwnerPhoneNumber" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                                    Phone Number
-                                                                </label>
-                                                                <Field
-                                                                    type="text"
-                                                                    id="newOwnerPhoneNumber"
-                                                                    name="newOwnerPhoneNumber"
-                                                                    className={`block w-full px-3 py-2 rounded-lg border text-sm ${errors.newOwnerPhoneNumber && touched.newOwnerPhoneNumber ? 'border-red-500' : 'border-gray-300'}`}
-                                                                    disabled={isGracePeriod || isOwnerFieldsLocked}
-                                                                />
-                                                                <ErrorMessage name="newOwnerPhoneNumber" component="div" className="text-red-600 text-xs mt-1" />
-                                                            </div>
-                                                            <div>
-                                                                <label htmlFor="newOwnerInternalId" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                                    Internal ID (Optional)
-                                                                </label>
-                                                                <Field
-                                                                    type="text"
-                                                                    id="newOwnerInternalId"
-                                                                    name="newOwnerInternalId"
-                                                                    className="block w-full px-3 py-2 rounded-lg border border-gray-300 text-sm"
-                                                                    disabled={isGracePeriod || isOwnerFieldsLocked}
-                                                                />
-                                                                <ErrorMessage name="newOwnerInternalId" component="div" className="text-red-600 text-xs mt-1" />
-                                                            </div>
-                                                            <div>
-                                                                <label htmlFor="newOwnerManagerEmail" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                                    Manager Email
-                                                                </label>
-                                                                <Field
-                                                                    type="email"
-                                                                    id="newOwnerManagerEmail"
-                                                                    name="newOwnerManagerEmail"
-                                                                    className={`block w-full px-3 py-2 rounded-lg border text-sm ${errors.newOwnerManagerEmail && touched.newOwnerManagerEmail ? 'border-red-500' : 'border-gray-300'}`}
-                                                                    disabled={isGracePeriod || isOwnerFieldsLocked}
-                                                                />
-                                                                <ErrorMessage name="newOwnerManagerEmail" component="div" className="text-red-600 text-xs mt-1" />
-                                                            </div>
-                                                        </div>
-                                                    ) : (
+                                                <div className="flex items-center space-x-2 py-1">
+                                                    <input
+                                                        id="isCreatingNewOwner"
+                                                        name="isCreatingNewOwner"
+                                                        type="checkbox"
+                                                        checked={isCreatingNewOwner}
+                                                        onChange={() => {
+                                                            setIsCreatingNewOwner(!isCreatingNewOwner);
+                                                            setFieldValue('newOwnerId', '');
+                                                            setFieldValue('newOwnerEmail', '');
+                                                            setFieldValue('newOwnerPhoneNumber', '');
+                                                            setFieldValue('newOwnerInternalId', '');
+                                                            setFieldValue('newOwnerManagerEmail', '');
+                                                        }}
+                                                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded"
+                                                        disabled={isGracePeriod || isOwnerFieldsLocked}
+                                                    />
+                                                    <label htmlFor="isCreatingNewOwner" className="text-xs sm:text-sm font-medium text-slate-700 cursor-pointer">
+                                                        Create a New Internal Owner Contact
+                                                    </label>
+                                                </div>
+
+                                                {isCreatingNewOwner ? (
+                                                    <div className="space-y-3 border border-slate-200 p-3.5 rounded-xl shadow-sm bg-slate-50/70 text-xs sm:text-sm">
+                                                        <h4 className="font-bold text-slate-800 mb-1">New Owner Contact Details:</h4>
                                                         <div>
-                                                            <label htmlFor="newOwnerId" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                                Select Existing Owner
+                                                            <label htmlFor="newOwnerEmail" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                                Email
                                                             </label>
-                                                            {isLoadingOwners ? (
-                                                                <p className="text-gray-500 flex items-center mt-2 text-xs"><Loader2 className="animate-spin h-4 w-4 mr-2" /> Loading owners...</p>
-                                                            ) : (
-                                                                <Field
-                                                                    as="select"
-                                                                    id="newOwnerId"
-                                                                    name="newOwnerId"
-                                                                    className={`block w-full px-3 py-2 rounded-lg border text-sm ${errors.newOwnerId && touched.newOwnerId ? 'border-red-500' : 'border-gray-300'}`}
-                                                                    disabled={isGracePeriod}
-                                                                >
-                                                                    <option value="">-- Select an owner --</option>
-                                                                    {existingOwners.map(ownerOption => (
-                                                                        <option key={ownerOption.id} value={ownerOption.id}>
-                                                                            {ownerOption.email} ({ownerOption.phone_number})
-                                                                        </option>
-                                                                    ))}
-                                                                </Field>
-                                                            )}
-                                                            <ErrorMessage name="newOwnerId" component="div" className="text-red-600 text-xs mt-1" />
+                                                            <Field
+                                                                type="email"
+                                                                id="newOwnerEmail"
+                                                                name="newOwnerEmail"
+                                                                onBlur={(e) => handleEmailLookup(e.target.value, setFieldValue)}
+                                                                className={`block w-full px-3 py-2 rounded-xl border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.newOwnerEmail && touched.newOwnerEmail ? 'border-rose-500' : 'border-slate-300'}`}
+                                                                disabled={isGracePeriod || isOwnerFieldsLocked}
+                                                            />
+                                                            <ErrorMessage name="newOwnerEmail" component="div" className="text-rose-600 text-xs mt-1" />
                                                         </div>
-                                                    )}
-
+                                                        <div>
+                                                            <label htmlFor="newOwnerPhoneNumber" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                                Phone Number
+                                                            </label>
+                                                            <Field
+                                                                type="text"
+                                                                id="newOwnerPhoneNumber"
+                                                                name="newOwnerPhoneNumber"
+                                                                className={`block w-full px-3 py-2 rounded-xl border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.newOwnerPhoneNumber && touched.newOwnerPhoneNumber ? 'border-rose-500' : 'border-slate-300'}`}
+                                                                disabled={isGracePeriod || isOwnerFieldsLocked}
+                                                            />
+                                                            <ErrorMessage name="newOwnerPhoneNumber" component="div" className="text-rose-600 text-xs mt-1" />
+                                                        </div>
+                                                        <div>
+                                                            <label htmlFor="newOwnerInternalId" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                                Internal ID (Optional)
+                                                            </label>
+                                                            <Field
+                                                                type="text"
+                                                                id="newOwnerInternalId"
+                                                                name="newOwnerInternalId"
+                                                                className="block w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                                disabled={isGracePeriod || isOwnerFieldsLocked}
+                                                            />
+                                                            <ErrorMessage name="newOwnerInternalId" component="div" className="text-rose-600 text-xs mt-1" />
+                                                        </div>
+                                                        <div>
+                                                            <label htmlFor="newOwnerManagerEmail" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                                Manager Email
+                                                            </label>
+                                                            <Field
+                                                                type="email"
+                                                                id="newOwnerManagerEmail"
+                                                                name="newOwnerManagerEmail"
+                                                                className={`block w-full px-3 py-2 rounded-xl border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.newOwnerManagerEmail && touched.newOwnerManagerEmail ? 'border-rose-500' : 'border-slate-300'}`}
+                                                                disabled={isGracePeriod || isOwnerFieldsLocked}
+                                                            />
+                                                            <ErrorMessage name="newOwnerManagerEmail" component="div" className="text-rose-600 text-xs mt-1" />
+                                                        </div>
+                                                    </div>
+                                                ) : (
                                                     <div>
-                                                        <label htmlFor="reason" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                            Reason for Change
+                                                        <label htmlFor="newOwnerId" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                            Select Existing Owner
                                                         </label>
-                                                        <Field
-                                                            as="textarea"
-                                                            id="reason"
-                                                            name="reason"
-                                                            rows="2"
-                                                            className={`block w-full px-3 py-2 text-sm rounded-lg border ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
-                                                            disabled={isGracePeriod}
-                                                        />
-                                                        <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
-                                                    </div>
-
-                                                    {errors.general && (
-                                                        <div className="text-red-600 text-xs mt-2">
-                                                            <AlertCircle className="inline h-4 w-4 mr-1" />
-                                                            {errors.general}
-                                                        </div>
-                                                    )}
-
-                                                    <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 pt-2 border-t border-gray-100">
-                                                        <button
-                                                            type="button"
-                                                            className={`${buttonBaseClassNames} justify-center w-full sm:w-auto bg-gray-100 text-gray-700 hover:bg-gray-200 py-2.5`}
-                                                            onClick={onClose}
-                                                            disabled={isSubmitting}
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                            <button
-                                                                type="submit"
-                                                                className={`${buttonBaseClassNames} justify-center w-full sm:w-auto bg-purple-600 text-white hover:bg-purple-700 py-2.5 font-bold shadow-md ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                                disabled={isSubmitting || isGracePeriod}
+                                                        {isLoadingOwners ? (
+                                                            <p className="text-slate-500 flex items-center mt-2 text-xs"><Loader2 className="animate-spin h-4 w-4 mr-2 text-indigo-600" /> Loading owners...</p>
+                                                        ) : (
+                                                            <Field
+                                                                as="select"
+                                                                id="newOwnerId"
+                                                                name="newOwnerId"
+                                                                className={`block w-full px-3 py-2 rounded-xl border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.newOwnerId && touched.newOwnerId ? 'border-rose-500' : 'border-slate-300'}`}
+                                                                disabled={isGracePeriod}
                                                             >
-                                                                {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Users className="h-5 w-5 mr-2" />}
-                                                                {isSubmitting ? 'Processing...' : 'Submit Change Request'}
-                                                            </button>
-                                                        </GracePeriodTooltip>
+                                                                <option value="">-- Select an owner --</option>
+                                                                {existingOwners.map(ownerOption => (
+                                                                    <option key={ownerOption.id} value={ownerOption.id}>
+                                                                        {ownerOption.email} ({ownerOption.phone_number})
+                                                                    </option>
+                                                                ))}
+                                                            </Field>
+                                                        )}
+                                                        <ErrorMessage name="newOwnerId" component="div" className="text-rose-600 text-xs mt-1" />
                                                     </div>
-                                                </Form>
-                                            )}
-                                        </Formik>
-                                    </div>
-                                </div>
+                                                )}
+
+                                                <div>
+                                                    <label htmlFor="reason" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                        Reason for Change
+                                                    </label>
+                                                    <Field
+                                                        as="textarea"
+                                                        id="reason"
+                                                        name="reason"
+                                                        rows="2"
+                                                        className={`block w-full px-3 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.reason && touched.reason ? 'border-rose-500' : 'border-slate-300'}`}
+                                                        disabled={isGracePeriod}
+                                                    />
+                                                    <ErrorMessage name="reason" component="div" className="text-rose-600 text-xs mt-1" />
+                                                </div>
+
+                                                {errors.general && (
+                                                    <div className="text-rose-600 text-xs bg-rose-50 border border-rose-200 rounded-xl p-2.5">
+                                                        <AlertCircle className="inline h-4 w-4 mr-1" />
+                                                        {errors.general}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Sticky Footer */}
+                                            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 shrink-0">
+                                                <button
+                                                    type="button"
+                                                    className={`${buttonBaseClassNames} justify-center w-full sm:w-auto rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50`}
+                                                    onClick={onClose}
+                                                    disabled={isSubmitting}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                    <button
+                                                        type="submit"
+                                                        className={`${buttonBaseClassNames} justify-center w-full sm:w-auto rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        disabled={isSubmitting || isGracePeriod}
+                                                    >
+                                                        {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Users className="h-4 w-4 mr-2" />}
+                                                        {isSubmitting ? 'Processing...' : 'Submit Change Request'}
+                                                    </button>
+                                                </GracePeriodTooltip>
+                                            </div>
+                                        </Form>
+                                    )}
+                                </Formik>
                             </DialogPanel>
                         </TransitionChild>
                     </div>

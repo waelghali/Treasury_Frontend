@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Upload, FileSpreadsheet, ScanLine, AlertCircle, CheckCircle2, Clock, Copy,
   AlertTriangle, Trash2, Edit3, RefreshCw, ChevronDown, ChevronRight, X,
-  Download, Filter, Search, History, ZapOff, Zap, FileText, Check
+  Download, Filter, Search, History, ZapOff, Zap, FileText, Check, Loader2
 } from 'lucide-react';
 import { apiRequest } from 'services/apiService';
 import { formatDate } from '../../utils/dateFormat';
@@ -14,14 +14,86 @@ const API_BASE = '/issuance/migration';
 
 // Status badge config
 const STATUS_CONFIG = {
-  READY_FOR_IMPORT: { label: 'Ready', color: '#10b981', bg: 'rgba(16,185,129,0.12)', icon: CheckCircle2 },
-  ERROR: { label: 'Error', color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: AlertCircle },
-  NEEDS_REVIEW: { label: 'Review', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: AlertTriangle },
-  DUPLICATE: { label: 'Duplicate', color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', icon: Copy },
-  EXPIRED: { label: 'Expired', color: '#6b7280', bg: 'rgba(107,114,128,0.12)', icon: Clock },
-  CONFLICT: { label: 'Conflict', color: '#f97316', bg: 'rgba(249,115,22,0.12)', icon: ZapOff },
-  IMPORTED: { label: 'Imported', color: '#3b82f6', bg: 'rgba(59,130,246,0.12)', icon: Check },
-  PENDING: { label: 'Pending', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', icon: Clock },
+  READY_FOR_IMPORT: {
+    label: 'Ready',
+    color: '#059669',
+    bg: '#ecfdf5',
+    badgeCls: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    activeRingCls: 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20',
+    iconCls: 'text-emerald-600',
+    countCls: 'text-emerald-700',
+    icon: CheckCircle2,
+  },
+  ERROR: {
+    label: 'Error',
+    color: '#e11d48',
+    bg: '#fff1f2',
+    badgeCls: 'bg-rose-50 text-rose-700 border-rose-200',
+    activeRingCls: 'border-rose-500 bg-rose-50/70 ring-2 ring-rose-500/20',
+    iconCls: 'text-rose-600',
+    countCls: 'text-rose-700',
+    icon: AlertCircle,
+  },
+  NEEDS_REVIEW: {
+    label: 'Review',
+    color: '#d97706',
+    bg: '#fffbeb',
+    badgeCls: 'bg-amber-50 text-amber-700 border-amber-200',
+    activeRingCls: 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20',
+    iconCls: 'text-amber-600',
+    countCls: 'text-amber-700',
+    icon: AlertTriangle,
+  },
+  DUPLICATE: {
+    label: 'Duplicate',
+    color: '#7c3aed',
+    bg: '#f5f3ff',
+    badgeCls: 'bg-violet-50 text-violet-700 border-violet-200',
+    activeRingCls: 'border-violet-500 bg-violet-50/70 ring-2 ring-violet-500/20',
+    iconCls: 'text-violet-600',
+    countCls: 'text-violet-700',
+    icon: Copy,
+  },
+  EXPIRED: {
+    label: 'Expired',
+    color: '#475569',
+    bg: '#f8fafc',
+    badgeCls: 'bg-slate-100 text-slate-600 border-slate-200',
+    activeRingCls: 'border-slate-500 bg-slate-100/80 ring-2 ring-slate-500/20',
+    iconCls: 'text-slate-500',
+    countCls: 'text-slate-700',
+    icon: Clock,
+  },
+  CONFLICT: {
+    label: 'Conflict',
+    color: '#ea580c',
+    bg: '#fff7ed',
+    badgeCls: 'bg-orange-50 text-orange-700 border-orange-200',
+    activeRingCls: 'border-orange-500 bg-orange-50/70 ring-2 ring-orange-500/20',
+    iconCls: 'text-orange-600',
+    countCls: 'text-orange-700',
+    icon: ZapOff,
+  },
+  IMPORTED: {
+    label: 'Imported',
+    color: '#2563eb',
+    bg: '#eff6ff',
+    badgeCls: 'bg-blue-50 text-blue-700 border-blue-200',
+    activeRingCls: 'border-blue-500 bg-blue-50/70 ring-2 ring-blue-500/20',
+    iconCls: 'text-blue-600',
+    countCls: 'text-blue-700',
+    icon: Check,
+  },
+  PENDING: {
+    label: 'Pending',
+    color: '#64748b',
+    bg: '#f8fafc',
+    badgeCls: 'bg-slate-100 text-slate-600 border-slate-200',
+    activeRingCls: 'border-slate-400 bg-slate-50 ring-2 ring-slate-400/20',
+    iconCls: 'text-slate-500',
+    countCls: 'text-slate-700',
+    icon: Clock,
+  },
 };
 
 // Friendly field labels
@@ -57,22 +129,35 @@ function StatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
   const Icon = cfg.icon;
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, color: cfg.color, backgroundColor: cfg.bg }}>
-      <Icon size={13} /> {cfg.label}
+    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${cfg.badgeCls}`}>
+      <Icon className="w-3.5 h-3.5" /> {cfg.label}
     </span>
   );
 }
 
-function StatusTile({ label, count, color, bg, icon: Icon, active, onClick }) {
+function StatusTile({ label, count, color, bg, icon: Icon, active, activeRingCls, iconCls, countCls, onClick }) {
   return (
-    <button onClick={onClick} style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '12px 16px', borderRadius: 10, minWidth: 90, cursor: 'pointer', border: active ? `2px solid ${color}` : '2px solid transparent',
-      backgroundColor: active ? bg : 'rgba(255,255,255,0.04)', transition: 'all 0.2s',
-    }}>
-      <Icon size={20} style={{ color, marginBottom: 4 }} />
-      <span style={{ fontSize: 22, fontWeight: 700, color }}>{count}</span>
-      <span style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{label}</span>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center px-4 py-3 rounded-2xl min-w-[96px] border transition-all shadow-xs hover:shadow-md cursor-pointer ${
+        active
+          ? activeRingCls || 'border-blue-500 bg-blue-50/70 ring-2 ring-blue-500/20'
+          : 'bg-white border-slate-200 hover:border-slate-300'
+      }`}
+    >
+      <Icon
+        size={18}
+        className={`mb-1 ${iconCls || ''}`}
+        style={!iconCls && color ? { color } : undefined}
+      />
+      <span
+        className={`text-xl font-extrabold tabular-nums ${countCls || ''}`}
+        style={!countCls && color ? { color } : undefined}
+      >
+        {count}
+      </span>
+      <span className="text-[11px] font-semibold text-slate-500 mt-0.5">{label}</span>
     </button>
   );
 }
@@ -255,109 +340,169 @@ export default function IssuanceMigrationPage() {
   const importableCount = (report.READY_FOR_IMPORT || 0) + (report.NEEDS_REVIEW || 0) + (report.EXPIRED || 0);
 
   return (
-    <div style={{ width: '100%', minWidth: 0 }}>
+    <div className="w-full min-w-0 space-y-6">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>Issuance Migration Hub</h1>
-          <p style={{ color: '#94a3b8', fontSize: 14, margin: '4px 0 0' }}>Upload, validate, and import legacy LG records</p>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Issuance Migration Hub</h1>
+          <p className="text-sm text-slate-500 mt-1">Upload, validate, and import legacy LG records</p>
         </div>
-        <button onClick={handleImport} disabled={importing || !importableCount} style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 8,
-          backgroundColor: importableCount ? '#10b981' : '#374151', color: '#fff', fontWeight: 600,
-          fontSize: 14, border: 'none', cursor: importableCount ? 'pointer' : 'not-allowed', opacity: importing ? 0.6 : 1,
-        }}>
+        <button
+          onClick={handleImport}
+          disabled={importing || !importableCount}
+          className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-all ${
+            importableCount
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+              : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
+          } ${importing ? 'opacity-60' : ''}`}
+        >
           <Zap size={16} /> {importing ? 'Importing...' : `Finalize Migration (${importableCount})`}
         </button>
       </div>
 
       {/* Status Tiles */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
-        <StatusTile label="All" count={Object.values(report).reduce((a, b) => a + b, 0) || 0} color="#60a5fa" bg="rgba(96,165,250,0.1)" icon={FileText} active={!statusFilter} onClick={() => setStatusFilter(null)} />
+      <div className="flex flex-wrap gap-2.5">
+        <StatusTile
+          label="All"
+          count={Object.values(report).reduce((a, b) => a + b, 0) || 0}
+          icon={FileText}
+          iconCls="text-blue-600"
+          countCls="text-blue-700"
+          activeRingCls="border-blue-500 bg-blue-50/70 ring-2 ring-blue-500/20"
+          active={!statusFilter}
+          onClick={() => setStatusFilter(null)}
+        />
         {Object.entries(STATUS_CONFIG).filter(([k]) => k !== 'PENDING' && k !== 'IMPORTED').map(([key, cfg]) => (
-          <StatusTile key={key} label={cfg.label} count={report[key] || 0} color={cfg.color} bg={cfg.bg} icon={cfg.icon}
-            active={statusFilter === key} onClick={() => setStatusFilter(statusFilter === key ? null : key)} />
+          <StatusTile
+            key={key}
+            label={cfg.label}
+            count={report[key] || 0}
+            color={cfg.color}
+            bg={cfg.bg}
+            activeRingCls={cfg.activeRingCls}
+            iconCls={cfg.iconCls}
+            countCls={cfg.countCls}
+            icon={cfg.icon}
+            active={statusFilter === key}
+            onClick={() => setStatusFilter(statusFilter === key ? null : key)}
+          />
         ))}
-        <StatusTile label="Imported" count={report.IMPORTED || 0} color="#3b82f6" bg="rgba(59,130,246,0.1)" icon={Check}
-          active={statusFilter === 'IMPORTED'} onClick={() => setStatusFilter(statusFilter === 'IMPORTED' ? null : 'IMPORTED')} />
+        <StatusTile
+          label="Imported"
+          count={report.IMPORTED || 0}
+          color={STATUS_CONFIG.IMPORTED.color}
+          bg={STATUS_CONFIG.IMPORTED.bg}
+          activeRingCls={STATUS_CONFIG.IMPORTED.activeRingCls}
+          iconCls={STATUS_CONFIG.IMPORTED.iconCls}
+          countCls={STATUS_CONFIG.IMPORTED.countCls}
+          icon={Check}
+          active={statusFilter === 'IMPORTED'}
+          onClick={() => setStatusFilter(statusFilter === 'IMPORTED' ? null : 'IMPORTED')}
+        />
       </div>
 
       {/* Upload Section */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Excel Upload */}
-        <div style={{
-          border: '2px dashed rgba(96,165,250,0.3)', borderRadius: 12, padding: 24, textAlign: 'center',
-          backgroundColor: 'rgba(96,165,250,0.04)', cursor: 'pointer', transition: 'all 0.2s',
-        }} onClick={() => fileInputRef.current?.click()}>
-          <FileSpreadsheet size={36} style={{ color: '#60a5fa', marginBottom: 8 }} />
-          <p style={{ color: '#f1f5f9', fontWeight: 600, fontSize: 15, margin: '0 0 4px' }}>
+        <div
+          className="bg-white hover:bg-blue-50/40 border-2 border-dashed border-blue-200 hover:border-blue-300 rounded-2xl p-6 text-center cursor-pointer transition-all shadow-xs"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <FileSpreadsheet size={34} className="text-blue-600 mx-auto mb-2.5" />
+          <p className="text-slate-900 font-bold text-sm mb-1">
             {uploading ? 'Processing...' : 'Upload Excel / CSV'}
           </p>
-          <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Drag & drop or click to select (.xlsx, .xls, .csv)</p>
-          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelUpload} style={{ display: 'none' }} />
+          <p className="text-slate-500 text-xs">Drag &amp; drop or click to select (.xlsx, .xls, .csv)</p>
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelUpload} className="hidden" />
         </div>
 
         {/* Scan Upload */}
-        <div style={{
-          border: '2px dashed rgba(245,158,11,0.3)', borderRadius: 12, padding: 24, textAlign: 'center',
-          backgroundColor: 'rgba(245,158,11,0.04)', cursor: 'pointer', transition: 'all 0.2s',
-        }} onClick={() => scanInputRef.current?.click()}>
-          <ScanLine size={36} style={{ color: '#f59e0b', marginBottom: 8 }} />
-          <p style={{ color: '#f1f5f9', fontWeight: 600, fontSize: 15, margin: '0 0 4px' }}>
+        <div
+          className="bg-white hover:bg-amber-50/40 border-2 border-dashed border-amber-200 hover:border-amber-300 rounded-2xl p-6 text-center cursor-pointer transition-all shadow-xs"
+          onClick={() => scanInputRef.current?.click()}
+        >
+          <ScanLine size={34} className="text-amber-600 mx-auto mb-2.5" />
+          <p className="text-slate-900 font-bold text-sm mb-1">
             {scanUploading ? 'AI Extracting...' : 'Mass Scan Upload (AI)'}
           </p>
-          <p style={{ color: '#94a3b8', fontSize: 13, margin: 0 }}>Upload scanned LG documents (PDF, images) — AI extracts data</p>
-          <input ref={scanInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif" multiple onChange={handleScanUpload} style={{ display: 'none' }} />
+          <p className="text-slate-500 text-xs">Upload scanned LG documents (PDF, images) — AI extracts data</p>
+          <input ref={scanInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif" multiple onChange={handleScanUpload} className="hidden" />
         </div>
       </div>
 
       {/* Upload Result Banner */}
       {uploadResult && (
-        <div style={{
-          padding: 14, borderRadius: 10, marginBottom: 16,
-          backgroundColor: uploadResult.error ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-          border: `1px solid ${uploadResult.error ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          <span style={{ color: uploadResult.error ? '#ef4444' : '#10b981', fontSize: 14 }}>
+        <div
+          className={`rounded-xl px-4 py-3 border flex items-center justify-between gap-3 text-sm font-medium ${
+            uploadResult.error
+              ? 'bg-rose-50 border-rose-200 text-rose-700'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <span>
             {uploadResult.error || uploadResult.message}
             {uploadResult.summary && ` — Ready: ${uploadResult.summary.ready || 0}, Errors: ${uploadResult.summary.errors || 0}, Duplicates: ${uploadResult.summary.duplicates || 0}`}
           </span>
-          <button onClick={() => setUploadResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={16} /></button>
+          <button
+            onClick={() => setUploadResult(null)}
+            className="p-1 rounded-lg hover:bg-black/5 text-slate-500 hover:text-slate-700 shadow-none"
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
 
       {/* Import Result Banner */}
       {importResult && (
-        <div style={{
-          padding: 14, borderRadius: 10, marginBottom: 16,
-          backgroundColor: importResult.error ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)',
-          border: `1px solid ${importResult.error ? 'rgba(239,68,68,0.3)' : 'rgba(59,130,246,0.3)'}`,
-        }}>
-          <span style={{ color: importResult.error ? '#ef4444' : '#3b82f6', fontSize: 14 }}>
+        <div
+          className={`rounded-xl px-4 py-3 border flex items-center justify-between gap-3 text-sm font-medium ${
+            importResult.error
+              ? 'bg-rose-50 border-rose-200 text-rose-700'
+              : 'bg-blue-50 border-blue-200 text-blue-800'
+          }`}
+        >
+          <span>
             {importResult.error || `${importResult.message} — Imported: ${importResult.imported}, Failed: ${importResult.failed}`}
           </span>
-          <button onClick={() => setImportResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', float: 'right' }}><X size={16} /></button>
+          <button
+            onClick={() => setImportResult(null)}
+            className="p-1 rounded-lg hover:bg-black/5 text-slate-500 hover:text-slate-700 shadow-none"
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: '1 1 200px' }}>
-          <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by LG Number..."
-            style={{ width: '100%', padding: '8px 10px 8px 32px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.05)', color: '#f1f5f9', fontSize: 13, outline: 'none' }} />
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-2.5">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by LG Number..."
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white text-slate-900 placeholder-slate-400 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+          />
         </div>
         {selectedIds.size > 0 && (
           <>
-            <span style={{ color: '#94a3b8', fontSize: 13 }}>{selectedIds.size} selected</span>
-            <button onClick={() => setBulkEditOpen(true)} style={{ ...toolbarBtn, backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' }}>
+            <span className="text-xs font-semibold text-slate-500 px-1">{selectedIds.size} selected</span>
+            <button
+              onClick={() => setBulkEditOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 shadow-none transition-colors"
+            >
               <Edit3 size={14} /> Bulk Edit
             </button>
-            <button onClick={handleBulkRevalidate} style={{ ...toolbarBtn, backgroundColor: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+            <button
+              onClick={handleBulkRevalidate}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 shadow-none transition-colors"
+            >
               <RefreshCw size={14} /> Re-validate
             </button>
-            <button onClick={handleBulkDelete} style={{ ...toolbarBtn, backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>
+            <button
+              onClick={handleBulkDelete}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 shadow-none transition-colors"
+            >
               <Trash2 size={14} /> Delete
             </button>
           </>
@@ -365,22 +510,42 @@ export default function IssuanceMigrationPage() {
       </div>
 
       {/* Staged Records Table */}
-      <div style={{ borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', overflow: 'auto', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-              <th style={thStyle}><input type="checkbox" checked={selectedIds.size === records.length && records.length > 0} onChange={toggleSelectAll} /></th>
-              <th style={thStyle}>Actions</th>
-              <th style={thStyle}>Source</th>
-              <th style={thStyle}>Status</th>
-              {DISPLAY_FIELDS.map(f => <th key={f} style={thStyle}>{FIELD_LABELS[f]}</th>)}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+        <table className="w-full border-collapse text-xs sm:text-sm">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th className="px-3.5 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap sticky top-0 bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.size === records.length && records.length > 0}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+              </th>
+              <th className="px-3.5 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap sticky top-0 bg-slate-50">Actions</th>
+              <th className="px-3.5 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap sticky top-0 bg-slate-50">Source</th>
+              <th className="px-3.5 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap sticky top-0 bg-slate-50">Status</th>
+              {DISPLAY_FIELDS.map(f => (
+                <th key={f} className="px-3.5 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap sticky top-0 bg-slate-50">
+                  {FIELD_LABELS[f]}
+                </th>
+              ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr><td colSpan={DISPLAY_FIELDS.length + 4} style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading...</td></tr>
+              <tr>
+                <td colSpan={DISPLAY_FIELDS.length + 4} className="text-center py-12 text-slate-500">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
+                  <span className="text-xs font-medium">Loading...</span>
+                </td>
+              </tr>
             ) : records.length === 0 ? (
-              <tr><td colSpan={DISPLAY_FIELDS.length + 4} style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>No staged records. Upload an Excel file or scan to get started.</td></tr>
+              <tr>
+                <td colSpan={DISPLAY_FIELDS.length + 4} className="text-center py-12 text-sm text-slate-500">
+                  No staged records. Upload an Excel file or scan to get started.
+                </td>
+              </tr>
             ) : records.map(record => {
               const data = record.source_data_json || {};
               const isEditing = editingId === record.id;
@@ -388,40 +553,68 @@ export default function IssuanceMigrationPage() {
 
               return (
                 <React.Fragment key={record.id}>
-                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                    <td style={tdStyle}><input type="checkbox" checked={selectedIds.has(record.id)} onChange={() => toggleSelect(record.id)} /></td>
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', gap: 4 }}>
+                  <tr className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-3.5 py-2.5 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(record.id)}
+                        onChange={() => toggleSelect(record.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </td>
+                    <td className="px-3.5 py-2.5 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
                         {isEditing ? (
                           <>
-                            <button onClick={saveEdit} title="Save" style={iconBtn}><CheckCircle2 size={15} color="#10b981" /></button>
-                            <button onClick={() => setEditingId(null)} title="Cancel" style={iconBtn}><X size={15} color="#ef4444" /></button>
+                            <button onClick={saveEdit} title="Save" className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 shadow-none">
+                              <CheckCircle2 size={15} />
+                            </button>
+                            <button onClick={() => setEditingId(null)} title="Cancel" className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 shadow-none">
+                              <X size={15} />
+                            </button>
                           </>
                         ) : (
                           <>
-                            <button onClick={() => startEdit(record)} title="Edit" style={iconBtn}><Edit3 size={14} color="#60a5fa" /></button>
-                            <button onClick={() => handleDelete(record.id)} title="Delete" style={iconBtn}><Trash2 size={14} color="#ef4444" /></button>
-                            {hasHistory && <button onClick={() => handlePreviewHistory(data.bank_lg_number)} title="History" style={iconBtn}><History size={14} color="#f59e0b" /></button>}
+                            <button onClick={() => startEdit(record)} title="Edit" className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 shadow-none">
+                              <Edit3 size={14} />
+                            </button>
+                            <button onClick={() => handleDelete(record.id)} title="Delete" className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 shadow-none">
+                              <Trash2 size={14} />
+                            </button>
+                            {hasHistory && (
+                              <button onClick={() => handlePreviewHistory(data.bank_lg_number)} title="History" className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 shadow-none">
+                                <History size={14} />
+                              </button>
+                            )}
                           </>
                         )}
-                        <button onClick={() => setExpandedValidation(expandedValidation === record.id ? null : record.id)} title="Validation" style={iconBtn}>
-                          {expandedValidation === record.id ? <ChevronDown size={14} color="#94a3b8" /> : <ChevronRight size={14} color="#94a3b8" />}
+                        <button
+                          onClick={() => setExpandedValidation(expandedValidation === record.id ? null : record.id)}
+                          title="Validation"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 shadow-none"
+                        >
+                          {expandedValidation === record.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         </button>
                       </div>
                     </td>
-                    <td style={tdStyle}>
-                      <span style={{ fontSize: 16 }}>{data._source_type === 'SCAN' ? '📄' : '📊'}</span>
+                    <td className="px-3.5 py-2.5 whitespace-nowrap">
+                      {data._source_type === 'SCAN' ? (
+                        <ScanLine className="w-4 h-4 text-amber-600" title="AI Scan" />
+                      ) : (
+                        <FileSpreadsheet className="w-4 h-4 text-emerald-600" title="Excel / CSV" />
+                      )}
                     </td>
-                    <td style={tdStyle}><StatusBadge status={record.record_status} /></td>
+                    <td className="px-3.5 py-2.5 whitespace-nowrap"><StatusBadge status={record.record_status} /></td>
                     {DISPLAY_FIELDS.map(field => (
-                      <td key={field} style={tdStyle}>
+                      <td key={field} className="px-3.5 py-2.5 whitespace-nowrap">
                         {isEditing ? (
-                          <input value={editData[field] || ''} onChange={e => setEditData({ ...editData, [field]: e.target.value })}
-                            style={{ width: '100%', padding: '4px 6px', borderRadius: 4, border: '1px solid rgba(96,165,250,0.3)', backgroundColor: 'rgba(0,0,0,0.2)', color: '#f1f5f9', fontSize: 12, outline: 'none' }} />
+                          <input
+                            value={editData[field] || ''}
+                            onChange={e => setEditData({ ...editData, [field]: e.target.value })}
+                            className="w-full min-w-[110px] px-2 py-1 rounded-lg border border-blue-300 bg-white text-slate-900 text-xs focus:ring-2 focus:ring-blue-500/20 outline-none"
+                          />
                         ) : (
-                          <span style={{ color: '#e2e8f0', fontSize: 13 }}>
+                          <span className="text-slate-700 text-xs font-medium">
                             {field === 'current_amount' && data[field] != null ? Number(data[field]).toLocaleString() : (data[field] ?? '—')}
                           </span>
                         )}
@@ -431,20 +624,22 @@ export default function IssuanceMigrationPage() {
                   {/* Validation Details Row */}
                   {expandedValidation === record.id && record.validation_log && (
                     <tr>
-                      <td colSpan={DISPLAY_FIELDS.length + 4} style={{ padding: '12px 20px', backgroundColor: 'rgba(0,0,0,0.15)' }}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      <td colSpan={DISPLAY_FIELDS.length + 4} className="px-5 py-3 bg-slate-50/90 border-t border-slate-100">
+                        <div className="flex flex-wrap gap-2">
                           {Object.entries(record.validation_log).filter(([_, v]) => v && typeof v === 'object').map(([field, val]) => {
                             if (field.startsWith('_')) return null;
                             const isError = val.status === 'ERROR';
                             const isWarning = val.status === 'WARNING';
                             if (!isError && !isWarning) return null;
                             return (
-                              <div key={field} style={{
-                                padding: '6px 12px', borderRadius: 6, fontSize: 12,
-                                backgroundColor: isError ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)',
-                                border: `1px solid ${isError ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`,
-                                color: isError ? '#fca5a5' : '#fcd34d',
-                              }}>
+                              <div
+                                key={field}
+                                className={`px-3 py-1.5 rounded-lg text-xs border ${
+                                  isError
+                                    ? 'bg-rose-50 border-rose-200 text-rose-700'
+                                    : 'bg-amber-50 border-amber-200 text-amber-800'
+                                }`}
+                              >
                                 <strong>{FIELD_LABELS[field] || field}:</strong> {val.message}
                               </div>
                             );
@@ -460,33 +655,54 @@ export default function IssuanceMigrationPage() {
         </table>
       </div>
 
-      <div style={{ padding: '12px 0', color: '#64748b', fontSize: 13, textAlign: 'right' }}>
+      <div className="text-xs font-medium text-slate-500 text-right">
         Showing {records.length} of {total} records
       </div>
 
       {/* Bulk Edit Modal */}
       {bulkEditOpen && (
-        <div style={modalOverlay}>
-          <div style={modalContent}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ color: '#f1f5f9', margin: 0, fontSize: 18, fontWeight: 700 }}>Bulk Edit — {selectedIds.size} records</h3>
-              <button onClick={() => setBulkEditOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={20} /></button>
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900">Bulk Edit — {selectedIds.size} records</h3>
+              <button onClick={() => setBulkEditOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 shadow-none">
+                <X size={18} />
+              </button>
             </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ color: '#94a3b8', fontSize: 13, marginBottom: 6, display: 'block' }}>Field</label>
-              <select value={bulkField} onChange={e => setBulkField(e.target.value)} style={selectStyle}>
-                <option value="">Select field...</option>
-                {EDITABLE_FIELDS.map(f => <option key={f} value={f}>{FIELD_LABELS[f]}</option>)}
-              </select>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Field</label>
+                <select
+                  value={bulkField}
+                  onChange={e => setBulkField(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                >
+                  <option value="">Select field...</option>
+                  {EDITABLE_FIELDS.map(f => <option key={f} value={f}>{FIELD_LABELS[f]}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Value</label>
+                <input
+                  value={bulkValue}
+                  onChange={e => setBulkValue(e.target.value)}
+                  placeholder="Enter value to apply..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                />
+              </div>
             </div>
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ color: '#94a3b8', fontSize: 13, marginBottom: 6, display: 'block' }}>Value</label>
-              <input value={bulkValue} onChange={e => setBulkValue(e.target.value)} placeholder="Enter value to apply..."
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f1f5f9', fontSize: 14, outline: 'none' }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => setBulkEditOpen(false)} style={{ ...toolbarBtn, backgroundColor: 'rgba(255,255,255,0.08)', color: '#94a3b8' }}>Cancel</button>
-              <button onClick={handleBulkEdit} disabled={!bulkField} style={{ ...toolbarBtn, backgroundColor: '#2563eb', color: '#fff', opacity: bulkField ? 1 : 0.5 }}>
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                onClick={() => setBulkEditOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 shadow-none"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkEdit}
+                disabled={!bulkField}
+                className="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm disabled:opacity-50"
+              >
                 Apply to {selectedIds.size} records
               </button>
             </div>
@@ -496,39 +712,39 @@ export default function IssuanceMigrationPage() {
 
       {/* History Preview Modal */}
       {historyModal && (
-        <div style={modalOverlay}>
-          <div style={{ ...modalContent, maxWidth: 700 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ color: '#f1f5f9', margin: 0 }}>
-                <History size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-                Timeline: {historyModal.bank_lg_number}
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between shrink-0">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <History size={18} className="text-blue-600" />
+                <span>Timeline: {historyModal.bank_lg_number}</span>
               </h3>
-              <button onClick={() => setHistoryModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={20} /></button>
+              <button onClick={() => setHistoryModal(null)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 shadow-none">
+                <X size={18} />
+              </button>
             </div>
-            <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+            <div className="p-6 overflow-y-auto divide-y divide-slate-100">
               {historyModal.timeline?.map((entry, i) => (
-                <div key={i} style={{
-                  display: 'flex', gap: 16, padding: '14px 0',
-                  borderBottom: i < historyModal.timeline.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
-                }}>
-                  <div style={{
-                    width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: i === 0 ? 'rgba(16,185,129,0.15)' : 'rgba(96,165,250,0.15)', flexShrink: 0,
-                  }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: i === 0 ? '#10b981' : '#60a5fa' }}>{entry.sequence}</span>
+                <div key={i} className="flex gap-4 py-3.5 first:pt-0 last:pb-0">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
+                      i === 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                    }`}
+                  >
+                    {entry.sequence}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: '#f1f5f9', fontWeight: 600, fontSize: 14 }}>{(entry.inferred_action || '').replace(/_/g, ' ')}</span>
-                      <span style={{ color: '#64748b', fontSize: 12 }}>{entry.timestamp}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-slate-900 font-semibold text-sm">{(entry.inferred_action || '').replace(/_/g, ' ')}</span>
+                      <span className="text-slate-400 text-xs">{entry.timestamp}</span>
                     </div>
-                    <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>
+                    <div className="text-slate-600 text-xs mt-1">
                       Amount: {entry.current_amount?.toLocaleString()} | Status: {entry.status} | Expiry: {formatDate(entry.expiry_date)}
                     </div>
                     {entry.diff && Object.keys(entry.diff).length > 0 && (
-                      <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
                         {Object.entries(entry.diff).map(([field, d]) => (
-                          <span key={field} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, backgroundColor: 'rgba(96,165,250,0.1)', color: '#93c5fd' }}>
+                          <span key={field} className="text-[11px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
                             {FIELD_LABELS[field] || field}: {String(d.old)} → {String(d.new)}
                           </span>
                         ))}
@@ -544,12 +760,3 @@ export default function IssuanceMigrationPage() {
     </div>
   );
 }
-
-// Styles
-const thStyle = { padding: '10px 12px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', position: 'sticky', top: 0, backgroundColor: '#0f172a' };
-const tdStyle = { padding: '10px 12px', whiteSpace: 'nowrap' };
-const iconBtn = { background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4 };
-const toolbarBtn = { display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' };
-const modalOverlay = { position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 };
-const modalContent = { backgroundColor: '#1e293b', borderRadius: 16, padding: 28, width: '90%', maxWidth: 500, border: '1px solid rgba(255,255,255,0.1)' };
-const selectStyle = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', backgroundColor: 'rgba(0,0,0,0.3)', color: '#f1f5f9', fontSize: 14, outline: 'none' };

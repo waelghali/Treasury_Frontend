@@ -7,7 +7,7 @@ import moment from 'moment';
 import { apiRequest } from '../../services/apiService';
 import FormattedDateInput from 'components/FormattedDateInput';
 
-const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-semibold rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
 const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
     const [isProcessing, setIsProcessing] = useState(false);
@@ -198,11 +198,11 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
 
         return (
             <div key={name} className="relative">
-                <label htmlFor={name} className="block text-sm font-medium text-gray-700">
+                <label htmlFor={name} className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
                     {label}
                 </label>
                 {type === 'checkbox' ? (
-                    <div className="mt-1">
+                    <div className="mt-1.5">
                         <input
                             id={name}
                             name={name}
@@ -210,7 +210,7 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                             checked={hasAmendedProperty ? amendmentDetails[name] : lgRecord[name]}
                             onChange={handleInputChange}
                             disabled={readOnly || isLoadingAI}
-                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 rounded"
                             {...extraProps}
                         />
                     </div>
@@ -223,10 +223,10 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                         readOnly={readOnly || isLoadingAI}
                         disabled={readOnly || isLoadingAI}
                         className={classNames(
-                            "mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2",
-                            "border border-gray-300",
-                            (readOnly || isLoadingAI) ? "bg-gray-100 text-gray-500" : "focus:border-indigo-500 focus:ring-indigo-500",
-                            hasBeenChanged ? "bg-yellow-50 border-yellow-400" : "bg-white"
+                            "mt-1 block w-full rounded-xl shadow-sm text-sm px-3 py-2",
+                            "border border-slate-300 focus:outline-none focus:ring-2",
+                            (readOnly || isLoadingAI) ? "bg-slate-100 text-slate-500" : "focus:border-indigo-500 focus:ring-indigo-500",
+                            hasBeenChanged ? "bg-amber-50 border-amber-400" : "bg-white"
                         )}
                         {...extraProps}
                     />
@@ -239,16 +239,16 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                         onChange={handleInputChange}
                         readOnly={readOnly || isLoadingAI}
                         className={classNames(
-                            "mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2",
-                            "border border-gray-300",
-                            (readOnly || isLoadingAI) ? "bg-gray-100 text-gray-500" : "focus:border-indigo-500 focus:ring-indigo-500",
-                            hasBeenChanged ? "bg-yellow-50 border-yellow-400" : "bg-white"
+                            "mt-1 block w-full rounded-xl shadow-sm text-sm px-3 py-2",
+                            "border border-slate-300 focus:outline-none focus:ring-2",
+                            (readOnly || isLoadingAI) ? "bg-slate-100 text-slate-500" : "focus:border-indigo-500 focus:ring-indigo-500",
+                            hasBeenChanged ? "bg-amber-50 border-amber-400" : "bg-white"
                         )}
                         {...extraProps}
                     />
                 )}
                 {hasBeenChanged && (
-                    <span className="absolute top-0 right-0 mt-1 mr-1 px-2 py-1 text-xs font-medium text-yellow-800 bg-yellow-200 rounded-full">
+                    <span className="absolute top-0 right-0 mt-0.5 mr-0.5 px-2 py-0.5 text-[11px] font-semibold text-amber-800 bg-amber-100 border border-amber-200 rounded-full">
                         Amended
                     </span>
                 )}
@@ -272,11 +272,11 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-0">
+                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-4">
                         <TransitionChild
                             as={Fragment}
                             enter="ease-out duration-300"
@@ -286,119 +286,125 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all my-auto sm:my-8 w-full max-w-2xl mx-2 sm:mx-auto p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
-                                <div className="absolute right-3 top-3 sm:right-4 sm:top-4 z-10">
+                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white border border-slate-200/80 text-left shadow-2xl transition-all my-auto w-full max-w-2xl flex flex-col max-h-[90vh]">
+                                {/* Sticky Header */}
+                                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3 shrink-0">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 shrink-0">
+                                            <FileText className="h-4 w-4" />
+                                        </div>
+                                        <DialogTitle as="h3" className="text-base sm:text-lg font-bold leading-6 text-slate-900 tracking-tight truncate">
+                                            Amend LG Record: {lgRecord.lg_number}
+                                        </DialogTitle>
+                                    </div>
                                     <button
                                         type="button"
-                                        className="rounded-full p-1 bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300 shrink-0"
                                         onClick={onClose}
                                     >
                                         <span className="sr-only">Close</span>
                                         <X className="h-5 w-5" aria-hidden="true" />
                                     </button>
                                 </div>
-                                <div className="w-full">
-                                    <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-3 pr-8">
-                                        Amend LG Record: {lgRecord.lg_number}
-                                    </DialogTitle>
-                                    <div className="mt-2">
+
+                                <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                                    <div className="px-5 py-4 space-y-3.5 overflow-y-auto flex-1">
                                         {error && (
-                                            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 flex items-center text-xs sm:text-sm">
+                                            <div className="bg-rose-50 border border-rose-200 text-rose-700 px-3.5 py-2.5 rounded-xl flex items-center text-xs sm:text-sm">
                                                 <AlertCircle className="mr-2 h-4 w-4 shrink-0" />
                                                 {error}
                                             </div>
                                         )}
-                                        <form onSubmit={handleSubmit} className="space-y-4">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                                {getField('lg_number', 'LG Number', 'text', true)}
-                                                <div className="relative">
-                                                  <label htmlFor="beneficiary_name" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Beneficiary</label>
-                                                  <input type="text" name="beneficiary_name" id="beneficiary_name" value={lgRecord.beneficiary_corporate?.entity_name || 'N/A'} readOnly className="block w-full rounded-lg shadow-sm text-sm p-2 border border-gray-300 bg-gray-100 text-gray-500" />
-                                                </div>
-                                                {getField('issuance_date', 'Issuance Date', 'date')}
-                                                {getField('expiry_date', 'Expiry Date', 'date')}
-                                                {getField('lg_amount', 'LG Amount', 'number', false, {step: "0.01"})}
-                                                {getField('auto_renewal', 'Auto-Renewal', 'checkbox')}
-                                                {getField('payment_conditions', 'Payment Conditions')}
-                                                {getField('description_purpose', 'Purpose')}
-                                                {getField('other_conditions', 'Other Conditions')}
-                                                {getField('notes', 'Notes', 'textarea')}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                            {getField('lg_number', 'LG Number', 'text', true)}
+                                            <div className="relative">
+                                              <label htmlFor="beneficiary_name" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">Beneficiary</label>
+                                              <input type="text" name="beneficiary_name" id="beneficiary_name" value={lgRecord.beneficiary_corporate?.entity_name || 'N/A'} readOnly className="mt-1 block w-full rounded-xl shadow-sm text-sm px-3 py-2 border border-slate-300 bg-slate-100 text-slate-500" />
                                             </div>
-                                            <div className="border-t pt-3">
-                                                <label htmlFor="reason" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                    Reason for Amendment <span className="text-red-500">*</span>
-                                                </label>
-                                                <textarea
-                                                    id="reason"
-                                                    name="reason"
-                                                    rows={2}
-                                                    value={reason}
-                                                    onChange={(e) => setReason(e.target.value)}
+                                            {getField('issuance_date', 'Issuance Date', 'date')}
+                                            {getField('expiry_date', 'Expiry Date', 'date')}
+                                            {getField('lg_amount', 'LG Amount', 'number', false, {step: "0.01"})}
+                                            {getField('auto_renewal', 'Auto-Renewal', 'checkbox')}
+                                            {getField('payment_conditions', 'Payment Conditions')}
+                                            {getField('description_purpose', 'Purpose')}
+                                            {getField('other_conditions', 'Other Conditions')}
+                                            {getField('notes', 'Notes', 'textarea')}
+                                        </div>
+                                        <div className="border-t border-slate-200 pt-3">
+                                            <label htmlFor="reason" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                Reason for Amendment <span className="text-rose-500">*</span>
+                                            </label>
+                                            <textarea
+                                                id="reason"
+                                                name="reason"
+                                                rows={2}
+                                                value={reason}
+                                                onChange={(e) => setReason(e.target.value)}
+                                                required
+                                                className="mt-1 block w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
+                                        <div className="border-t border-slate-200 pt-3">
+                                            <label htmlFor="amendment-file" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                Amendment Letter from Bank <span className="text-rose-500">*</span>
+                                            </label>
+                                            <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                                                <input
+                                                    id="amendment-file"
+                                                    name="amendment_letter_file"
+                                                    type="file"
+                                                    onChange={handleFileChange}
+                                                    accept=".pdf,image/*"
                                                     required
-                                                    className="mt-1 block w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500"
+                                                    className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                                                 />
-                                            </div>
-                                            <div className="border-t pt-3">
-                                                <label htmlFor="amendment-file" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                    Amendment Letter from Bank <span className="text-red-500">*</span>
-                                                </label>
-                                                <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
-                                                    <input
-                                                        id="amendment-file"
-                                                        name="amendment_letter_file"
-                                                        type="file"
-                                                        onChange={handleFileChange}
-                                                        accept=".pdf,image/*"
-                                                        required
-                                                        className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                                    />
-                                                    {isLoadingAI && (
-                                                        <div className="flex items-center text-xs text-blue-600">
-                                                            <Loader2 className="h-4 w-4 animate-spin mr-1 text-blue-500" />
-                                                            Analyzing...
-                                                        </div>
-                                                    )}
-                                                    {amendmentFile && (
-                                                        <span className="text-xs text-gray-500 truncate">
-                                                            <FileText className="inline-block h-3.5 w-3.5 mr-1" />
-                                                            {amendmentFile.name}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {aiMessage && (
-                                                    <p className="mt-1 text-xs text-blue-600">{aiMessage}</p>
+                                                {isLoadingAI && (
+                                                    <div className="flex items-center text-xs text-indigo-600 shrink-0">
+                                                        <Loader2 className="h-4 w-4 animate-spin mr-1 text-indigo-600" />
+                                                        Analyzing...
+                                                    </div>
                                                 )}
-                                                {(!amendmentFile) && <p className="mt-1 text-xs text-gray-500">A scanned copy of the bank's amendment letter is mandatory.</p>}
+                                                {amendmentFile && (
+                                                    <span className="text-xs text-slate-500 truncate">
+                                                        <FileText className="inline-block h-3.5 w-3.5 mr-1" />
+                                                        {amendmentFile.name}
+                                                    </span>
+                                                )}
                                             </div>
-
-                                            <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 pt-2 border-t border-gray-100">
-                                                <button
-                                                    type="button"
-                                                    className={classNames(
-                                                        buttonBaseClassNames,
-                                                        "justify-center w-full sm:w-auto text-gray-700 bg-gray-100 hover:bg-gray-200 py-2.5"
-                                                    )}
-                                                    onClick={onClose}
-                                                    disabled={isProcessing}
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    type="submit"
-                                                    className={classNames(
-                                                        buttonBaseClassNames,
-                                                        "justify-center w-full sm:w-auto bg-amber-600 text-white hover:bg-amber-700 py-2.5 font-bold shadow-md",
-                                                        !hasChanges || !amendmentFile || !reason || !isAmendable ? "opacity-50 cursor-not-allowed" : ""
-                                                    )}
-                                                    disabled={isProcessing || !amendmentFile || !reason}
-                                                >
-                                                    {isProcessing ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Save className="h-5 w-5 mr-2" />}
-                                                    {isProcessing ? 'Amending...' : 'Submit Amendment'}
-                                                </button>
-                                            </div>
-                                        </form>
+                                            {aiMessage && (
+                                                <p className="mt-1 text-xs text-indigo-600">{aiMessage}</p>
+                                            )}
+                                            {(!amendmentFile) && <p className="mt-1 text-xs text-slate-500">A scanned copy of the bank's amendment letter is mandatory.</p>}
+                                        </div>
                                     </div>
-                                </div>
+
+                                    {/* Sticky Footer */}
+                                    <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 shrink-0">
+                                        <button
+                                            type="button"
+                                            className={classNames(
+                                                buttonBaseClassNames,
+                                                "justify-center w-full sm:w-auto rounded-xl text-slate-700 bg-white border border-slate-300 hover:bg-slate-50"
+                                            )}
+                                            onClick={onClose}
+                                            disabled={isProcessing}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className={classNames(
+                                                buttonBaseClassNames,
+                                                "justify-center w-full sm:w-auto rounded-xl bg-amber-600 text-white hover:bg-amber-700",
+                                                !hasChanges || !amendmentFile || !reason || !isAmendable ? "opacity-50 cursor-not-allowed" : ""
+                                            )}
+                                            disabled={isProcessing || !amendmentFile || !reason}
+                                        >
+                                            {isProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                                            {isProcessing ? 'Amending...' : 'Submit Amendment'}
+                                        </button>
+                                    </div>
+                                </form>
                             </DialogPanel>
                         </TransitionChild>
                     </div>

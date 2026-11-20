@@ -15,6 +15,12 @@ function ResetPasswordPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [policy, setPolicy] = useState({
+    min_length: 8,
+    require_uppercase: true,
+    require_lowercase: true,
+    require_digit: true,
+  });
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -31,6 +37,23 @@ function ResetPasswordPage() {
     } else {
       setError(mode === 'activation' ? 'Activation token is missing from the link.' : 'Password reset token is missing from the URL.');
     }
+
+    let active = true;
+    const policyUrl = `${API_BASE_URL}/password-policy${tokenFromUrl ? `?reset_token=${encodeURIComponent(tokenFromUrl)}` : ''}`;
+    fetch(policyUrl)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (active && data && typeof data === 'object') {
+          setPolicy({
+            min_length: Number(data.min_length) || 8,
+            require_uppercase: data.require_uppercase !== false,
+            require_lowercase: data.require_lowercase !== false,
+            require_digit: data.require_digit !== false,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
   }, [location]);
 
   const handleSubmit = async (e) => {
@@ -41,10 +64,10 @@ function ResetPasswordPage() {
 
     if (!token) { setError('Missing password reset token.'); setIsLoading(false); return; }
     if (newPassword !== confirmNewPassword) { setError('Passwords do not match.'); setIsLoading(false); return; }
-    if (newPassword.length < 8) { setError('Password must be at least 8 characters.'); setIsLoading(false); return; }
-    if (!/[A-Z]/.test(newPassword)) { setError('Must contain at least one uppercase letter.'); setIsLoading(false); return; }
-    if (!/[a-z]/.test(newPassword)) { setError('Must contain at least one lowercase letter.'); setIsLoading(false); return; }
-    if (!/\d/.test(newPassword)) { setError('Must contain at least one digit.'); setIsLoading(false); return; }
+    if (newPassword.length < policy.min_length) { setError(`Password must be at least ${policy.min_length} characters.`); setIsLoading(false); return; }
+    if (policy.require_uppercase && !/[A-Z]/.test(newPassword)) { setError('Must contain at least one uppercase letter.'); setIsLoading(false); return; }
+    if (policy.require_lowercase && !/[a-z]/.test(newPassword)) { setError('Must contain at least one lowercase letter.'); setIsLoading(false); return; }
+    if (policy.require_digit && !/\d/.test(newPassword)) { setError('Must contain at least one digit.'); setIsLoading(false); return; }
 
     try {
       const response = await fetch(`${API_BASE_URL}/reset-password`, {
@@ -69,7 +92,7 @@ function ResetPasswordPage() {
     }
   };
 
-  const inputCls = "block w-full px-4 py-3 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-gray-400";
+  const inputCls = "block w-full px-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-slate-400";
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", backgroundColor: '#1e2a4a' }}>
@@ -96,22 +119,22 @@ function ResetPasswordPage() {
             <div className={`mx-auto w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${isActivation ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
               {isActivation ? <ShieldCheck className="w-6 h-6" /> : <Lock className="w-5 h-5" />}
             </div>
-            <h2 className="text-xl font-bold text-gray-900">{isActivation ? 'Activate Your Corporate Account' : 'Reset Password'}</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="text-xl font-bold text-slate-900">{isActivation ? 'Activate Your Corporate Account' : 'Reset Password'}</h2>
+            <p className="text-sm text-slate-500 mt-1">
               {isActivation ? 'Welcome to Grow Treasury. Set your confidential account password.' : 'Choose a strong new password for your account.'}
             </p>
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             {!token && (
-              <div className="flex items-start space-x-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div className="flex items-start space-x-2 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm">
                 <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{error || 'No reset token found. Please use the link from your email.'}</span>
               </div>
             )}
 
             <div>
-              <label htmlFor="newPassword" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <label htmlFor="newPassword" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                 New Password
               </label>
               <input
@@ -124,12 +147,12 @@ function ResetPasswordPage() {
                 placeholder="Enter your new password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                minLength="8"
+                minLength={policy.min_length}
               />
             </div>
 
             <div>
-              <label htmlFor="confirmNewPassword" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <label htmlFor="confirmNewPassword" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                 Confirm New Password
               </label>
               <input
@@ -142,36 +165,38 @@ function ResetPasswordPage() {
                 placeholder="Confirm your new password"
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
-                minLength="8"
+                minLength={policy.min_length}
               />
             </div>
 
             {/* Password requirements hint */}
-            <div className="text-xs text-gray-400 space-y-0.5">
+            <div className="text-xs text-slate-400 space-y-0.5">
               <p>Password must contain:</p>
               <ul className="list-disc list-inside ml-1 space-y-0.5">
-                <li>At least 8 characters</li>
-                <li>One uppercase and one lowercase letter</li>
-                <li>At least one digit</li>
+                <li>At least {policy.min_length} characters</li>
+                {policy.require_uppercase && <li>At least one uppercase letter</li>}
+                {policy.require_lowercase && <li>At least one lowercase letter</li>}
+                {policy.require_digit && <li>At least one digit</li>}
               </ul>
             </div>
 
             {message && (
-              <div className="flex items-start space-x-2 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+              <div className="flex items-start space-x-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm">
                 <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{message}</span>
               </div>
             )}
 
             {error && token && (
-              <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-r-lg text-sm">
-                {error}
+              <div className="flex items-start space-x-2 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm">
+                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
             <button
               type="submit"
-              className={`w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white rounded-lg transition-colors shadow-md disabled:opacity-50 ${isActivation ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+              className={`w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white rounded-xl transition-colors shadow-md disabled:opacity-50 ${isActivation ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}
               disabled={isLoading || !token}
             >
               {isLoading ? (
@@ -182,7 +207,7 @@ function ResetPasswordPage() {
             </button>
           </form>
 
-          <div className="text-center pt-4 border-t border-gray-100">
+          <div className="text-center pt-4 border-t border-slate-100">
             <Link to="/login" className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors">
               <ArrowLeft className="w-3 h-3 mr-1" /> Back to Sign In
             </Link>

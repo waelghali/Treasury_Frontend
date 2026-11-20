@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../../services/apiService';
-import { Loader2, PlusCircle, Mail, ShieldCheck } from 'lucide-react';
+import { Loader2, PlusCircle, Mail, ShieldCheck, Lock, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -171,16 +171,17 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
   }
 
   return (
-    <div className="w-full min-w-0">
-      <h1 className="text-2xl font-semibold text-gray-800 mb-6">{formTitle}</h1>
+    <div className="w-full max-w-3xl min-w-0">
+      <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mb-4">{formTitle}</h1>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative mb-4 flex items-center gap-2 text-sm" role="alert">
+          <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
           <span className="block sm:inline">{error}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className={`bg-white p-6 rounded-lg shadow-md space-y-6 ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}>
+      <form onSubmit={handleSubmit} className={`bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-5 ${isGracePeriod ? 'opacity-50 pointer-events-none' : ''}`}>
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
           <input
@@ -218,8 +219,8 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-md font-semibold text-gray-800">Account Access & Authentication</h3>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                  🛡️ Zero-Touch Active
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Zero-Touch Active
                 </span>
               </div>
 
@@ -231,8 +232,8 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
                     <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                       A private, single-use 24-hour activation link will be automatically dispatched to this user via email with 'SendOnly' privacy (never saved to Sent Items). The user will securely establish their confidential password in their browser upon opening the link.
                     </p>
-                    <p className="text-[11px] text-gray-400 mt-1.5 italic">
-                      ⚡ As a Corporate Administrator, you will never see, set, or know their password.
+                    <p className="text-[11px] text-slate-500 mt-1.5 italic">
+                      As a Corporate Administrator, you will never see, set, or know their password.
                     </p>
                   </div>
                 </div>
@@ -245,8 +246,8 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
                   <ShieldCheck className="w-5 h-5 text-emerald-600" />
                   <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wide">Password & Credentials</h4>
                 </div>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
-                  🔒 Host-Blind Protected
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <Lock className="w-3 h-3" /> Host-Blind Protected
                 </span>
               </div>
               <p className="text-xs text-gray-600 leading-relaxed">
@@ -340,7 +341,7 @@ function UserForm({ onLogout, isGracePeriod }) { // NEW: Accept isGracePeriod pr
           <button
             type="button"
             onClick={() => navigate('/corporate-admin/users')}
-            className={`px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors duration-200 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={isSaving || isGracePeriod} // NEW: Disable cancel button
           >
             Cancel

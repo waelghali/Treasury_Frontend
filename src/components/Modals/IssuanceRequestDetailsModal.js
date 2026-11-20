@@ -347,8 +347,8 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
     );
 
     return (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="relative bg-white rounded-2xl shadow-2xl max-w-7xl w-full max-h-[94vh] flex flex-col mx-auto overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="relative bg-white rounded-2xl border border-slate-200/80 shadow-2xl max-w-7xl w-full max-h-[92vh] flex flex-col mx-auto overflow-hidden">
 
                 {/* Header */}
                 <div className={`${request.status === 'APPROVED_INTERNAL' ? 'bg-emerald-700' : 'bg-blue-800'} text-white px-4 sm:px-6 py-3.5 sm:py-4 flex justify-between items-center shrink-0`}>
@@ -365,13 +365,13 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                             {request.lg_type?.name && ` • ${request.lg_type.name}`}
                         </p>
                     </div>
-                    <button onClick={onClose} className="text-white hover:text-red-200 transition-colors p-1 rounded-lg hover:bg-white/10 shrink-0">
-                        <X className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <button onClick={onClose} className="text-white/80 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/15 shrink-0" aria-label="Close">
+                        <X className="h-5 w-5" />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-3.5 sm:p-6 overflow-y-auto flex-1 bg-gray-50 flex flex-col lg:flex-row gap-4 sm:gap-6">
+                <div className="p-3.5 sm:p-6 overflow-y-auto flex-1 bg-slate-50/70 flex flex-col lg:flex-row gap-4 sm:gap-6">
 
                     {/* LEFT — Request Details */}
                     <div className="w-full lg:w-2/3 space-y-4">
@@ -1426,18 +1426,18 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-xl flex justify-between items-center shrink-0">
+                <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-3">
                         <button
                             onClick={onClose}
-                            className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md font-medium text-sm transition-colors"
+                            className="px-5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-semibold text-sm shadow-sm transition-colors"
                         >
                             Close
                         </button>
                         {(userRole === 'end_user' || currentUserId === request.requestor_user_id) && ['PENDING_APPROVAL', 'APPROVED_INTERNAL', 'FACILITY_RESERVED'].includes(request.status) && (
                             <button
                                 onClick={() => setShowCancelPrompt(true)}
-                                className="flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:text-red-600 rounded-md text-xs transition-colors"
+                                className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-rose-600 rounded-xl text-xs font-medium transition-colors"
                             >
                                 <XCircle className="w-3.5 h-3.5" /> Cancel Request
                             </button>
@@ -1460,7 +1460,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                         }
                                     }}
                                     disabled={isProcessing}
-                                    className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-md font-medium text-sm hover:bg-red-100 transition-colors"
+                                    className="flex items-center gap-2 px-4 py-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl font-medium text-sm hover:bg-rose-100 transition-colors"
                                 >
                                     <Trash2 className="w-4 h-4" /> Delete Draft
                                 </button>
@@ -1469,7 +1469,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                         onClose();
                                         navigate(`/end-user/issuance/requests/edit/${request.id}`);
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 text-gray-700 rounded-md font-medium text-sm hover:bg-gray-100 transition-colors"
+                                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-50 shadow-sm transition-colors"
                                 >
                                     <Edit3 className="w-4 h-4" /> Edit Draft
                                 </button>
@@ -1489,7 +1489,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                         }
                                     }}
                                     disabled={isProcessing}
-                                    className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold text-sm transition-colors shadow-sm"
+                                    className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors shadow-sm"
                                 >
                                     <Send className="w-4 h-4" /> Submit
                                 </button>
@@ -1504,7 +1504,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                         onClose();
                                         navigate(`/end-user/issuance/requests/edit/${request.id}`);
                                     }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-md font-medium text-sm hover:bg-amber-100 transition-colors"
+                                    className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl font-medium text-sm hover:bg-amber-100 transition-colors"
                                 >
                                     <Edit3 className="w-4 h-4" /> Edit Request
                                 </button>
@@ -1524,7 +1524,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                         }
                                     }}
                                     disabled={isProcessing}
-                                    className="flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md font-semibold text-sm transition-colors shadow-sm"
+                                    className="flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold text-sm transition-colors shadow-sm"
                                 >
                                     <Send className="w-4 h-4" /> Resubmit for Approval
                                 </button>
@@ -1549,7 +1549,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                     }
                                 }}
                                 disabled={isProcessing}
-                                className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-md font-medium text-sm hover:bg-amber-100 transition-colors"
+                                className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl font-medium text-sm hover:bg-amber-100 transition-colors"
                             >
                                 <Unlock className="w-4 h-4" /> Release Reservation
                             </button>
@@ -1559,7 +1559,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                         {request.status === 'ISSUED' && (
                             <button
                                 onClick={() => setShowLetterDialog(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-md font-medium text-sm hover:bg-blue-100 transition-colors"
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-xl font-medium text-sm hover:bg-blue-100 transition-colors"
                             >
                                 <FileText className="w-4 h-4" /> Reprint Letter
                             </button>
@@ -1571,7 +1571,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                 onClick={() => {
                                     if (typeof onStatusChange === 'function') onStatusChange('EXECUTE', request);
                                 }}
-                                className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-md font-medium text-sm hover:bg-amber-100 transition-colors"
+                                className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl font-medium text-sm hover:bg-amber-100 transition-colors"
                             >
                                 <Lock className="w-4 h-4" /> Reserve Facility
                             </button>
@@ -1581,7 +1581,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                         {userRole === 'end_user' && (request.status === 'APPROVED_INTERNAL' || request.status === 'FACILITY_RESERVED') && (
                             <button
                                 onClick={() => setShowWizard(true)}
-                                className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-semibold text-sm transition-colors shadow-sm"
+                                className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm transition-colors shadow-sm"
                             >
                                 <Zap className="w-4 h-4" /> Issue to Bank
                             </button>
@@ -1592,7 +1592,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                         {/* Admin: Approve/Reject Cancellation */}
                         {userRole === 'corporate_admin' && request.status === 'CANCELLATION_REQUESTED' && (
                             <div className="flex items-center gap-2">
-                                <span className="text-xs text-red-600 font-medium mr-1">Cancellation pending:</span>
+                                <span className="text-xs text-rose-600 font-medium mr-1">Cancellation pending:</span>
                                 <button
                                     onClick={async () => {
                                         try {
@@ -1602,7 +1602,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                             onClose();
                                         } catch (err) { toast.error(err.message || 'Failed to approve cancellation.'); }
                                     }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-md text-xs font-bold hover:bg-red-700 transition-colors"
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition-colors shadow-sm"
                                 >
                                     <CheckCircle className="w-3.5 h-3.5" /> Approve Cancel
                                 </button>
@@ -1615,7 +1615,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                             onClose();
                                         } catch (err) { toast.error(err.message || 'Failed to reject cancellation.'); }
                                     }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-bold hover:bg-slate-50 transition-colors"
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors shadow-sm"
                                 >
                                     <XCircle className="w-3.5 h-3.5" /> Reject Cancel
                                 </button>
@@ -1635,7 +1635,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                             onClose();
                                         } catch (err) { toast.error(err.message || 'Failed to approve edit.'); }
                                     }}
-                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 text-white rounded-md text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs"
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
                                 >
                                     <CheckCircle className="w-3.5 h-3.5" /> Approve Edit
                                 </button>
@@ -1650,7 +1650,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                             onClose();
                                         } catch (err) { toast.error(err.message || 'Failed to reject edit.'); }
                                     }}
-                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-md text-xs font-bold hover:bg-slate-50 transition-colors"
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors shadow-sm"
                                 >
                                     <XCircle className="w-3.5 h-3.5" /> Reject Edit
                                 </button>
@@ -1661,13 +1661,13 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
 
                 {/* Cancellation Reason Dialog */}
                 {showCancelPrompt && (
-                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-                            <div className="p-5 border-b border-slate-200">
-                                <h3 className="text-lg font-bold text-red-700 flex items-center gap-2">
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xl w-full max-w-md overflow-hidden">
+                            <div className="p-5 border-b border-slate-200 bg-rose-50/60">
+                                <h3 className="text-lg font-bold text-rose-700 flex items-center gap-2">
                                     <XCircle className="w-5 h-5" /> Request Cancellation
                                 </h3>
-                                <p className="text-sm text-slate-500 mt-1">
+                                <p className="text-sm text-slate-600 mt-1">
                                     This will send a cancellation request to the admin for approval. Please provide a reason.
                                 </p>
                             </div>
@@ -1677,18 +1677,18 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                     <textarea
                                         value={cancelReason}
                                         onChange={e => setCancelReason(e.target.value)}
-                                        className="w-full p-3 border border-slate-200 rounded-xl text-sm resize-none h-24 focus:ring-2 focus:ring-red-200 focus:border-red-400 outline-none"
+                                        className="w-full p-3 border border-slate-300 rounded-xl text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400"
                                         placeholder="e.g., Duplicate request, terms changed, beneficiary no longer requires guarantee..."
                                     />
                                     {cancelReason.length > 0 && cancelReason.length < 5 && (
-                                        <p className="text-[10px] text-red-500 mt-1">Reason must be at least 5 characters.</p>
+                                        <p className="text-[11px] text-rose-600 mt-1">Reason must be at least 5 characters.</p>
                                     )}
                                 </div>
                             </div>
-                            <div className="p-5 border-t border-slate-200 flex justify-end gap-3">
+                            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
                                 <button
                                     onClick={() => { setShowCancelPrompt(false); setCancelReason(''); }}
-                                    className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800"
+                                    className="px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl shadow-sm transition-colors"
                                 >
                                     Nevermind
                                 </button>
@@ -1709,7 +1709,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                             setCancelLoading(false);
                                         }
                                     }}
-                                    className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                    className="flex items-center gap-2 px-5 py-2 bg-rose-600 text-white rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
                                 >
                                     {cancelLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                                     Submit Cancellation Request
@@ -1721,26 +1721,26 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
 
                 {/* Letter Reprint Dialog */}
                 {showLetterDialog && (
-                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-                            <div className="p-5 border-b border-slate-200">
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xl w-full max-w-md overflow-hidden">
+                            <div className="p-5 border-b border-slate-200 bg-slate-50/70">
                                 <h3 className="text-lg font-bold text-slate-900">Reprint Letter</h3>
                                 <p className="text-sm text-slate-500 mt-1">Add any extra instructions for the reprint</p>
                             </div>
                             <div className="p-5 space-y-4">
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Additional Instructions (Optional)</label>
+                                    <label className="text-xs font-bold text-slate-600 uppercase block mb-1">Additional Instructions (Optional)</label>
                                     <textarea
                                         value={letterAdditionalText}
                                         onChange={e => setLetterAdditionalText(e.target.value)}
-                                        className="w-full p-3 border border-slate-200 rounded-xl text-sm resize-none h-24"
+                                        className="w-full p-3 border border-slate-300 rounded-xl text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                         placeholder="Enter any additional instructions or notes for the bank..."
                                     />
                                 </div>
                             </div>
-                            <div className="p-5 border-t border-slate-200 flex justify-end gap-3">
+                            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
                                 <button onClick={() => setShowLetterDialog(false)}
-                                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                                    className="px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl shadow-sm transition-colors">
                                     Cancel
                                 </button>
                                 <button
@@ -1758,7 +1758,7 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
                                             toast.error(err.message || 'Failed to generate letter.');
                                         }
                                     }}
-                                    className="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg transition-all flex items-center gap-2"
+                                    className="px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-2"
                                 >
                                     <FileText className="w-4 h-4" /> Generate & Print
                                 </button>
@@ -1770,15 +1770,17 @@ export default function IssuanceRequestDetailsModal({ request: requestProp, onCl
 
             {/* H2: Document Analysis Result Overlay */}
             {docAnalysis && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[70]" onClick={() => setDocAnalysis(null)}>
-                    <div className="bg-white rounded-2xl max-w-lg w-full mx-4 max-h-[80vh] overflow-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="p-5 border-b border-slate-100">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[70]" onClick={() => setDocAnalysis(null)}>
+                    <div className="bg-white rounded-2xl border border-slate-200/80 max-w-lg w-full mx-4 max-h-[80vh] overflow-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="p-5 border-b border-slate-100 bg-slate-50/70">
                             <div className="flex justify-between items-center">
                                 <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                                     <FileSearch className="w-5 h-5 text-violet-600" />
                                     Document Verification
                                 </h3>
-                                <button onClick={() => setDocAnalysis(null)} className="text-slate-400 hover:text-slate-600 text-xl">×</button>
+                                <button onClick={() => setDocAnalysis(null)} className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors" aria-label="Close">
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
                             <p className="text-xs text-slate-400 mt-1">{docAnalysis.docName}</p>
                         </div>

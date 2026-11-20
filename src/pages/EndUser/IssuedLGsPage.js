@@ -10,7 +10,7 @@ import {
     ArrowDownRight, RotateCcw, Trash2, Edit3, Zap,
     Send, Check, Ban, Download, Users, AlertTriangle,
     ArrowUp, ArrowDown, SlidersHorizontal, Filter, XCircle,
-    Key, Settings, HelpCircle
+    Key, Settings, HelpCircle, Sparkles, Lightbulb, ClipboardList
 } from 'lucide-react';
 import PostIssuanceTracker from '../../components/PostIssuanceTracker';
 import RecordDeliveryModal from '../../components/Modals/RecordDeliveryModal';
@@ -198,13 +198,13 @@ function SmartSuggestions({ lg }) {
         const exp = new Date(lg.expiry_date); exp.setHours(0, 0, 0, 0);
         const daysLeft = Math.ceil((exp - today) / 86400000);
         if (daysLeft < 0) {
-            suggestions.push({ icon: '🔴', text: `This LG expired ${Math.abs(daysLeft)} days ago — consider closing or returning it.`, severity: 'critical' });
+            suggestions.push({ icon: <AlertCircle className="w-4 h-4 text-rose-600" />, text: `This LG expired ${Math.abs(daysLeft)} days ago — consider closing or returning it.`, severity: 'critical' });
         } else if (daysLeft <= 7) {
-            suggestions.push({ icon: '🔴', text: `Expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} — urgent action needed. Extend or close?`, severity: 'critical' });
+            suggestions.push({ icon: <AlertCircle className="w-4 h-4 text-rose-600" />, text: `Expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} — urgent action needed. Extend or close?`, severity: 'critical' });
         } else if (daysLeft <= 30) {
-            suggestions.push({ icon: '🟡', text: `Expires in ${daysLeft} days — consider extending or preparing for return.`, severity: 'warning' });
+            suggestions.push({ icon: <AlertTriangle className="w-4 h-4 text-amber-600" />, text: `Expires in ${daysLeft} days — consider extending or preparing for return.`, severity: 'warning' });
         } else if (daysLeft <= 60) {
-            suggestions.push({ icon: '💡', text: `${daysLeft} days until expiry — good time to review renewal needs.`, severity: 'info' });
+            suggestions.push({ icon: <Lightbulb className="w-4 h-4 text-blue-600" />, text: `${daysLeft} days until expiry — good time to review renewal needs.`, severity: 'info' });
         }
     }
 
@@ -212,13 +212,13 @@ function SmartSuggestions({ lg }) {
     if (lg.bank_lg_amount && lg.current_amount) {
         const diff = Math.abs(parseFloat(lg.current_amount) - parseFloat(lg.bank_lg_amount));
         if (diff > 0.01) {
-            suggestions.push({ icon: '⚠️', text: `Bank amount differs by ${lg.currency_code || ''} ${diff.toLocaleString(undefined, { minimumFractionDigits: 2 })} — review reconciliation.`, severity: 'warning' });
+            suggestions.push({ icon: <AlertTriangle className="w-4 h-4 text-amber-600" />, text: `Bank amount differs by ${lg.currency_code || ''} ${diff.toLocaleString(undefined, { minimumFractionDigits: 2 })} — review reconciliation.`, severity: 'warning' });
         }
     }
 
     // Rule 3: Reference validity exceeded
     if (lg.reference_validity_flag === 'EXCEEDED') {
-        suggestions.push({ icon: '🔴', text: 'Underlying contract/reference has expired — this LG may need to be returned to the bank.', severity: 'critical' });
+        suggestions.push({ icon: <AlertCircle className="w-4 h-4 text-rose-600" />, text: 'Underlying contract/reference has expired — this LG may need to be returned to the bank.', severity: 'critical' });
     }
 
     // Rule 4: Stale LG (created > 6 months ago, no recent updates)
@@ -226,7 +226,7 @@ function SmartSuggestions({ lg }) {
         const created = new Date(lg.created_at);
         const monthsOld = (new Date() - created) / (1000 * 60 * 60 * 24 * 30);
         if (monthsOld > 6) {
-            suggestions.push({ icon: '📋', text: `No activity in ${Math.floor(monthsOld)} months — verify this LG is still needed.`, severity: 'info' });
+            suggestions.push({ icon: <ClipboardList className="w-4 h-4 text-blue-600" />, text: `No activity in ${Math.floor(monthsOld)} months — verify this LG is still needed.`, severity: 'info' });
         }
     }
 
@@ -235,26 +235,27 @@ function SmartSuggestions({ lg }) {
         const created = new Date(lg.created_at);
         const daysWaiting = Math.ceil((new Date() - created) / 86400000);
         if (daysWaiting > 7) {
-            suggestions.push({ icon: '⏰', text: `Pending bank confirmation for ${daysWaiting} days — follow up with the bank.`, severity: 'warning' });
+            suggestions.push({ icon: <Clock className="w-4 h-4 text-amber-600" />, text: `Pending bank confirmation for ${daysWaiting} days — follow up with the bank.`, severity: 'warning' });
         }
     }
 
     if (suggestions.length === 0) return null;
 
     const severityColors = {
-        critical: 'bg-red-50 border-red-200 text-red-800',
+        critical: 'bg-rose-50 border-rose-200 text-rose-800',
         warning: 'bg-amber-50 border-amber-200 text-amber-800',
         info: 'bg-blue-50 border-blue-200 text-blue-800',
     };
 
     return (
         <div className="space-y-2 mb-4">
-            <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">🧠 Smart Insights</span>
+            <div className="flex items-center gap-1.5 mb-1">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Smart Insights</span>
             </div>
             {suggestions.map((s, i) => (
                 <div key={i} className={`flex items-start gap-2 px-3 py-2.5 rounded-xl border text-xs font-medium ${severityColors[s.severity]}`}>
-                    <span className="text-sm shrink-0 mt-0.5">{s.icon}</span>
+                    <span className="shrink-0 mt-0.5">{s.icon}</span>
                     <span>{s.text}</span>
                 </div>
             ))}
@@ -1011,7 +1012,9 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                     </div>
 
                                     {/* Handover */}
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-5 mb-2">🤝 LG Handover</h4>
+                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-5 mb-2 flex items-center gap-1.5">
+                                        <Users className="w-3.5 h-3.5" /> LG Handover
+                                    </h4>
                                     {lg.handover_date ? (
                                         <div className="space-y-1">
                                             <DetailRow label="Handover Date" value={lg.handover_date} />
@@ -1030,8 +1033,8 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                     {/* Pricing Details */}
                                     {lg.sub_limit_id && lg.facility_pricing ? (
                                         <>
-                                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-5 mb-2">
-                                                💰 Facility Pricing <span className="text-emerald-500 font-normal">(from sub-limit)</span>
+                                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-5 mb-2 flex items-center gap-1.5">
+                                                <DollarSign className="w-3.5 h-3.5" /> Facility Pricing <span className="text-emerald-600 font-normal normal-case">(from sub-limit)</span>
                                             </h4>
                                             <div className="space-y-1">
                                                 {lg.facility_pricing.commission_rate != null && <DetailRow label="Commission %" value={`${lg.facility_pricing.commission_rate}%`} />}
@@ -1183,7 +1186,7 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
                                             })}
                                             <button onClick={() => { setBankInitiatedModal(true); setBankInitiatedFile(null); }}
                                                 className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-white text-xs font-bold shadow-sm transition-all bg-violet-600 hover:bg-violet-700">
-                                                🏦 Record Bank Action
+                                                <Building className="w-4 h-4" /> Record Bank Action
                                             </button>
                                         </div>
                                     </div>
@@ -1191,8 +1194,10 @@ function IssuedLGDetailModal({ lg, onClose, onReprint, readOnly = false }) {
 
                                 {/* AI Bank-Initiated Diff Result */}
                                 {bankInitiatedResult && (
-                                    <div className="bg-violet-50 border-2 border-violet-300 rounded-xl p-4 animate-pulse-once">
-                                        <h4 className="text-sm font-black text-violet-800 mb-2">🧠 AI Detected Changes from Bank Letter</h4>
+                                    <div className="bg-violet-50 border border-violet-300 rounded-xl p-4">
+                                        <h4 className="text-sm font-bold text-violet-800 mb-2 flex items-center gap-1.5">
+                                            <Sparkles className="w-4 h-4" /> AI Detected Changes from Bank Letter
+                                        </h4>
                                         <p className="text-xs text-violet-600 mb-3">{bankInitiatedResult.message}</p>
                                         <div className="bg-white rounded-lg border border-violet-200 p-3 mb-3">
                                             <p className="text-xs font-bold text-slate-500 mb-2">Detected Type: <span className="text-violet-700">{bankInitiatedResult.detected_type?.replace(/_/g, ' ')}</span></p>
@@ -1974,13 +1979,13 @@ export default function IssuedLGsPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900">Issued LGs</h1>
-                    <p className="text-sm text-slate-500 mt-1">Letters of Guarantee issued to banks — your external position</p>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Issued LGs</h1>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Letters of Guarantee issued to banks — your external position</p>
                 </div>
                 <div className="flex items-center gap-2">
                     {/* Export Dropdown */}
                     <div className="relative group">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-medium hover:bg-emerald-100 transition-colors border border-emerald-200">
+                        <button className="flex items-center gap-1.5 px-3.5 py-2 bg-white text-emerald-700 rounded-xl text-sm font-medium hover:bg-emerald-50 transition-colors border border-emerald-200 shadow-sm">
                             <Download className="w-4 h-4" /> Export
                         </button>
                         <div className="absolute right-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 hidden group-hover:block">
@@ -1988,9 +1993,9 @@ export default function IssuedLGsPage() {
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Presets</span>
                             </div>
                             {[
-                                { type: 'summary', label: '📊 Summary', desc: 'Core columns for executive view' },
-                                { type: 'detailed', label: '📋 Detailed Position', desc: 'Full register with clean fields' },
-                                { type: 'full_audit', label: '📜 Full Audit Package', desc: '3 Sheets: Register + Lifecycle Log + Approvals' },
+                                { type: 'summary', label: 'Summary', desc: 'Core columns for executive view' },
+                                { type: 'detailed', label: 'Detailed Position', desc: 'Full register with clean fields' },
+                                { type: 'full_audit', label: 'Full Audit Package', desc: '3 Sheets: Register + Lifecycle Log + Approvals' },
                             ].map(opt => (
                                 <button
                                     key={opt.type}
@@ -2249,26 +2254,26 @@ export default function IssuedLGsPage() {
                             </div>
 
                             {/* Desktop View: Table (>= md) */}
-                            <div className="hidden md:block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="hidden md:block bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
                                         <thead>
-                                            <tr className="bg-slate-50 border-b border-slate-200">
-                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('internal_serial')}>
+                                            <tr className="bg-slate-50/80 border-b border-slate-200">
+                                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('internal_serial')}>
                                                     <div className="flex items-center gap-1">Serial # <SortIcon field="internal_serial" /></div>
                                                 </th>
-                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
-                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase">LG Type</th>
-                                                <th className="text-right px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('current_amount')}>
+                                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">LG Type</th>
+                                                <th className="text-right px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('current_amount')}>
                                                     <div className="flex items-center justify-end gap-1">Amount <SortIcon field="current_amount" /></div>
                                                 </th>
-                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('expiry_date')}>
+                                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('expiry_date')}>
                                                     <div className="flex items-center gap-1">Expiry <SortIcon field="expiry_date" /></div>
                                                 </th>
-                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('bank_name')}>
+                                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('bank_name')}>
                                                     <div className="flex items-center gap-1">Bank <SortIcon field="bank_name" /></div>
                                                 </th>
-                                                <th className="text-left px-4 py-3 text-xs font-bold text-slate-500 uppercase cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
+                                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
                                                     <div className="flex items-center gap-1">Beneficiary <SortIcon field="beneficiary_name" /></div>
                                                 </th>
                                             </tr>
@@ -2279,51 +2284,51 @@ export default function IssuedLGsPage() {
                                                 return (
                                                     <tr
                                                         key={r.id}
-                                                        className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                                        className="hover:bg-slate-50/70 transition-colors cursor-pointer"
                                                         onClick={() => setSelectedLG(r)}
                                                     >
-                                                        <td className="px-4 py-3">
-                                                            <div className="font-bold text-slate-900">{r.internal_serial || '—'}</div>
+                                                        <td className="px-3 py-2.5 whitespace-nowrap">
+                                                            <div className="font-semibold text-slate-900">{r.internal_serial || '—'}</div>
                                                             <div className="text-[11px] text-blue-600 font-medium">{r.lg_ref_number}</div>
                                                         </td>
-                                                        <td className="px-4 py-3">
-                                                            <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${statusColors[r.status] || 'bg-slate-100 text-slate-600'}`}>
+                                                        <td className="px-3 py-2.5 whitespace-nowrap">
+                                                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${statusColors[r.status] || 'bg-slate-100 text-slate-600'}`}>
                                                                 {statusLabels[r.status] || r.status?.replace(/_/g, ' ')}
                                                             </span>
                                                         </td>
-                                                        <td className="px-4 py-3 min-w-[150px]">
+                                                        <td className="px-3 py-2.5 max-w-[160px]">
                                                             <div className="cell-truncate">
-                                                                <div className="font-bold text-slate-700 truncate" title={r.request?.lg_type || 'Unknown'}>
+                                                                <div className="font-semibold text-slate-700 truncate" title={r.request?.lg_type || 'Unknown'}>
                                                                     {r.request?.lg_type || '—'}
                                                                 </div>
                                                             </div>
                                                             {r.request?.lg_purpose && (
                                                                 <div className="cell-truncate">
-                                                                    <div className="text-[10px] text-slate-500 truncate" title={r.request?.lg_purpose}>
+                                                                    <div className="text-[11px] text-slate-500 truncate" title={r.request?.lg_purpose}>
                                                                         {r.request.lg_purpose}
                                                                     </div>
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                                                        <td className="px-3 py-2.5 text-right font-semibold text-slate-900 whitespace-nowrap tabular-nums">
                                                             {r.currency_code} {r.current_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </td>
-                                                        <td className="px-4 py-3">
-                                                            <div className="text-slate-600 text-xs">{formatDate(r.expiry_date)}</div>
+                                                        <td className="px-3 py-2.5 whitespace-nowrap">
+                                                            <div className="text-slate-700 text-xs">{formatDate(r.expiry_date)}</div>
                                                             <div className={`text-[11px] ${cd.color}`}>{cd.text}</div>
                                                         </td>
-                                                        <td className="px-4 py-3">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <Building className="w-3.5 h-3.5 text-slate-400" />
-                                                                <span className="text-slate-700">{r.bank_name}</span>
+                                                        <td className="px-3 py-2.5 max-w-[160px]">
+                                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                                <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                                <span className="text-slate-700 truncate" title={r.bank_name}>{r.bank_name}</span>
                                                             </div>
                                                             {r.sub_limit_id && (
                                                                 <div className="mt-1 flex">
-                                                                    <span className="text-[10px] font-bold bg-blue-50 border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded uppercase tracking-wider">From Facility</span>
+                                                                    <span className="text-[10px] font-semibold bg-blue-50 border border-blue-200 text-blue-700 px-1.5 py-0.5 rounded uppercase tracking-wider">From Facility</span>
                                                                 </div>
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-3 text-slate-700">{r.beneficiary_name}</td>
+                                                        <td className="px-3 py-2.5 text-slate-700 max-w-[180px] truncate" title={r.beneficiary_name}>{r.beneficiary_name}</td>
                                                     </tr>
                                                 );
                                             })}

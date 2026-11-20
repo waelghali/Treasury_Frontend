@@ -5,6 +5,7 @@ import { Helmet } from 'react-helmet-async';
 import { v4 as uuidv4 } from 'uuid'; 
 import { Loader2, Shield, Fingerprint, BellRing, KeyRound, CheckCircle2 } from 'lucide-react';
 import HoneypotField from '../../components/Security/HoneypotField';
+import GrowLogo from '../../components/Common/GrowLogo';
 import {
   isBiometricSupported,
   getBiometricDisplayLabel,
@@ -297,7 +298,7 @@ function LoginPage({ onLoginSuccess }) {
     }
   };
 
-  const inputCls = "block w-full px-4 py-3 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-gray-400";
+  const inputCls = "block w-full px-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-slate-400";
 
   return (
     <div className="min-h-screen flex" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
@@ -314,16 +315,15 @@ function LoginPage({ onLoginSuccess }) {
         <div className="absolute top-1/2 right-1/4 w-32 h-32 rounded-full opacity-[0.03] bg-blue-400" />
 
         <div>
-          <Link to="/" className="inline-flex items-center space-x-2 mb-16 hover:opacity-90 transition-opacity">
-            <span className="text-xl font-bold text-white tracking-tight">Grow</span>
-            <span className="text-xs text-blue-400 font-medium">Business Development</span>
+          <Link to="/" className="inline-flex items-center mb-16 hover:opacity-95 transition-opacity">
+            <GrowLogo size="md" />
           </Link>
           
           <h1 className="text-3xl xl:text-4xl font-extrabold text-white leading-[1.15] mb-4">
             Welcome Back to<br />
             <span style={{ color: '#60a5fa' }}>Your Treasury Command Center</span>
           </h1>
-          <p className="text-gray-400 text-sm leading-relaxed max-w-sm">
+          <p className="text-slate-300 text-sm leading-relaxed max-w-sm">
             Manage LG custody, automate issuance, run competitive FX &amp; T-Bill bidding, and reconcile bank statements — all on one unified platform.
           </p>
         </div>
@@ -334,11 +334,11 @@ function LoginPage({ onLoginSuccess }) {
             { title: 'Smart Treasury Automation', desc: 'AI document capture, multi-bank RFQs, and statement auto-matching.' },
             { title: 'Tamper-Evident Governance', desc: 'Maker-checker controls, proactive alerts, and SHA-256 audit trails.' },
           ].map((item, i) => (
-            <div key={i} className="flex items-start space-x-3 p-3 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+            <div key={i} className="flex items-start space-x-3 p-3 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
               <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#60a5fa' }} />
               <div>
                 <p className="text-xs font-semibold text-white">{item.title}</p>
-                <p className="text-[11px] text-gray-500">{item.desc}</p>
+                <p className="text-[11px] text-slate-300">{item.desc}</p>
               </div>
             </div>
           ))}
@@ -346,34 +346,33 @@ function LoginPage({ onLoginSuccess }) {
       </div>
 
       {/* Right Form Panel */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-gray-50">
+      <div className="flex-1 flex items-center justify-center px-6 py-12 bg-slate-50">
         <div className="w-full max-w-md space-y-6">
           
           {/* Mobile-only logo */}
           <div className="lg:hidden text-center mb-4">
-            <Link to="/" className="inline-flex items-baseline hover:opacity-90 transition-opacity">
-              <span className="text-2xl font-bold text-gray-900">Grow</span>
-              <span className="text-sm text-blue-600 font-medium ml-2">Business Development</span>
+            <Link to="/" className="inline-flex items-center hover:opacity-95 transition-opacity">
+              <GrowLogo size="md" variant="light" />
             </Link>
           </div>
 
           <div className="text-center lg:text-left">
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-slate-900">
               {showMfa ? 'Verify Security' : 'Sign In'}
             </h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-slate-500 mt-1">
               {showMfa ? 'A verification code has been sent to your email' : 'Enter your credentials to access the platform'}
             </p>
           </div>
 
           {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-r-lg text-sm font-medium" role="alert">
+            <div className="rounded-xl border border-rose-200 bg-rose-50 text-rose-700 px-4 py-3 text-sm font-medium" role="alert">
               {error}
             </div>
           )}
 
           {infoPrompt && !error && (
-            <div className="bg-blue-50 border-l-4 border-blue-500 text-blue-800 px-4 py-3 rounded-r-lg text-xs font-medium leading-relaxed" role="status">
+            <div className="rounded-xl border border-blue-200 bg-blue-50 text-blue-800 px-4 py-3 text-xs font-medium leading-relaxed" role="status">
               {infoPrompt}
             </div>
           )}
@@ -512,7 +511,7 @@ function LoginPage({ onLoginSuccess }) {
                   <button
                     type="submit"
                     onClick={() => setEnrollBioAfterLogin(false)}
-                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-md transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer"
+                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer"
                     disabled={isLoading || isBioLoading}
                   >
                     {isLoading && !enrollBioAfterLogin ? (
@@ -527,7 +526,7 @@ function LoginPage({ onLoginSuccess }) {
                         type="button"
                         onClick={handleEnableBiometricClick}
                         disabled={isBioLoading || isLoading}
-                        className="w-full py-3 px-4 bg-emerald-50/70 hover:bg-emerald-50 text-emerald-800 border border-emerald-200 hover:border-emerald-300 text-xs font-bold rounded-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                        className="w-full py-3 px-4 bg-emerald-50/70 hover:bg-emerald-50 text-emerald-800 border border-emerald-200 hover:border-emerald-300 text-xs font-bold rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
                       >
                         {isLoading && enrollBioAfterLogin ? (
                           <><Loader2 className="animate-spin h-4 w-4 text-emerald-600" /> Signing In &amp; Activating {getBiometricDisplayLabel()}...</>
@@ -535,7 +534,7 @@ function LoginPage({ onLoginSuccess }) {
                           <><Fingerprint className="h-4 w-4 text-emerald-600" /> Sign In &amp; Enable {getBiometricDisplayLabel()}</>
                         )}
                       </button>
-                      <p className="text-[11px] text-center text-gray-400 mt-1.5">
+                      <p className="text-[11px] text-center text-slate-400 mt-1.5">
                         Enables one-tap {getBiometricDisplayLabel()} login for future visits &amp; mobile alerts on this device.
                       </p>
                     </div>
@@ -549,7 +548,7 @@ function LoginPage({ onLoginSuccess }) {
           ) : (
             <form className="space-y-4" onSubmit={handleMfaVerify}>
               <div className="text-center">
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Enter 6-Digit Code</label>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Enter 6-Digit Code</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -558,7 +557,7 @@ function LoginPage({ onLoginSuccess }) {
                   maxLength="6"
                   required
                   autoFocus
-                  className="w-full py-4 border-2 border-blue-100 bg-blue-50/30 text-center text-3xl font-mono tracking-[0.4em] text-blue-900 rounded-lg focus:border-blue-500 focus:bg-white outline-none transition-all"
+                  className="w-full py-4 border-2 border-blue-100 bg-blue-50/30 text-center text-3xl font-mono tracking-[0.4em] text-blue-900 rounded-xl focus:border-blue-500 focus:bg-white outline-none transition-all"
                   placeholder="000000"
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
@@ -568,22 +567,22 @@ function LoginPage({ onLoginSuccess }) {
                 <input
                   id="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded cursor-pointer"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                 />
-                <label htmlFor="remember-me" className="ml-2 text-sm text-gray-500 cursor-pointer">
+                <label htmlFor="remember-me" className="ml-2 text-sm text-slate-500 cursor-pointer">
                   Trust this device in the future
                 </label>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-500 mb-1.5">Didn't receive the code?</p>
+                <p className="text-sm text-slate-500 mb-1.5">Didn't receive the code?</p>
                 <button
                   type="button"
                   onClick={handleResendCode}
                   disabled={resendTimer > 0 || isLoading}
                   className={`text-xs font-bold uppercase tracking-widest transition-colors ${
-                    resendTimer > 0 ? 'text-gray-300 cursor-not-allowed' : 'text-blue-600 hover:text-blue-800'
+                    resendTimer > 0 ? 'text-slate-300 cursor-not-allowed' : 'text-blue-600 hover:text-blue-800'
                   }`}
                 >
                   {resendTimer > 0 ? `Resend Code in ${resendTimer}s` : 'Resend New Code'}
@@ -591,7 +590,7 @@ function LoginPage({ onLoginSuccess }) {
               </div>
               <button
                 type="submit"
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-md transition-all disabled:opacity-50"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md transition-all disabled:opacity-50"
                 disabled={isLoading || mfaCode.length < 6}
               >
                 {isLoading ? 'Verifying...' : 'Verify & Access Platform'}
@@ -600,7 +599,7 @@ function LoginPage({ onLoginSuccess }) {
               <button 
                 type="button" 
                 onClick={() => { setShowMfa(false); setError(''); setMfaCode(''); }}
-                className="w-full text-xs font-semibold text-gray-400 hover:text-blue-600 transition-colors uppercase tracking-wider"
+                className="w-full text-xs font-semibold text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-wider"
               >
                 Back to Sign In
               </button>

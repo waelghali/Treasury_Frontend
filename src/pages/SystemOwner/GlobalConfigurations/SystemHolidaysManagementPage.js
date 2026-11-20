@@ -3,7 +3,7 @@ import { apiRequest } from '../../../services/apiService';
 import {
   Calendar, Plus, Trash2, Globe, Clock, ShieldCheck,
   AlertCircle, CheckCircle2, RefreshCw, Sparkles,
-  CalendarDays
+  CalendarDays, Loader2, X
 } from 'lucide-react';
 import moment from 'moment';
 import FormattedDateInput from 'components/FormattedDateInput';
@@ -93,50 +93,50 @@ export default function SystemHolidaysManagementPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-              <CalendarDays size={24} />
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100">
+              <CalendarDays size={22} />
             </span>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-              Banking Calendar & SLA Holidays
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              Banking Calendar &amp; SLA Holidays
             </h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1 font-medium">
+          <p className="text-xs text-slate-500 mt-1 font-medium">
             Centralized banking working days, regional weekend conventions, and system holiday overrides for precision turnaround calculation.
           </p>
         </div>
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors"
         >
-          <Plus size={18} /> Add Custom Holiday
+          <Plus size={16} /> Add Custom Holiday
         </button>
       </div>
 
       {/* Status Message */}
       {statusMsg && (
-        <div className={`p-4 rounded-xl flex items-center gap-3 border ${
+        <div className={`p-3.5 rounded-xl flex items-center gap-2.5 border ${
           statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200'
         }`}>
           {statusMsg.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-          <span className="text-sm font-bold">{statusMsg.text}</span>
+          <span className="text-xs font-semibold">{statusMsg.text}</span>
         </div>
       )}
 
       {/* Settings Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Weekend Convention */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <Clock size={14} className="text-indigo-500" /> Weekend Convention
             </span>
-            <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
               Active: {settings.weekend_scheme}
             </span>
           </div>
@@ -149,10 +149,10 @@ export default function SystemHolidaysManagementPage() {
             value={settings.weekend_scheme}
             onChange={(e) => handleSaveSettings(e.target.value, null)}
             disabled={savingSettings}
-            className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-medium text-slate-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
           >
-            <option value="MIDDLE_EAST">Middle East / GCC (Friday & Saturday off)</option>
-            <option value="WESTERN">Western / International (Saturday & Sunday off)</option>
+            <option value="MIDDLE_EAST">Middle East / GCC (Friday &amp; Saturday off)</option>
+            <option value="WESTERN">Western / International (Saturday &amp; Sunday off)</option>
             <option value="FRIDAY_ONLY">Friday Off Only</option>
           </select>
 
@@ -162,12 +162,12 @@ export default function SystemHolidaysManagementPage() {
         </div>
 
         {/* Default Country for Public Holidays */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <Globe size={14} className="text-emerald-500" /> National Public Holidays
             </span>
-            <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
               Auto-Synchronized
             </span>
           </div>
@@ -180,7 +180,7 @@ export default function SystemHolidaysManagementPage() {
             value={settings.default_country}
             onChange={(e) => handleSaveSettings(null, e.target.value)}
             disabled={savingSettings}
-            className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm font-medium text-slate-800 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
           >
             <option value="EG">Egypt (EG) - Egyptian Central Bank Calendar</option>
             <option value="SA">Saudi Arabia (SA) - SAMA Calendar</option>
@@ -195,9 +195,9 @@ export default function SystemHolidaysManagementPage() {
         </div>
 
         {/* SLA Engine Impact Info */}
-        <div className="bg-gradient-to-br from-indigo-900 to-slate-900 p-6 rounded-2xl text-white shadow-sm flex flex-col justify-between">
+        <div className="bg-gradient-to-br from-indigo-900 to-slate-900 p-5 rounded-2xl text-white shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 text-indigo-300 text-xs font-black uppercase tracking-widest mb-2">
+            <div className="flex items-center gap-2 text-indigo-300 text-xs font-bold uppercase tracking-widest mb-2">
               <Sparkles size={14} /> Turnaround Intelligence
             </div>
             <h3 className="font-bold text-white text-base leading-snug">
@@ -210,16 +210,16 @@ export default function SystemHolidaysManagementPage() {
 
           <div className="pt-3 border-t border-indigo-800/60 flex items-center justify-between text-xs text-indigo-300">
             <span>Custom Overrides:</span>
-            <span className="font-black text-white">{holidays.length} active</span>
+            <span className="font-bold text-white">{holidays.length} active</span>
           </div>
         </div>
       </div>
 
       {/* Custom Holidays Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-slate-200/80 flex items-center justify-between bg-slate-50/70">
           <div>
-            <h2 className="text-lg font-black text-slate-900">Custom System Holidays & Shutdowns</h2>
+            <h2 className="text-base font-bold text-slate-900">Custom System Holidays &amp; Shutdowns</h2>
             <p className="text-xs text-slate-500 mt-0.5">Corporate-wide non-working days that take precedence over standard calendars.</p>
           </div>
           <button
@@ -232,45 +232,48 @@ export default function SystemHolidaysManagementPage() {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-slate-400 font-bold">Loading holiday calendar...</div>
+          <div className="py-12 flex flex-col items-center justify-center text-slate-500">
+            <Loader2 className="h-7 w-7 text-indigo-600 animate-spin mb-2" />
+            <p className="text-sm font-medium">Loading holiday calendar...</p>
+          </div>
         ) : holidays.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 space-y-2">
+          <div className="py-12 text-center text-slate-400 space-y-2">
             <Calendar className="mx-auto text-slate-300" size={40} />
-            <p className="font-bold text-sm">No custom holiday overrides recorded.</p>
+            <p className="font-semibold text-sm text-slate-600">No custom holiday overrides recorded.</p>
             <p className="text-xs text-slate-400">The system is currently using automated national public holidays and weekend rules.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/70 border-b border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  <th className="p-4">Holiday Date</th>
-                  <th className="p-4">Name / Occasion</th>
-                  <th className="p-4">Recurrence</th>
-                  <th className="p-4">Notes</th>
-                  <th className="p-4 text-right">Actions</th>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="px-4 py-2.5">Holiday Date</th>
+                  <th className="px-4 py-2.5">Name / Occasion</th>
+                  <th className="px-4 py-2.5">Recurrence</th>
+                  <th className="px-4 py-2.5">Notes</th>
+                  <th className="px-4 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
                 {holidays.map((h) => (
-                  <tr key={h.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-4 font-black text-slate-900">
+                  <tr key={h.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="px-4 py-2.5 font-semibold text-slate-900 whitespace-nowrap">
                       {h.holiday_date ? moment(h.holiday_date).format('ddd, DD-MMM-YYYY') : '—'}
                     </td>
-                    <td className="p-4 font-bold text-slate-800">{h.name}</td>
-                    <td className="p-4">
+                    <td className="px-4 py-2.5 font-medium text-slate-800">{h.name}</td>
+                    <td className="px-4 py-2.5">
                       {h.is_recurring ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
                           Annual Recurrence
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                           One-time
                         </span>
                       )}
                     </td>
-                    <td className="p-4 text-xs text-slate-500">{h.notes || '—'}</td>
-                    <td className="p-4 text-right">
+                    <td className="px-4 py-2.5 text-xs text-slate-500">{h.notes || '—'}</td>
+                    <td className="px-4 py-2.5 text-right">
                       <button
                         onClick={() => handleDeleteHoliday(h.id, h.name)}
                         className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
@@ -290,32 +293,33 @@ export default function SystemHolidaysManagementPage() {
       {/* Add Holiday Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-6 animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <h3 className="font-black text-slate-900 text-lg">Add Custom Holiday</h3>
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+              <h3 className="font-bold text-slate-900 text-lg">Add Custom Holiday</h3>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddHoliday} className="space-y-4">
               <div>
-                <label className="text-xs font-black uppercase tracking-wider text-slate-500 block mb-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 block mb-1.5">
                   Holiday Date *
                 </label>
                 <FormattedDateInput
                   required
                   value={newHoliday.holiday_date}
                   onChange={(e) => setNewHoliday({ ...newHoliday, holiday_date: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-black uppercase tracking-wider text-slate-500 block mb-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 block mb-1.5">
                   Holiday Name / Reason *
                 </label>
                 <input
@@ -324,11 +328,11 @@ export default function SystemHolidaysManagementPage() {
                   placeholder="e.g. National Bank Holiday, Annual System Freeze"
                   value={newHoliday.name}
                   onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
+              <div className="flex items-center gap-2.5 pt-1">
                 <input
                   type="checkbox"
                   id="recurring"
@@ -336,13 +340,13 @@ export default function SystemHolidaysManagementPage() {
                   onChange={(e) => setNewHoliday({ ...newHoliday, is_recurring: e.target.checked })}
                   className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
                 />
-                <label htmlFor="recurring" className="text-xs font-bold text-slate-700 cursor-pointer">
+                <label htmlFor="recurring" className="text-xs font-semibold text-slate-700 cursor-pointer">
                   Recurs every year on the same date
                 </label>
               </div>
 
               <div>
-                <label className="text-xs font-black uppercase tracking-wider text-slate-500 block mb-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-600 block mb-1.5">
                   Notes (Optional)
                 </label>
                 <textarea
@@ -350,21 +354,21 @@ export default function SystemHolidaysManagementPage() {
                   placeholder="Additional context or circular reference"
                   value={newHoliday.notes}
                   onChange={(e) => setNewHoliday({ ...newHoliday, notes: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-slate-100">
+              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all"
+                  className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold text-sm hover:bg-slate-50 shadow-sm transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm transition-all"
                 >
                   Save Holiday
                 </button>

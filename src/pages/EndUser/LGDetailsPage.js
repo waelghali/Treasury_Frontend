@@ -5,10 +5,11 @@ import { toast } from 'react-toastify';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
-import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle, Copy, Sparkles, Clock, Truck, Building, FileText, ShieldCheck } from 'lucide-react';
+import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle, Sparkles, Clock, Truck, Building, FileText, ShieldCheck, Tag } from 'lucide-react';
 import moment from 'moment';
 import LGLifecycleHistoryComponent from '../../components/LGLifecycleHistoryComponent';
 import ChangeLGOwnerModal from '../../components/Modals/ChangeLGOwnerModal';
+import ChangeLGCategoryModal from '../../components/Modals/ChangeLGCategoryModal';
 import ExtendLGModal from '../../components/Modals/ExtendLGModal';
 import ReleaseLGModal from '../../components/Modals/ReleaseLGModal';
 import LiquidateLGModal from '../../components/Modals/LiquidateLGModal';
@@ -28,9 +29,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
         return (
             <div className="relative group inline-block">
                 {children}
-                <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+                <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
                     This action is disabled during your subscription's grace period.
-                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                    <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                         <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
                     </svg>
                 </div>
@@ -40,11 +41,18 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-// Reusable styling for action bar buttons
+// Reusable styling for lifecycle action bar buttons
 const actionBarButtonClassNames = () => `
-    inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md shadow-sm
-    focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 w-full
-    bg-gray-100 hover:bg-gray-200
+    inline-flex items-center justify-center px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border border-slate-200
+    bg-white hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all duration-150
+    text-slate-700
+`;
+
+// Reusable styling for secondary admin buttons
+const secondaryActionButtonClassNames = () => `
+    inline-flex items-center justify-center px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200
+    bg-slate-100/70 hover:bg-slate-200/70 hover:border-slate-300 transition-all duration-150
+    text-slate-600 hover:text-slate-800
 `;
 
 // Add isCorporateAdminView and isGracePeriod props
@@ -62,6 +70,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
     const [supportingFiles, setSupportingFiles] = useState([]);
     const [isUploadingSupportingDoc, setIsUploadingSupportingDoc] = useState(false);
     const [showChangeOwnerModal, setShowChangeOwnerModal] = useState(false);
+    const [showChangeCategoryModal, setShowChangeCategoryModal] = useState(false);
     const [showExtendModal, setShowExtendModal] = useState(false);
     const [showReleaseModal, setShowReleaseModal] = useState(false);
     const [showLiquidateModal, setShowLiquidateModal] = useState(false);
@@ -266,6 +275,23 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
         }
     };
 
+    const handleChangeCategory = () => {
+        if (!isCorporateAdminView && lgRecord && !isGracePeriod) {
+            setShowChangeCategoryModal(true);
+        } else if (isGracePeriod) {
+            toast.warn("This action is disabled during your subscription's grace period.");
+        }
+    };
+
+    const handleCategoryChangeSuccess = useCallback((response) => {
+        setShowChangeCategoryModal(false);
+        if (response?.lg_record && response.lg_record.lg_number) {
+            setLgRecord(response.lg_record);
+        } else {
+            fetchLgRecord(true);
+        }
+    }, [fetchLgRecord]);
+
     const handleAmend = () => {
       if (!isCorporateAdminView && lgRecord && !isGracePeriod) {
         setShowAmendModal(true);
@@ -431,17 +457,17 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 
     if (isInitialLoading) {
         return (
-            <div className="flex justify-center items-center h-screen bg-gray-100">
-                <Loader2 className="animate-spin h-10 w-10 text-blue-600" />
-                <p className="ml-3 text-gray-700">Loading LG record details...</p>
+            <div className="flex justify-center items-center py-16">
+                <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
+                <p className="ml-3 text-slate-600 text-sm font-medium">Loading LG record details...</p>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative m-6" role="alert">
-                <AlertCircle className="h-5 w-5 mr-2 inline-block" />
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative m-4 text-sm flex items-center" role="alert">
+                <AlertCircle className="h-5 w-5 mr-2 shrink-0" />
                 <span className="block sm:inline">{error}</span>
             </div>
         );
@@ -449,7 +475,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 
     if (!lgRecord) {
         return (
-            <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-md relative m-6" role="alert">
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl relative m-4 text-sm" role="alert">
                 <span className="block sm:inline">LG Record not found.</span>
             </div>
         );
@@ -462,18 +488,6 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
     const LG_OPERATIONAL_STATUS_NON_OPERATIVE = 2;
 
     const canActivate = lgRecord.lg_type?.id === LG_TYPE_ADVANCE_PAYMENT_GUARANTEE && lgRecord.lg_operational_status?.id === LG_OPERATIONAL_STATUS_NON_OPERATIVE;
-
-    const numberOfButtons = [
-        isLgValid,
-        canAmend,
-        isLgValid,
-        canActivate,
-        isLgValid,
-        isLgValid,
-        isLgValid
-    ].filter(Boolean).length;
-
-    const gridColumnsClass = `md:grid-cols-${numberOfButtons}`;
 
     // NEW: Find the communication bank details using the fetched banks list
     const communicationBank = lgRecord.communication_bank_id 
@@ -493,137 +507,368 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
             (!inst.delivery_date || !inst.bank_reply_date)
     );
 
-	const handleCopyLgNumber = () => {
-			if (lgRecord?.lg_number) {
-				navigator.clipboard.writeText(lgRecord.lg_number);
-				toast.success("LG Number copied to clipboard!");
-			}
-		};
+    const daysRemaining = lgRecord.expiry_date
+        ? moment(lgRecord.expiry_date).startOf('day').diff(moment().startOf('day'), 'days')
+        : null;
+    const hasInFlightExtension = inFlightInstructions.some((inst) =>
+        (inst.instruction_type || '').includes('EXTENSION')
+    );
+    const isCriticalForExtend =
+        isLgValid &&
+        daysRemaining !== null &&
+        daysRemaining <= 30 &&
+        !hasInFlightExtension &&
+        !isGracePeriod;
+
+    const handleJumpToHistory = (instructionId = null) => {
+        setActiveTab('history');
+        setTimeout(() => {
+            const el =
+                (instructionId && document.getElementById(`lifecycle-instruction-${instructionId}`)) ||
+                document.getElementById('lifecycle-history-section');
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.classList.add('ring-2', 'ring-amber-400');
+                setTimeout(() => el.classList.remove('ring-2', 'ring-amber-400'), 2200);
+            }
+        }, 120);
+    };
+
+    const statusName = lgRecord.lg_status?.name || 'N/A';
+    const statusBadgeClass =
+        statusName === 'Valid'
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            : statusName === 'Expired'
+                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                : statusName === 'Liquidated'
+                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                    : 'bg-slate-100 text-slate-700 border-slate-200';
+
+    const opStatusName = lgRecord.lg_operational_status?.name;
+    const isNonOperative =
+        lgRecord.lg_operational_status?.id === LG_OPERATIONAL_STATUS_NON_OPERATIVE ||
+        opStatusName === 'Non-Operative';
+
+    const bankPrimaryName = isForeignBank
+        ? lgRecord.foreign_bank_name || 'Foreign Bank'
+        : lgRecord.issuing_bank?.name || 'N/A';
+    const bankSubtext =
+        (lgRecord.advising_status === 'Advised' || lgRecord.advising_status === 'Confirmed') &&
+        communicationBank?.name
+            ? `Via ${communicationBank.name}`
+            : lgRecord.issuing_method?.name || 'Direct';
 
     return (
-        <div className="w-full min-w-0 p-4 sm:p-6 bg-white rounded-xl border border-gray-100 relative">
+        <div className="w-full min-w-0 p-4 sm:p-5 bg-white rounded-2xl border border-slate-200/90 shadow-sm relative">
             {isRefreshing && (
-                <div className="absolute inset-x-0 top-0 flex items-center justify-center py-1 bg-blue-100 text-blue-700 text-sm font-medium z-10 rounded-t-xl">
+                <div className="absolute inset-x-0 top-0 flex items-center justify-center py-1 bg-blue-50 text-blue-700 text-xs font-medium z-10 rounded-t-2xl">
                     <Loader2 className="animate-spin h-4 w-4 mr-2" /> Refreshing data...
                 </div>
             )}
-            {/* Action Buttons: Full width, spaced evenly */}
-            {!isCorporateAdminView && (
-                <div className={`grid grid-cols-2 sm:grid-cols-3 ${gridColumnsClass} gap-2 w-full p-3 bg-gray-50 rounded-xl border border-gray-100 mb-6`}>
-                    {isLgValid && (
-                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                            <button
-                                onClick={handleExtend}
-                                className={`${actionBarButtonClassNames()} text-blue-600 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title="Extend LG"
-                                disabled={isGracePeriod}
-                            >
-                                <CalendarPlus className="h-5 w-5 mr-2" />
-                                Extend
-                            </button>
-                        </GracePeriodTooltip>
+
+            {/* Section A: Top Navigation & Identity + Amount Hero Header */}
+            <div className="mb-2.5">
+                <button
+                    type="button"
+                    onClick={() => navigate(navigateToLgList)}
+                    className="inline-flex items-center text-slate-500 hover:text-slate-900 transition-colors duration-150 text-sm font-medium shadow-none"
+                >
+                    <ArrowLeft className="h-4 w-4 mr-1.5" />
+                    <span>Back to LG Records</span>
+                </button>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3.5 mb-3.5 border-b border-slate-200/80">
+                <div className="flex items-center flex-wrap gap-2 min-w-0">
+                    <span className="px-2.5 py-0.5 text-xs sm:text-sm font-mono font-semibold bg-slate-100 text-slate-700 rounded-md border border-slate-200">
+                        {lgRecord.custody_serial || `01-${String(lgRecord.lg_sequence_number || 1).padStart(4, '0')}`}
+                    </span>
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight break-all">
+                        {lgRecord.lg_number}
+                    </h1>
+                    <CopyBadge text={lgRecord.lg_number} variant="icon" size="md" />
+                    <span className={`px-2.5 py-0.5 inline-flex items-center text-xs font-semibold rounded-full border ${statusBadgeClass}`}>
+                        {statusName}
+                    </span>
+                    {opStatusName && (
+                        <span
+                            className={`px-2.5 py-0.5 inline-flex items-center text-xs font-semibold rounded-full border ${
+                                isNonOperative
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-teal-50 text-teal-700 border-teal-200'
+                            }`}
+                        >
+                            {opStatusName}
+                        </span>
                     )}
-                    {canAmend && (
+                    {!isCorporateAdminView ? (
                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                            <button
-                                onClick={handleAmend}
-                                className={`${actionBarButtonClassNames()} text-yellow-600 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title="Amend LG"
-                                disabled={isGracePeriod}
-                            >
-                                <Edit className="h-5 w-5 mr-2" />
-                                Amend LG
-                            </button>
+                            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200">
+                                <span className="text-xs font-semibold text-slate-600">Auto-Renew</span>
+                                <Switch
+                                    checked={Boolean(lgRecord.auto_renewal)}
+                                    onChange={handleToggleAutoRenewal}
+                                    disabled={isGracePeriod}
+                                    className={`${
+                                        lgRecord.auto_renewal ? 'bg-blue-600' : 'bg-slate-300'
+                                    } relative inline-flex h-4 w-8 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                                        isGracePeriod ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                                    }`}
+                                >
+                                    <span className="sr-only">Enable auto-renewal</span>
+                                    <span
+                                        className={`${
+                                            lgRecord.auto_renewal ? 'translate-x-4' : 'translate-x-0.5'
+                                        } inline-block h-3 w-3 transform rounded-full bg-white transition-transform shadow-sm`}
+                                    />
+                                </Switch>
+                            </div>
                         </GracePeriodTooltip>
-                    )}
-                    {isLgValid && (
-                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                            <button
-                                onClick={handleDecreaseAmount}
-                                className={`${actionBarButtonClassNames()} text-orange-600 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title="Decrease LG Amount"
-                                disabled={isGracePeriod}
-                            >
-                                <MinusCircle className="h-5 w-5 mr-2" />
-                                Decrease Amt
-                            </button>
-                        </GracePeriodTooltip>
-                    )}
-                    {canActivate && (
-                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                            <button
-                                onClick={handleActivate}
-                                className={`${actionBarButtonClassNames()} text-teal-600 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title="Activate LG"
-                                disabled={isGracePeriod}
-                            >
-                                <PlayCircle className="h-5 w-5 mr-2" />
-                                Activate
-                            </button>
-                        </GracePeriodTooltip>
-                    )}
-                    {isLgValid && (
-                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                            <button
-                                onClick={handleChangeOwner}
-                                className={`${actionBarButtonClassNames()} text-purple-600 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title="Change LG Owner"
-                                disabled={isGracePeriod}
-                            >
-                                <Users className="h-5 w-5 mr-2" />
-                                Change Owner
-                            </button>
-                        </GracePeriodTooltip>
-                    )}
-                    {isLgValid && (
-                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                            <button
-                                onClick={handleRelease}
-                                className={`${actionBarButtonClassNames()} text-green-600 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title="Release LG"
-                                disabled={isGracePeriod}
-                            >
-                                <CheckCircle className="h-5 w-5 mr-2" />
-                                Release
-                            </button>
-                        </GracePeriodTooltip>
-                    )}
-                    {isLgValid && (
-                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                            <button
-                                onClick={handleLiquidate}
-                                className={`${actionBarButtonClassNames()} text-red-600 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title="Liquidate LG"
-                                disabled={isGracePeriod}
-                            >
-                                <FileMinus className="h-5 w-5 mr-2" />
-                                Liquidate
-                            </button>
-                        </GracePeriodTooltip>
+                    ) : (
+                        <span
+                            className={`px-2.5 py-0.5 inline-flex items-center text-xs font-semibold rounded-full border ${
+                                lgRecord.auto_renewal
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}
+                        >
+                            Auto-Renew: {lgRecord.auto_renewal ? 'ON' : 'OFF'}
+                        </span>
                     )}
                 </div>
-            )}
 
-            <div className="flex items-center justify-between mb-6">
-                <button
-                    onClick={() => navigate(navigateToLgList)}
-                    className="flex items-center text-gray-600 hover:text-gray-900 transition-colors duration-200 mr-4"
-                >
-                    <ArrowLeft className="h-5 w-5 mr-1" />
-                    <span className="text-sm font-medium">Back to LG Records</span>
-                </button>
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex-grow text-center flex items-center justify-center gap-3">
-					<span className="px-2.5 py-0.5 text-sm font-mono font-semibold bg-slate-100 text-slate-600 rounded-md border border-slate-200">
-						{lgRecord.custody_serial || `01-${String(lgRecord.lg_sequence_number || 1).padStart(4, '0')}`}
-					</span>
-					LG Record: {lgRecord.lg_number}
-					<CopyBadge text={lgRecord.lg_number} variant="icon" size="lg" />
-				</h1>
-                <div className="flex-shrink-0 w-auto">
+                <div className="flex flex-col md:items-end shrink-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Current LG Amount
+                    </span>
+                    <span className="text-xl sm:text-2xl font-extrabold text-slate-900 tabular-nums tracking-tight">
+                        {formatAmount(lgRecord.lg_amount, lgRecord.lg_currency?.iso_code)}
+                    </span>
+                    {lgRecord.lg_period_months ? (
+                        <span className="text-xs text-slate-500 font-medium">
+                            {lgRecord.lg_period_months} mos period
+                        </span>
+                    ) : null}
                 </div>
             </div>
 
-			<LgTimelineBar lgRecord={lgRecord} isGracePeriod={isGracePeriod} />
+            {/* Section B: 4-Card Vital Signs Strip */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-4">
+                <div className="px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+                        <Building className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                        <span>Issuing Bank</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800 truncate" title={bankPrimaryName}>
+                        {bankPrimaryName}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate" title={bankSubtext}>
+                        {bankSubtext}
+                    </p>
+                </div>
+
+                <div className="px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                        <span>Beneficiary</span>
+                    </div>
+                    <p
+                        className="text-sm font-bold text-slate-800 truncate"
+                        title={lgRecord.beneficiary_corporate?.entity_name || 'N/A'}
+                    >
+                        {lgRecord.beneficiary_corporate?.entity_name || 'N/A'}
+                    </p>
+                    <p
+                        className="text-xs text-slate-500 truncate"
+                        title={`Issuer: ${lgRecord.issuer_name || 'N/A'}`}
+                    >
+                        Issuer: {lgRecord.issuer_name || 'N/A'}
+                    </p>
+                </div>
+
+                <div className="px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+                        <FileText className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                        <span>Guarantee Type</span>
+                    </div>
+                    <p
+                        className="text-sm font-bold text-slate-800 truncate"
+                        title={lgRecord.lg_type?.name || 'N/A'}
+                    >
+                        {lgRecord.lg_type?.name || 'N/A'}
+                    </p>
+                    <p
+                        className="text-xs text-slate-500 truncate"
+                        title={`Rule: ${lgRecord.applicable_rule?.name || 'Standard'}`}
+                    >
+                        Rule: {lgRecord.applicable_rule?.name || 'Standard'}
+                    </p>
+                </div>
+
+                <div className="px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+                        <Users className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+                        <span>Owner &amp; Category</span>
+                    </div>
+                    <p
+                        className="text-sm font-bold text-slate-800 truncate"
+                        title={lgRecord.internal_owner_contact?.email || 'Unassigned'}
+                    >
+                        {lgRecord.internal_owner_contact?.email || 'Unassigned'}
+                    </p>
+                    <p
+                        className="text-xs text-slate-500 truncate"
+                        title={`Category: ${lgRecord.lg_category?.name || 'Default'}`}
+                    >
+                        Category: {lgRecord.lg_category?.name || 'Default'}
+                    </p>
+                </div>
+            </div>
+
+            {/* Section C: Unified Lifecycle Timeline Bar */}
+            <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50/60 border border-slate-200/80 mb-4">
+                <LgTimelineBar
+                    lgRecord={lgRecord}
+                    inFlightInstructions={inFlightInstructions}
+                    onViewLetter={handleViewInstructionLetterFromHistory}
+                    onViewDocument={handleViewInstructionDocument}
+                    onJumpToHistory={handleJumpToHistory}
+                />
+            </div>
+
+            {/* Section D: Grouped Action Toolbar */}
+            {!isCorporateAdminView && (
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-slate-50/90 rounded-xl border border-slate-200/80 mb-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {isLgValid && (
+                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                <button
+                                    type="button"
+                                    onClick={handleExtend}
+                                    className={
+                                        isCriticalForExtend
+                                            ? 'inline-flex items-center justify-center px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 ring-2 ring-blue-200/70 shadow-sm transition-all duration-150'
+                                            : `${actionBarButtonClassNames()} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`
+                                    }
+                                    title={isCriticalForExtend ? 'Critical expiry — Extend LG' : 'Extend LG'}
+                                    disabled={isGracePeriod}
+                                >
+                                    {isCriticalForExtend && (
+                                        <span className="relative flex h-2 w-2 mr-2 shrink-0">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
+                                        </span>
+                                    )}
+                                    <CalendarPlus className="h-4 w-4 mr-1.5 text-blue-600 shrink-0" />
+                                    Extend
+                                </button>
+                            </GracePeriodTooltip>
+                        )}
+                        {canAmend && (
+                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                <button
+                                    type="button"
+                                    onClick={handleAmend}
+                                    className={`${actionBarButtonClassNames()} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    title="Amend LG"
+                                    disabled={isGracePeriod}
+                                >
+                                    <Edit className="h-4 w-4 mr-1.5 text-amber-600 shrink-0" />
+                                    Amend LG
+                                </button>
+                            </GracePeriodTooltip>
+                        )}
+                        {isLgValid && (
+                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                <button
+                                    type="button"
+                                    onClick={handleDecreaseAmount}
+                                    className={`${actionBarButtonClassNames()} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    title="Decrease LG Amount"
+                                    disabled={isGracePeriod}
+                                >
+                                    <MinusCircle className="h-4 w-4 mr-1.5 text-orange-600 shrink-0" />
+                                    Decrease Amt
+                                </button>
+                            </GracePeriodTooltip>
+                        )}
+                        {canActivate && (
+                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                <button
+                                    type="button"
+                                    onClick={handleActivate}
+                                    className={`${actionBarButtonClassNames()} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    title="Activate LG"
+                                    disabled={isGracePeriod}
+                                >
+                                    <PlayCircle className="h-4 w-4 mr-1.5 text-teal-600 shrink-0" />
+                                    Activate
+                                </button>
+                            </GracePeriodTooltip>
+                        )}
+                        {isLgValid && (
+                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                <button
+                                    type="button"
+                                    onClick={handleRelease}
+                                    className={`${actionBarButtonClassNames()} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    title="Release LG"
+                                    disabled={isGracePeriod}
+                                >
+                                    <CheckCircle className="h-4 w-4 mr-1.5 text-emerald-600 shrink-0" />
+                                    Release
+                                </button>
+                            </GracePeriodTooltip>
+                        )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        {isLgValid && (
+                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                <button
+                                    type="button"
+                                    onClick={handleChangeOwner}
+                                    className={`${secondaryActionButtonClassNames()} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    title="Change LG Owner"
+                                    disabled={isGracePeriod}
+                                >
+                                    <Users className="h-3.5 w-3.5 mr-1.5 text-purple-600 shrink-0" />
+                                    Owner
+                                </button>
+                            </GracePeriodTooltip>
+                        )}
+                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                            <button
+                                type="button"
+                                onClick={handleChangeCategory}
+                                className={`${secondaryActionButtonClassNames()} ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                title="Change LG Category"
+                                disabled={isGracePeriod}
+                            >
+                                <Tag className="h-3.5 w-3.5 mr-1.5 text-indigo-600 shrink-0" />
+                                Category
+                            </button>
+                        </GracePeriodTooltip>
+                        {isLgValid && (
+                            <>
+                                <div className="hidden sm:block h-5 w-px bg-slate-200" />
+                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                    <button
+                                        type="button"
+                                        onClick={handleLiquidate}
+                                        className={`inline-flex items-center justify-center px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border border-rose-200 bg-rose-50/80 text-rose-700 hover:bg-rose-100 hover:border-rose-300 shadow-sm transition-all duration-150 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        title="Liquidate LG"
+                                        disabled={isGracePeriod}
+                                    >
+                                        <FileMinus className="h-4 w-4 mr-1.5 text-rose-600 shrink-0" />
+                                        Liquidate
+                                    </button>
+                                </GracePeriodTooltip>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Enhancement D: In-Flight Instruction Visual Indicator Banner */}
             {inFlightInstructions.length > 0 && (
@@ -731,15 +976,15 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                 </div>
             )}
 
-            <div className="border-b border-gray-200 mb-6">
+            <div className="border-b border-slate-200 mb-4">
                 <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                     <button
                         onClick={() => setActiveTab('details')}
                         className={`${
                             activeTab === 'details'
-                                ? 'border-indigo-500 text-indigo-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-base transition-colors duration-200`}
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                        } whitespace-nowrap py-2.5 px-1 border-b-2 shadow-none rounded-none font-semibold text-sm transition-colors duration-200`}
                     >
                         Details
                     </button>
@@ -747,9 +992,9 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                         onClick={() => setActiveTab('documents')}
                         className={`${
                             activeTab === 'documents'
-                                ? 'border-indigo-500 text-indigo-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-base transition-colors duration-200`}
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                        } whitespace-nowrap py-2.5 px-1 border-b-2 shadow-none rounded-none font-semibold text-sm transition-colors duration-200`}
                     >
                         Documents
                     </button>
@@ -757,9 +1002,9 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                         onClick={() => setActiveTab('history')}
                         className={`${
                             activeTab === 'history'
-                                ? 'border-indigo-500 text-indigo-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-base transition-colors duration-200`}
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                        } whitespace-nowrap py-2.5 px-1 border-b-2 shadow-none rounded-none font-semibold text-sm transition-colors duration-200`}
                     >
                         Lifecycle History
                     </button>
@@ -768,125 +1013,125 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 
             <div>
                 {activeTab === 'details' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-gray-700">
-                        <div className="col-span-1 md:col-span-2 border-b border-gray-100 pb-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1.5 text-slate-700">
+                        <div className="col-span-1 md:col-span-2 border-b border-slate-200 pb-1.5">
                             <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">LG Core Information</p>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Custody Serial:</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Custody Serial:</span>
                             <span className="text-slate-700 text-sm font-mono font-semibold">{lgRecord.custody_serial || `01-${String(lgRecord.lg_sequence_number || 1).padStart(4, '0')}`}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">LG Number:</span>
-                            <span className="text-gray-700 text-sm break-all font-mono">{lgRecord.lg_number}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">LG Number:</span>
+                            <span className="text-slate-700 text-sm break-all font-mono">{lgRecord.lg_number}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Issuer Name:</span>
-                            <span className="text-gray-700 text-sm break-words">{lgRecord.issuer_name || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Issuer Name:</span>
+                            <span className="text-slate-700 text-sm break-words">{lgRecord.issuer_name || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Beneficiary:</span>
-                            <span className="text-gray-700 text-sm break-words">{lgRecord.beneficiary_corporate?.entity_name || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Beneficiary:</span>
+                            <span className="text-slate-700 text-sm break-words">{lgRecord.beneficiary_corporate?.entity_name || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Amount:</span>
-                            <span className="text-gray-900 font-bold text-sm break-words">{formatAmount(lgRecord.lg_amount, lgRecord.lg_currency?.iso_code)}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Amount:</span>
+                            <span className="text-slate-900 font-bold text-sm tabular-nums break-words">{formatAmount(lgRecord.lg_amount, lgRecord.lg_currency?.iso_code)}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Issuance Date:</span>
-                            <span className="text-gray-700 text-sm">{formatDate(lgRecord.issuance_date)}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Issuance Date:</span>
+                            <span className="text-slate-700 text-sm tabular-nums">{formatDate(lgRecord.issuance_date)}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Expiry Date:</span>
-                            <span className="text-gray-700 text-sm font-semibold">{formatDate(lgRecord.expiry_date)}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Expiry Date:</span>
+                            <span className="text-slate-700 text-sm font-semibold tabular-nums">{formatDate(lgRecord.expiry_date)}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">LG Type:</span>
-                            <span className="text-gray-700 text-sm">{lgRecord.lg_type?.name || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">LG Type:</span>
+                            <span className="text-slate-700 text-sm">{lgRecord.lg_type?.name || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Status:</span>
-                            <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full w-fit ${
-                                lgRecord.lg_status?.name === 'Valid' ? 'bg-green-100 text-green-800' :
-                                lgRecord.lg_status?.name === 'Expired' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Status:</span>
+                            <span className={`px-2 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full w-fit ${
+                                lgRecord.lg_status?.name === 'Valid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                lgRecord.lg_status?.name === 'Expired' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                                'bg-slate-100 text-slate-700 border border-slate-200'
                             }`}>{lgRecord.lg_status?.name || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Operational Status:</span>
-                            <span className="text-gray-700 text-sm">{lgRecord.lg_operational_status?.name || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Operational Status:</span>
+                            <span className="text-slate-700 text-sm">{lgRecord.lg_operational_status?.name || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Purpose:</span>
-                            <span className="text-gray-700 text-sm break-words">{lgRecord.description_purpose || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Purpose:</span>
+                            <span className="text-slate-700 text-sm break-words">{lgRecord.description_purpose || 'N/A'}</span>
                         </div>
                         {!isCorporateAdminView && (
-                            <div className="flex items-center justify-between sm:justify-start gap-3 py-1.5 border-b border-gray-50">
-                                <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Auto Renewal:</span>
+                            <div className="flex items-center justify-between sm:justify-start gap-3 py-1 border-b border-slate-100">
+                                <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Auto Renewal:</span>
                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                     <Switch
                                         checked={lgRecord.auto_renewal}
                                         onChange={handleToggleAutoRenewal}
                                         disabled={isGracePeriod}
                                         className={`${
-                                            lgRecord.auto_renewal ? 'bg-blue-600' : 'bg-gray-200'
-                                        } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            lgRecord.auto_renewal ? 'bg-blue-600' : 'bg-slate-200'
+                                        } relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     >
                                         <span className="sr-only">Enable auto-renewal</span>
                                         <span
                                             className={`${
-                                                lgRecord.auto_renewal ? 'translate-x-6' : 'translate-x-1'
-                                            } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+                                                lgRecord.auto_renewal ? 'translate-x-4' : 'translate-x-1'
+                                            } inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`}
                                         />
                                     </Switch>
                                 </GracePeriodTooltip>
                             </div>
                         )}
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Period (Months):</span>
-                            <span className="text-gray-700 text-sm">{lgRecord.lg_period_months}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Period (Months):</span>
+                            <span className="text-slate-700 text-sm">{lgRecord.lg_period_months}</span>
                         </div>
 
-                        <div className="col-span-1 md:col-span-2 border-b border-gray-100 pb-2 mt-4">
+                        <div className="col-span-1 md:col-span-2 border-b border-slate-200 pb-1.5 mt-3">
                             <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Bank & Rule Information</p>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Issuing Bank:</span>
-                            <span className="text-gray-700 text-sm break-words">{isForeignBank ? lgRecord.foreign_bank_name || 'N/A' : lgRecord.issuing_bank?.name || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Issuing Bank:</span>
+                            <span className="text-slate-700 text-sm break-words">{isForeignBank ? lgRecord.foreign_bank_name || 'N/A' : lgRecord.issuing_bank?.name || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Bank Address:</span>
-                            <span className="text-gray-700 text-sm break-words">{isForeignBank ? lgRecord.foreign_bank_address || 'N/A' : lgRecord.issuing_bank_address || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Bank Address:</span>
+                            <span className="text-slate-700 text-sm break-words">{isForeignBank ? lgRecord.foreign_bank_address || 'N/A' : lgRecord.issuing_bank_address || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Bank Phone:</span>
-                            <span className="text-gray-700 text-sm break-words">{isForeignBank ? lgRecord.foreign_bank_country || 'N/A' : lgRecord.issuing_bank_phone || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Bank Phone:</span>
+                            <span className="text-slate-700 text-sm break-words">{isForeignBank ? lgRecord.foreign_bank_country || 'N/A' : lgRecord.issuing_bank_phone || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Issuing Method:</span>
-                            <span className="text-gray-700 text-sm">{lgRecord.issuing_method?.name || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Issuing Method:</span>
+                            <span className="text-slate-700 text-sm">{lgRecord.issuing_method?.name || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Applicable Rule:</span>
-                            <span className="text-gray-700 text-sm">{lgRecord.applicable_rule?.name || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Applicable Rule:</span>
+                            <span className="text-slate-700 text-sm">{lgRecord.applicable_rule?.name || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Rules Text:</span>
-                            <span className="text-gray-700 text-sm break-words">{lgRecord.applicable_rules_text || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Rules Text:</span>
+                            <span className="text-slate-700 text-sm break-words">{lgRecord.applicable_rules_text || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Advising Status:</span>
-                            <span className="text-gray-700 text-sm">{lgRecord.advising_status || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Advising Status:</span>
+                            <span className="text-slate-700 text-sm">{lgRecord.advising_status || 'N/A'}</span>
                         </div>
                         {(lgRecord.advising_status === 'Advised' || lgRecord.advising_status === 'Confirmed') && (
-                            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                                <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Advising Bank:</span>
-                                <span className="text-gray-700 text-sm break-words">{communicationBank?.name || 'N/A'}</span>
+                            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                                <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Advising Bank:</span>
+                                <span className="text-slate-700 text-sm break-words">{communicationBank?.name || 'N/A'}</span>
                             </div>
                         )}
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Other Conditions:</span>
-                            <span className="text-gray-700 text-sm break-words">{lgRecord.other_conditions || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Other Conditions:</span>
+                            <span className="text-slate-700 text-sm break-words">{lgRecord.other_conditions || 'N/A'}</span>
                         </div>
                         {lgRecord.mandatory_claim_statement && (
                             <div className="col-span-1 md:col-span-2 py-2.5 px-3.5 bg-amber-50/70 border border-amber-200/80 rounded-xl my-1">
@@ -905,47 +1150,59 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                             </div>
                         )}
 
-                        <div className="col-span-1 md:col-span-2 border-b border-gray-100 pb-2 mt-4">
+                        <div className="col-span-1 md:col-span-2 border-b border-slate-200 pb-1.5 mt-3">
                             <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Internal & Category Details</p>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Internal Owner:</span>
-                            <span className="text-gray-700 text-sm break-all">{lgRecord.internal_owner_contact?.email || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Internal Owner:</span>
+                            <span className="text-slate-700 text-sm break-all">{lgRecord.internal_owner_contact?.email || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Owner Phone:</span>
-                            <span className="text-gray-700 text-sm">{lgRecord.internal_owner_contact?.phone_number || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Owner Phone:</span>
+                            <span className="text-slate-700 text-sm">{lgRecord.internal_owner_contact?.phone_number || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Owner Manager:</span>
-                            <span className="text-gray-700 text-sm break-all">{lgRecord.internal_owner_contact?.manager_email || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Owner Manager:</span>
+                            <span className="text-slate-700 text-sm break-all">{lgRecord.internal_owner_contact?.manager_email || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">LG Category:</span>
-                            <span className="text-gray-700 text-sm">{lgRecord.lg_category?.name || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">LG Category:</span>
+                            <span className="text-slate-700 text-sm inline-flex items-center gap-2 flex-wrap">
+                                <span>{lgRecord.lg_category?.name || 'N/A'}</span>
+                                {!isCorporateAdminView && !isGracePeriod && (
+                                    <button
+                                        type="button"
+                                        onClick={handleChangeCategory}
+                                        className="inline-flex items-center gap-1 ml-1 px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg shadow-2xs transition-colors"
+                                    >
+                                        <Edit className="h-3 w-3" />
+                                        Change
+                                    </button>
+                                )}
+                            </span>
                         </div>
                         {lgRecord.lg_category?.extra_field_name && (
-                            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                                <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">{lgRecord.lg_category.extra_field_name}:</span>
-                                <span className="text-gray-700 text-sm break-words">{lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}</span>
+                            <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                                <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">{lgRecord.lg_category.extra_field_name}:</span>
+                                <span className="text-slate-700 text-sm break-words">{lgRecord.additional_field_values?.[lgRecord.lg_category.extra_field_name] || 'N/A'}</span>
                             </div>
                         )}
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Contract/Project ID:</span>
-                            <span className="text-gray-700 text-sm break-words">{lgRecord.internal_contract_project_id || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Contract/Project ID:</span>
+                            <span className="text-slate-700 text-sm break-words">{lgRecord.internal_contract_project_id || 'N/A'}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1.5 border-b border-gray-50">
-                            <span className="font-semibold text-gray-900 text-sm shrink-0 min-w-[130px]">Notes:</span>
-                            <span className="text-gray-700 text-sm break-words">{lgRecord.notes || 'N/A'}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-2 py-1 border-b border-slate-100">
+                            <span className="font-semibold text-slate-900 text-sm shrink-0 min-w-[130px]">Notes:</span>
+                            <span className="text-slate-700 text-sm break-words">{lgRecord.notes || 'N/A'}</span>
                         </div>
                     </div>
                 )}
 				{activeTab === 'documents' && (
-					<div className="p-4 bg-gray-50 rounded-xl border border-gray-100 space-y-4">
+					<div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 space-y-4">
 						<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
 							<div>
 								<p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Associated Documents &amp; Beneficiary Protection Check</p>
-								<p className="text-[11px] text-gray-500 mt-0.5">
+								<p className="text-[11px] text-slate-500 mt-0.5">
 									Check incoming vendor guarantee wording (Arabic / English) for hidden conditions that could block or delay your right to claim.
 								</p>
 							</div>
@@ -955,7 +1212,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 										type="button"
 										onClick={() => handleScanCustodyWording('CONDITIONS')}
 										disabled={scanningCustodyDocId !== null}
-										className="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center"
+										className="px-3 py-1.5 text-xs font-semibold rounded-xl shadow-2xs text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center"
 										title="Run Beneficiary Protection Check on recorded payment & claim conditions"
 									>
 										{scanningCustodyDocId === 'CONDITIONS' ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5 mr-1" />}
@@ -965,7 +1222,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 								<button
 									type="button"
 									onClick={() => setShowPasteVendorWording((prev) => !prev)}
-									className="px-3 py-1.5 text-xs font-medium rounded-md shadow-sm text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center"
+									className="px-3 py-1.5 text-xs font-semibold rounded-xl shadow-2xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center"
 								>
 									<Sparkles className="h-3.5 w-3.5 mr-1" />
 									{showPasteVendorWording ? 'Hide Text Box' : 'Paste Vendor LG Text (AR/EN)'}
@@ -974,7 +1231,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 						</div>
 
 						{showPasteVendorWording && (
-							<div className="p-3 bg-white rounded-lg border border-indigo-200 shadow-sm space-y-2">
+							<div className="p-3 bg-white rounded-xl border border-indigo-200 shadow-2xs space-y-2">
 								<label className="block text-xs font-semibold text-slate-700">
 									Paste Incoming Vendor / Bank Guarantee Wording (Arabic or English)
 								</label>
@@ -984,7 +1241,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 									value={pastedVendorWording}
 									onChange={(e) => setPastedVendorWording(e.target.value)}
 									placeholder="Paste draft or issued vendor LG wording here (e.g. 'نتعهد بأن ندفع لكم بمجرد أول طلب...' or 'We undertake to pay upon your first written demand...')..."
-									className="w-full text-xs border border-slate-300 rounded-md p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+									className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
 								/>
 								<div className="flex justify-end gap-2">
 									<button
@@ -998,7 +1255,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 										type="button"
 										disabled={!pastedVendorWording.trim() || scanningCustodyDocId !== null}
 										onClick={() => handleScanCustodyWording('PASTE', pastedVendorWording)}
-										className="px-3 py-1.5 text-xs font-semibold rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 flex items-center"
+										className="px-3 py-1.5 text-xs font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 flex items-center"
 									>
 										{scanningCustodyDocId === 'PASTE' ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5 mr-1" />}
 										Run Beneficiary Protection Check
@@ -1008,11 +1265,11 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 						)}
 
 						{!isGracePeriod && (
-							<div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center gap-3">
+							<div className="p-3 bg-white rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center gap-3">
 								<select
 									value={supportingDocType}
 									onChange={(e) => setSupportingDocType(e.target.value)}
-									className="text-sm border border-gray-300 rounded-md px-3 py-1.5 bg-white text-gray-700"
+									className="text-sm border border-slate-200 rounded-xl px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
 								>
 									<option value="INTERNAL_SUPPORTING">Supporting Document</option>
 									<option value="ORIGINAL_LG_DOCUMENT">Original LG Copy</option>
@@ -1025,7 +1282,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 									multiple
 									accept=".pdf,.png,.jpg,.jpeg"
 									onChange={(e) => setSupportingFiles(Array.from(e.target.files || []))}
-									className="text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 flex-1"
+									className="text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 flex-1"
 								/>
 								<button
 									type="button"
@@ -1052,7 +1309,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 											setIsUploadingSupportingDoc(false);
 										}
 									}}
-									className="px-4 py-1.5 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center shrink-0"
+									className="px-4 py-1.5 text-sm font-semibold rounded-xl shadow-2xs text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center justify-center shrink-0"
 								>
 									{isUploadingSupportingDoc ? (
 										<>
@@ -1070,39 +1327,45 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
 						)}
 						{/* Filter out documents where is_deleted is true */}
 						{lgRecord.documents && lgRecord.documents.filter(doc => !doc.is_deleted).length > 0 ? (
-							<ul className="list-disc list-inside space-y-2">
+							<div className="space-y-2">
 								{lgRecord.documents
 									.filter(doc => !doc.is_deleted) // Apply the filter here
 									.map(doc => (
-										<li key={doc.id} className="text-gray-700 flex items-center justify-between flex-wrap gap-2">
-											<span>
-												{doc.file_name} ({doc.document_type})
-											</span>
-											<div className="flex items-center gap-2 ml-4">
+										<div key={doc.id} className="bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 flex items-center justify-between flex-wrap gap-2">
+											<div className="flex items-center gap-2 min-w-0 flex-1">
+												<FileText className="h-4 w-4 text-blue-600 shrink-0" />
+												<span className="text-sm font-medium text-slate-800 truncate" title={doc.file_name}>
+													{doc.file_name}
+												</span>
+												<span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-slate-100 text-slate-600 shrink-0">
+													{doc.document_type}
+												</span>
+											</div>
+											<div className="flex items-center gap-2 shrink-0">
 												<button
 													type="button"
 													onClick={() => handleScanCustodyWording(doc.id)}
 													disabled={scanningCustodyDocId !== null}
-													className="px-3 py-1 text-sm font-medium rounded-md shadow-sm text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 focus:outline-none flex items-center"
+													className="px-3 py-1.5 text-xs font-semibold rounded-xl shadow-2xs text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 focus:outline-none flex items-center"
 													title="Beneficiary Protection Check — inspect this incoming LG for claim hurdles (Arabic / English)"
 												>
-													{scanningCustodyDocId === doc.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
+													{scanningCustodyDocId === doc.id ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5 mr-1" />}
 													Beneficiary Protection Check
 												</button>
 												<button
 													onClick={() => handleViewInstructionDocument(doc.id)}
-													className="px-3 py-1 text-sm font-medium rounded-md shadow-sm text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
+													className="px-3 py-1.5 text-xs font-semibold rounded-xl shadow-2xs text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 focus:outline-none flex items-center"
 													title="View Document Securely"
 												>
-													<Eye className="h-4 w-4 mr-1" /> View
+													<Eye className="h-3.5 w-3.5 mr-1" /> View
 												</button>
 											</div>
-										</li>
+										</div>
 									))
 								}
-							</ul>
+							</div>
 						) : (
-							<p className="text-gray-500">No documents associated with this LG record.</p>
+							<p className="text-slate-500 text-sm">No documents associated with this LG record.</p>
 						)}
 
 						{custodyWordingScan?.status === 'OK' && (
@@ -1195,6 +1458,15 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
                     lgRecord={lgRecord}
                     onClose={() => setShowChangeOwnerModal(false)}
                     onSuccess={handleActionSuccess}
+                    isGracePeriod={isGracePeriod}
+                />
+            )}
+            {showChangeCategoryModal && lgRecord && (
+                <ChangeLGCategoryModal
+                    initialScope="single"
+                    lgRecord={lgRecord}
+                    onClose={() => setShowChangeCategoryModal(false)}
+                    onSuccess={handleCategoryChangeSuccess}
                     isGracePeriod={isGracePeriod}
                 />
             )}

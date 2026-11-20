@@ -427,35 +427,36 @@ export default function BankFormManagement() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+            <div className="flex flex-col items-center justify-center py-16">
+                <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                <p className="text-sm text-slate-500 mt-3">Loading bank form templates...</p>
             </div>
         );
     }
 
     return (
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Bank Form Templates</h1>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <h1 className="text-xl font-bold text-slate-900">Bank Form Templates</h1>
+                    <p className="text-xs text-slate-500 mt-0.5">
                         Upload bank PDF forms and use AI to auto-map fields for automatic filling
                     </p>
                 </div>
                 <div className="flex gap-2">
                     <button
                         onClick={() => setShowArchived(!showArchived)}
-                        className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors ${showArchived
+                        className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold border rounded-xl transition-colors ${showArchived
                             ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
-                            : 'text-gray-600 bg-white border-gray-200 hover:bg-gray-50'
+                            : 'text-slate-700 bg-white border-slate-200 hover:bg-slate-50'
                             }`}
                     >
                         <Archive className="w-4 h-4" /> {showArchived ? 'Hide Archived' : 'Show Archived'}
                     </button>
                     <button
                         onClick={() => setShowUpload(true)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
                     >
                         <Upload className="w-4 h-4" /> Upload Bank Form
                     </button>
@@ -464,175 +465,188 @@ export default function BankFormManagement() {
 
             {/* Upload Modal */}
             {showUpload && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-6">
-                        <h2 className="text-lg font-bold text-gray-900 mb-4">Upload Bank Form</h2>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between shrink-0">
+                            <h2 className="text-lg font-bold text-slate-900">Upload Bank Form</h2>
+                            <button
+                                type="button"
+                                onClick={() => { setShowUpload(false); setUploadFile(null); }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* Row 1: Bank + Form Name */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Bank</label>
-                                <select
-                                    value={uploadBankId}
-                                    onChange={e => setUploadBankId(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                >
-                                    <option value="">Select a bank...</option>
-                                    {banks.map(b => (
-                                        <option key={b.id} value={b.id}>{b.name}</option>
-                                    ))}
-                                </select>
-                            </div>
+                        <div className="px-6 py-4 overflow-y-auto flex-1">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Row 1: Bank + Form Name */}
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Bank</label>
+                                    <select
+                                        value={uploadBankId}
+                                        onChange={e => setUploadBankId(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 bg-white rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    >
+                                        <option value="">Select a bank...</option>
+                                        {banks.map(b => (
+                                            <option key={b.id} value={b.id}>{b.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Form Name</label>
-                                <input
-                                    type="text"
-                                    value={uploadFormName}
-                                    onChange={e => setUploadFormName(e.target.value)}
-                                    placeholder="e.g., ENBD LG Request Form"
-                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                />
-                            </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Form Name</label>
+                                    <input
+                                        type="text"
+                                        value={uploadFormName}
+                                        onChange={e => setUploadFormName(e.target.value)}
+                                        placeholder="e.g., ENBD LG Request Form"
+                                        className="w-full px-3 py-2 border border-slate-300 bg-white rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    />
+                                </div>
 
-                            {/* Row 2: Form Type + Form Language */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Form Type</label>
-                                <select
-                                    value={uploadFormType}
-                                    onChange={e => setUploadFormType(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                >
-                                    <option value="FILLABLE_PDF">Fillable PDF (Digital Form)</option>
-                                    <option value="SCANNED_FILL">Scanned Form (Print Over Scan)</option>
-                                    <option value="PHYSICAL_OVERLAY">Physical Form Overlay (Print on Pre-printed)</option>
-                                </select>
-                            </div>
+                                {/* Row 2: Form Type + Form Language */}
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Form Type</label>
+                                    <select
+                                        value={uploadFormType}
+                                        onChange={e => setUploadFormType(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 bg-white rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    >
+                                        <option value="FILLABLE_PDF">Fillable PDF (Digital Form)</option>
+                                        <option value="SCANNED_FILL">Scanned Form (Print Over Scan)</option>
+                                        <option value="PHYSICAL_OVERLAY">Physical Form Overlay (Print on Pre-printed)</option>
+                                    </select>
+                                </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Form Role</label>
-                                <select
-                                    value={uploadFormRole}
-                                    onChange={e => setUploadFormRole(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                >
-                                    <option value="PRIMARY_ISSUER">Primary Issuance Form (Applicant / Issuer)</option>
-                                    <option value="THIRD_PARTY_INDEMNITY">Third-Party Co-Application / Indemnity Form</option>
-                                </select>
-                                <p className="text-xs text-gray-400 mt-1">Select role for standard issuance or third-party co-obligation</p>
-                            </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Form Role</label>
+                                    <select
+                                        value={uploadFormRole}
+                                        onChange={e => setUploadFormRole(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 bg-white rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    >
+                                        <option value="PRIMARY_ISSUER">Primary Issuance Form (Applicant / Issuer)</option>
+                                        <option value="THIRD_PARTY_INDEMNITY">Third-Party Co-Application / Indemnity Form</option>
+                                    </select>
+                                    <p className="text-xs text-slate-400 mt-1">Select role for standard issuance or third-party co-obligation</p>
+                                </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Form Language</label>
-                                <select
-                                    value={uploadFormLanguage}
-                                    onChange={e => setUploadFormLanguage(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                                >
-                                    <option value="BILINGUAL">Bilingual (Arabic & English)</option>
-                                    <option value="AR">Arabic Only</option>
-                                    <option value="EN">English Only</option>
-                                </select>
-                                <p className="text-xs text-gray-400 mt-1">Select "Bilingual" for forms with both Arabic and English sides</p>
-                            </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Form Language</label>
+                                    <select
+                                        value={uploadFormLanguage}
+                                        onChange={e => setUploadFormLanguage(e.target.value)}
+                                        className="w-full px-3 py-2 border border-slate-300 bg-white rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    >
+                                        <option value="BILINGUAL">Bilingual (Arabic &amp; English)</option>
+                                        <option value="AR">Arabic Only</option>
+                                        <option value="EN">English Only</option>
+                                    </select>
+                                    <p className="text-xs text-slate-400 mt-1">Select &quot;Bilingual&quot; for forms with both Arabic and English sides</p>
+                                </div>
 
-                            {/* Row 3: LG Types + PDF File */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Applicable LG Types</label>
-                                <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
-                                    <label className="flex items-center gap-2 text-sm text-gray-600 pb-2 border-b border-gray-100">
-                                        <input
-                                            type="checkbox"
-                                            checked={uploadLgTypeIds.length === 0}
-                                            onChange={() => setUploadLgTypeIds([])}
-                                            className="rounded text-blue-600"
-                                        />
-                                        <span className="font-medium">Universal (All LG Types)</span>
-                                    </label>
-                                    {lgTypes.map(t => (
-                                        <label key={t.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                {/* Row 3: LG Types + PDF File */}
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Applicable LG Types</label>
+                                    <div className="border border-slate-300 rounded-xl p-3 max-h-40 overflow-y-auto space-y-2 bg-white">
+                                        <label className="flex items-center gap-2 text-xs text-slate-600 pb-2 border-b border-slate-100">
                                             <input
                                                 type="checkbox"
-                                                checked={uploadLgTypeIds.includes(t.id)}
-                                                onChange={e => {
-                                                    if (e.target.checked) {
-                                                        setUploadLgTypeIds(prev => [...prev, t.id]);
-                                                    } else {
-                                                        setUploadLgTypeIds(prev => prev.filter(id => id !== t.id));
-                                                    }
-                                                }}
-                                                className="rounded text-blue-600"
+                                                checked={uploadLgTypeIds.length === 0}
+                                                onChange={() => setUploadLgTypeIds([])}
+                                                className="rounded text-indigo-600"
                                             />
-                                            {t.name}
+                                            <span className="font-semibold">Universal (All LG Types)</span>
                                         </label>
-                                    ))}
-                                </div>
-                                <p className="text-xs text-gray-400 mt-1">
-                                    {uploadLgTypeIds.length === 0
-                                        ? 'This form will be used for all LG types'
-                                        : `Selected ${uploadLgTypeIds.length} type(s) — form will only be used for selected types`
-                                    }
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">PDF File</label>
-                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors cursor-pointer"
-                                    onClick={() => document.getElementById('bank-form-file').click()}
-                                >
-                                    {uploadFile ? (
-                                        <div className="flex items-center justify-center gap-2 text-sm text-green-600">
-                                            <FileText className="w-5 h-5" />
-                                            <span className="font-medium">{uploadFile.name}</span>
-                                        </div>
-                                    ) : (
-                                        <div className="text-sm text-gray-500">
-                                            <Upload className="w-6 h-6 mx-auto mb-1 text-gray-400" />
-                                            Click to select a PDF file
-                                        </div>
-                                    )}
-                                </div>
-                                <input
-                                    id="bank-form-file"
-                                    type="file"
-                                    accept=".pdf"
-                                    className="hidden"
-                                    onChange={e => setUploadFile(e.target.files[0])}
-                                />
-                            </div>
-
-                            {/* Row 4: Period Expiry Acceptance Toggle */}
-                            <div className="col-span-2 pt-2 border-t border-gray-100">
-                                <label className="flex items-start gap-3 cursor-pointer select-none">
-                                    <input
-                                        type="checkbox"
-                                        checked={uploadAllowsPeriodExpiry}
-                                        onChange={e => setUploadAllowsPeriodExpiry(e.target.checked)}
-                                        className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
-                                    />
-                                    <div>
-                                        <span className="text-sm font-semibold text-gray-800">
-                                            Accepts Validity Period Wording (يقبل مدة سريان كنص)
-                                        </span>
-                                        <p className="text-xs text-gray-500 mt-0.5">
-                                            Check this if this bank form accepts period text (e.g. "٣ أشهر من تاريخ الإصدار" / "3 Months from issuance") directly in the expiry date field. If unchecked, the system calculates and prints an exact calendar date.
-                                        </p>
+                                        {lgTypes.map(t => (
+                                            <label key={t.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded-lg">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={uploadLgTypeIds.includes(t.id)}
+                                                    onChange={e => {
+                                                        if (e.target.checked) {
+                                                            setUploadLgTypeIds(prev => [...prev, t.id]);
+                                                        } else {
+                                                            setUploadLgTypeIds(prev => prev.filter(id => id !== t.id));
+                                                        }
+                                                    }}
+                                                    className="rounded text-indigo-600"
+                                                />
+                                                {t.name}
+                                            </label>
+                                        ))}
                                     </div>
-                                </label>
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        {uploadLgTypeIds.length === 0
+                                            ? 'This form will be used for all LG types'
+                                            : `Selected ${uploadLgTypeIds.length} type(s) — form will only be used for selected types`
+                                        }
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">PDF File</label>
+                                    <div className="border-2 border-dashed border-slate-300 rounded-xl p-5 text-center hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors cursor-pointer"
+                                        onClick={() => document.getElementById('bank-form-file').click()}
+                                    >
+                                        {uploadFile ? (
+                                            <div className="flex items-center justify-center gap-2 text-sm text-emerald-600">
+                                                <FileText className="w-5 h-5" />
+                                                <span className="font-medium truncate max-w-[200px]">{uploadFile.name}</span>
+                                            </div>
+                                        ) : (
+                                            <div className="text-xs text-slate-500">
+                                                <Upload className="w-6 h-6 mx-auto mb-1.5 text-slate-400" />
+                                                Click to select a PDF file
+                                            </div>
+                                        )}
+                                    </div>
+                                    <input
+                                        id="bank-form-file"
+                                        type="file"
+                                        accept=".pdf"
+                                        className="hidden"
+                                        onChange={e => setUploadFile(e.target.files[0])}
+                                    />
+                                </div>
+
+                                {/* Row 4: Period Expiry Acceptance Toggle */}
+                                <div className="md:col-span-2 pt-3 border-t border-slate-100">
+                                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={uploadAllowsPeriodExpiry}
+                                            onChange={e => setUploadAllowsPeriodExpiry(e.target.checked)}
+                                            className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <div>
+                                            <span className="text-sm font-semibold text-slate-800">
+                                                Accepts Validity Period Wording (يقبل مدة سريان كنص)
+                                            </span>
+                                            <p className="text-xs text-slate-500 mt-0.5">
+                                                Check this if this bank form accepts period text (e.g. &quot;٣ أشهر من تاريخ الإصدار&quot; / &quot;3 Months from issuance&quot;) directly in the expiry date field. If unchecked, the system calculates and prints an exact calendar date.
+                                            </p>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+                        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5 shrink-0">
                             <button
+                                type="button"
                                 onClick={() => { setShowUpload(false); setUploadFile(null); }}
-                                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                className="px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
+                                type="button"
                                 onClick={handleUpload}
                                 disabled={uploading}
-                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
                             >
                                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                                 {uploading ? 'Uploading...' : 'Upload'}
@@ -645,65 +659,65 @@ export default function BankFormManagement() {
             {/* Forms List grouped by Bank */}
             <div className="space-y-3">
                 {banks.filter(b => formsByBank[b.id]?.length > 0).map(bank => (
-                    <div key={bank.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                    <div key={bank.id} className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
                         <button
                             onClick={() => setExpandedBank(expandedBank === bank.id ? null : bank.id)}
-                            className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
+                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50/70 transition-colors"
                         >
                             <div className="flex items-center gap-3">
-                                {expandedBank === bank.id ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
-                                <span className="font-semibold text-gray-800">{bank.name}</span>
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                {expandedBank === bank.id ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+                                <span className="font-semibold text-slate-900">{bank.name}</span>
+                                <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200/80 px-2 py-0.5 rounded-full font-semibold">
                                     {formsByBank[bank.id].length} form{formsByBank[bank.id].length > 1 ? 's' : ''}
                                 </span>
                             </div>
                         </button>
 
                         {expandedBank === bank.id && (
-                            <div className="border-t border-gray-100">
+                            <div className="border-t border-slate-200 overflow-x-auto">
                                 <table className="w-full">
-                                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+                                    <thead className="bg-slate-50/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                                         <tr>
-                                            <th className="px-5 py-2 text-left">Form Name</th>
-                                            <th className="px-5 py-2 text-left">Role</th>
-                                            <th className="px-5 py-2 text-left">Version</th>
-                                            <th className="px-5 py-2 text-left">Type</th>
-                                            <th className="px-5 py-2 text-left">Period Expiry</th>
-                                            <th className="px-5 py-2 text-left">AI Status</th>
-                                            <th className="px-5 py-2 text-left">Fields</th>
-                                            <th className="px-5 py-2 text-right">Actions</th>
+                                            <th className="px-3 py-2.5 text-left">Form Name</th>
+                                            <th className="px-3 py-2.5 text-left">Role</th>
+                                            <th className="px-3 py-2.5 text-left">Version</th>
+                                            <th className="px-3 py-2.5 text-left">Type</th>
+                                            <th className="px-3 py-2.5 text-left">Period Expiry</th>
+                                            <th className="px-3 py-2.5 text-left">AI Status</th>
+                                            <th className="px-3 py-2.5 text-left">Fields</th>
+                                            <th className="px-3 py-2.5 text-right">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
+                                    <tbody className="divide-y divide-slate-100">
                                         {formsByBank[bank.id].map(form => (
-                                            <tr key={form.id} className={`hover:bg-blue-50/30 transition-colors ${!form.is_active ? 'opacity-50' : ''} ${form.is_deleted ? 'bg-red-50/30 line-through' : ''}`}>
-                                                <td className="px-5 py-3">
+                                            <tr key={form.id} className={`hover:bg-indigo-50/30 transition-colors ${!form.is_active ? 'opacity-50' : ''} ${form.is_deleted ? 'bg-rose-50/30 line-through' : ''}`}>
+                                                <td className="px-3 py-2.5">
                                                     <div className="flex items-center gap-2">
-                                                        <FileText className={`w-4 h-4 ${form.is_deleted ? 'text-red-300' : 'text-gray-400'}`} />
-                                                        <span className="text-sm font-medium text-gray-800 no-underline" style={{ textDecoration: 'none' }}>{form.name}</span>
-                                                        {form.is_deleted && <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 rounded no-underline" style={{ textDecoration: 'none' }}>Deleted</span>}
-                                                        {!form.is_deleted && !form.is_active && <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded">Suspended</span>}
-                                                        {form.priority > 0 && <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-yellow-100 text-yellow-700 rounded">★ {form.priority}</span>}
+                                                        <FileText className={`w-4 h-4 shrink-0 ${form.is_deleted ? 'text-rose-300' : 'text-slate-400'}`} />
+                                                        <span className="text-sm font-medium text-slate-900 no-underline max-w-[180px] truncate" title={form.name} style={{ textDecoration: 'none' }}>{form.name}</span>
+                                                        {form.is_deleted && <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 rounded no-underline" style={{ textDecoration: 'none' }}>Deleted</span>}
+                                                        {!form.is_deleted && !form.is_active && <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded">Suspended</span>}
+                                                        {form.priority > 0 && <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded">★ {form.priority}</span>}
                                                     </div>
-                                                    <span className="text-xs text-gray-400 ml-6">{form.original_filename}</span>
+                                                    <span className="text-xs text-slate-400 ml-6 block max-w-[200px] truncate" title={form.original_filename}>{form.original_filename}</span>
                                                 </td>
-                                                <td className="px-5 py-3">
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${form.form_role === 'THIRD_PARTY_INDEMNITY'
-                                                        ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                                                        : 'bg-blue-100 text-blue-700 border border-blue-200'
+                                                <td className="px-3 py-2.5 whitespace-nowrap">
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${form.form_role === 'THIRD_PARTY_INDEMNITY'
+                                                        ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                                        : 'bg-blue-50 text-blue-700 border-blue-200'
                                                         }`}>
                                                         {form.form_role === 'THIRD_PARTY_INDEMNITY' ? 'Third-Party' : 'Primary'}
                                                     </span>
                                                 </td>
-                                                <td className="px-5 py-3">
-                                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-mono">
+                                                <td className="px-3 py-2.5 whitespace-nowrap">
+                                                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-mono">
                                                         v{form.version}
                                                     </span>
                                                 </td>
-                                                <td className="px-5 py-3">
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${form.form_type === 'FILLABLE_PDF'
-                                                        ? 'bg-emerald-100 text-emerald-700'
-                                                        : 'bg-amber-100 text-amber-700'
+                                                <td className="px-3 py-2.5 whitespace-nowrap">
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${form.form_type === 'FILLABLE_PDF'
+                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                        : 'bg-amber-50 text-amber-700 border-amber-200'
                                                         }`}>
                                                         {form.form_type === 'FILLABLE_PDF' ? 'Digital' : 'Physical'}
                                                     </span>
@@ -713,36 +727,36 @@ export default function BankFormManagement() {
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-5 py-3">
+                                                <td className="px-3 py-2.5 whitespace-nowrap">
                                                     <button
                                                         onClick={() => handleTogglePeriodExpiry(form)}
                                                         title={form.allows_period_expiry ? 'Click to toggle: Form accepts period text' : 'Click to toggle: Form requires exact calendar date'}
                                                         className={`text-xs px-2.5 py-1 rounded-full font-medium border transition-colors ${
                                                             form.allows_period_expiry
                                                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                                                : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                                                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                                                         }`}
                                                     >
                                                         {form.allows_period_expiry ? '✓ Period Accepted' : 'Fixed Date Only'}
                                                     </button>
                                                 </td>
-                                                <td className="px-5 py-3">
+                                                <td className="px-3 py-2.5 whitespace-nowrap">
                                                     <div className="flex items-center gap-1.5">
                                                         {statusIcon(form.ai_analysis_status)}
-                                                        <span className="text-xs text-gray-600">{form.ai_analysis_status}</span>
+                                                        <span className="text-xs text-slate-600">{form.ai_analysis_status}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-5 py-3">
-                                                    <span className="text-sm text-gray-600">{form.mapped_fields_count || 0}</span>
+                                                <td className="px-3 py-2.5 whitespace-nowrap">
+                                                    <span className="text-sm text-slate-600">{form.mapped_fields_count || 0}</span>
                                                 </td>
-                                                <td className="px-5 py-3 text-right">
+                                                <td className="px-3 py-2.5 text-right">
                                                     <div className="flex items-center justify-end gap-1.5 flex-nowrap">
                                                         {/* Primary Workflow Actions */}
                                                         {form.ai_analysis_status !== 'COMPLETED' ? (
                                                             <button
                                                                 onClick={() => handleAnalyze(form.id)}
                                                                 disabled={analyzing === form.id}
-                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 disabled:opacity-50 transition-colors whitespace-nowrap shadow-sm"
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 disabled:opacity-50 transition-colors whitespace-nowrap shadow-xs"
                                                                 title="Run AI Analysis"
                                                             >
                                                                 {analyzing === form.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Brain className="w-3.5 h-3.5" />}
@@ -752,14 +766,14 @@ export default function BankFormManagement() {
                                                             <>
                                                                 <button
                                                                     onClick={() => handleOpenVisualDesigner(form.id)}
-                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 rounded-lg transition-all shadow-xs whitespace-nowrap"
+                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200/80 rounded-xl transition-all shadow-xs whitespace-nowrap"
                                                                     title="Open interactive Drag & Drop Designer"
                                                                 >
                                                                     <Sparkles className="w-3.5 h-3.5 text-purple-600" /> Visual Designer
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handlePreviewFill(form.id)}
-                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-all shadow-xs whitespace-nowrap"
+                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all shadow-xs whitespace-nowrap"
                                                                     title="Test fill template with sample data"
                                                                 >
                                                                     <Eye className="w-3.5 h-3.5 text-slate-500" /> Preview Fill
@@ -769,17 +783,17 @@ export default function BankFormManagement() {
 
                                                         <button
                                                             onClick={() => handleViewDetails(form.id)}
-                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50/60 hover:bg-blue-100/80 border border-blue-200/70 rounded-lg transition-all whitespace-nowrap"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/70 rounded-xl transition-all whitespace-nowrap"
                                                             title="View mapping details"
                                                         >
                                                             Details
                                                         </button>
 
                                                         {/* Secondary Utilities Toolbar */}
-                                                        <div className="inline-flex items-center bg-gray-50 border border-gray-200 rounded-lg p-0.5 gap-0.5 ml-1">
+                                                        <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-xl p-0.5 gap-0.5 ml-1">
                                                             <button
                                                                 onClick={() => handleViewPdf(form.id)}
-                                                                className="p-1 text-gray-500 hover:text-emerald-700 hover:bg-white rounded transition-colors"
+                                                                className="p-1 text-slate-500 hover:text-emerald-700 hover:bg-white rounded-lg transition-colors"
                                                                 title="View Original Uploaded PDF"
                                                             >
                                                                 <FileText className="w-3.5 h-3.5" />
@@ -789,7 +803,7 @@ export default function BankFormManagement() {
                                                                 <button
                                                                     onClick={() => handleAnalyze(form.id)}
                                                                     disabled={analyzing === form.id}
-                                                                    className="p-1 text-gray-500 hover:text-purple-700 hover:bg-white rounded transition-colors disabled:opacity-50"
+                                                                    className="p-1 text-slate-500 hover:text-purple-700 hover:bg-white rounded-lg transition-colors disabled:opacity-50"
                                                                     title="Re-run AI Form Analysis"
                                                                 >
                                                                     <RefreshCw className={`w-3.5 h-3.5 ${analyzing === form.id ? 'animate-spin' : ''}`} />
@@ -798,7 +812,7 @@ export default function BankFormManagement() {
 
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleToggleActive(form); }}
-                                                                className={`p-1 rounded transition-colors ${form.is_active
+                                                                className={`p-1 rounded-lg transition-colors ${form.is_active
                                                                     ? 'text-emerald-600 hover:bg-white hover:text-emerald-700'
                                                                     : 'text-amber-600 hover:bg-white hover:text-amber-700'
                                                                 }`}
@@ -811,7 +825,7 @@ export default function BankFormManagement() {
                                                                 value={form.priority || 0}
                                                                 onClick={(e) => e.stopPropagation()}
                                                                 onChange={(e) => handleSetPriority(form, Number(e.target.value))}
-                                                                className="px-1 py-0.5 text-[11px] font-medium border-0 bg-transparent text-gray-600 hover:bg-white rounded cursor-pointer outline-none"
+                                                                className="px-1 py-0.5 text-[11px] font-medium border-0 bg-transparent text-slate-600 hover:bg-white rounded-lg cursor-pointer outline-none"
                                                                 title="Template Priority (higher = preferred)"
                                                             >
                                                                 {[0, 1, 2, 3, 5, 10, 20, 50].map(v => (
@@ -821,7 +835,7 @@ export default function BankFormManagement() {
 
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleDeleteForm(form); }}
-                                                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-white rounded transition-colors"
+                                                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition-colors"
                                                                 title="Delete Form Template"
                                                             >
                                                                 <Trash2 className="w-3.5 h-3.5" />
@@ -831,7 +845,7 @@ export default function BankFormManagement() {
                                                         {form.is_deleted && (
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); handleRestoreForm(form); }}
-                                                                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                                                                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-lg"
                                                                 title="Restore form"
                                                             >
                                                                 <RotateCcw className="w-3.5 h-3.5" />
@@ -850,13 +864,13 @@ export default function BankFormManagement() {
 
                 {/* Banks with no forms */}
                 {forms.length === 0 && (
-                    <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-                        <FileText className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                        <p className="text-gray-500 font-medium">No bank forms uploaded yet</p>
-                        <p className="text-sm text-gray-400 mt-1">Upload a bank's PDF form to get started with automatic filling</p>
+                    <div className="text-center py-14 bg-white rounded-2xl border border-slate-200/80 shadow-sm">
+                        <FileText className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+                        <p className="text-slate-600 font-semibold">No bank forms uploaded yet</p>
+                        <p className="text-sm text-slate-400 mt-1">Upload a bank&apos;s PDF form to get started with automatic filling</p>
                         <button
                             onClick={() => setShowUpload(true)}
-                            className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                            className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors"
                         >
                             <Upload className="w-4 h-4" /> Upload First Form
                         </button>
@@ -865,30 +879,30 @@ export default function BankFormManagement() {
             </div>
 
             {/* Customer-Reported Issues Section */}
-            <div className="mt-8">
+            <div className="mt-6">
                 <button
                     onClick={() => setShowIssues(!showIssues)}
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-800 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm w-full justify-between"
+                    className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-800 bg-white border border-slate-200/80 rounded-2xl hover:bg-slate-50 transition-colors shadow-sm w-full justify-between"
                 >
                     <span className="flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-amber-500" />
                         Customer-Reported Form Issues
                     </span>
-                    {showIssues ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                    {showIssues ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
                 </button>
 
                 {showIssues && (
-                    <div className="mt-3 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                        <div className="px-5 py-3 border-b bg-gray-50 flex items-center gap-3">
-                            <span className="text-xs font-medium text-gray-500">Filter by status:</span>
+                    <div className="mt-3 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50/80 flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-semibold text-slate-500 mr-1">Filter by status:</span>
                             {['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', ''].map(st => (
                                 <button
                                     key={st || 'ALL'}
                                     onClick={() => setIssueStatusFilter(st)}
-                                    className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
+                                    className={`px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${
                                         issueStatusFilter === st
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
                                     }`}
                                 >
                                     {st || 'All'}
@@ -898,112 +912,113 @@ export default function BankFormManagement() {
 
                         {loadingIssues ? (
                             <div className="flex items-center justify-center py-8">
-                                <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                                <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
                             </div>
                         ) : issueReports.length === 0 ? (
-                            <div className="text-center py-8 text-gray-400 text-sm">
+                            <div className="text-center py-8 text-slate-400 text-sm">
                                 No issue reports found for this filter.
                             </div>
                         ) : (
-                            <table className="w-full text-sm">
-                                <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-                                    <tr>
-                                        <th className="px-4 py-2 text-left">#</th>
-                                        <th className="px-4 py-2 text-left">Customer</th>
-                                        <th className="px-4 py-2 text-left">Bank</th>
-                                        <th className="px-4 py-2 text-left">Type</th>
-                                        <th className="px-4 py-2 text-left">Severity</th>
-                                        <th className="px-4 py-2 text-left">Description</th>
-                                        <th className="px-4 py-2 text-left">Status</th>
-                                        <th className="px-4 py-2 text-left">Reported</th>
-                                        <th className="px-4 py-2 text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {issueReports.map(issue => (
-                                        <React.Fragment key={issue.id}>
-                                            <tr className="hover:bg-blue-50/30 transition-colors">
-                                                <td className="px-4 py-2.5 font-mono text-gray-500">#{issue.id}</td>
-                                                <td className="px-4 py-2.5">
-                                                    <span className="text-gray-800 font-medium">{issue.customer_name}</span>
-                                                    <br />
-                                                    <span className="text-[10px] text-gray-400">{issue.reported_by_email}</span>
-                                                </td>
-                                                <td className="px-4 py-2.5 text-gray-700">{issue.bank_name}</td>
-                                                <td className="px-4 py-2.5">
-                                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{issue.issue_type?.replace(/_/g, ' ')}</span>
-                                                </td>
-                                                <td className="px-4 py-2.5">
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                                        issue.severity === 'CRITICAL' ? 'bg-red-100 text-red-700' :
-                                                        issue.severity === 'HIGH' ? 'bg-orange-100 text-orange-700' :
-                                                        issue.severity === 'MEDIUM' ? 'bg-amber-100 text-amber-700' :
-                                                        'bg-gray-100 text-gray-600'
-                                                    }`}>{issue.severity}</span>
-                                                </td>
-                                                <td className="px-4 py-2.5 text-gray-600 max-w-xs truncate" title={issue.description}>{issue.description}</td>
-                                                <td className="px-4 py-2.5">
-                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                                        issue.status === 'OPEN' ? 'bg-blue-100 text-blue-700' :
-                                                        issue.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700' :
-                                                        issue.status === 'RESOLVED' ? 'bg-green-100 text-green-700' :
-                                                        'bg-gray-100 text-gray-600'
-                                                    }`}>{issue.status}</span>
-                                                </td>
-                                                <td className="px-4 py-2.5 text-[10px] text-gray-400">{formatDate(issue.created_at)}</td>
-                                                <td className="px-4 py-2.5 text-right">
-                                                    <button
-                                                        onClick={() => setResolvingIssue(resolvingIssue === issue.id ? null : issue.id)}
-                                                        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                                                    >
-                                                        {resolvingIssue === issue.id ? 'Cancel' : 'Resolve'}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                            {resolvingIssue === issue.id && (
-                                                <tr>
-                                                    <td colSpan="9" className="px-4 py-3 bg-blue-50">
-                                                        <div className="flex items-end gap-3">
-                                                            <div className="flex-1">
-                                                                <label className="text-xs font-medium text-gray-600 mb-1 block">Resolution Notes</label>
-                                                                <textarea
-                                                                    value={resolutionNotes}
-                                                                    onChange={e => setResolutionNotes(e.target.value)}
-                                                                    placeholder="Describe the fix or resolution..."
-                                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none h-16"
-                                                                />
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                <button
-                                                                    onClick={() => handleResolveIssue(issue.id, 'IN_PROGRESS')}
-                                                                    className="px-3 py-2 text-xs font-medium text-amber-700 bg-amber-100 border border-amber-200 rounded-lg hover:bg-amber-200 transition-colors"
-                                                                >
-                                                                    In Progress
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleResolveIssue(issue.id, 'RESOLVED')}
-                                                                    className="px-3 py-2 text-xs font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
-                                                                >
-                                                                    <CheckCircle className="w-3 h-3 inline mr-1" /> Resolved
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleResolveIssue(issue.id, 'WONT_FIX')}
-                                                                    className="px-3 py-2 text-xs font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors"
-                                                                >
-                                                                    Won't Fix
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        {issue.resolution_notes && (
-                                                            <p className="text-xs text-gray-500 mt-2"><strong>Previous notes:</strong> {issue.resolution_notes}</p>
-                                                        )}
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50/80 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                                        <tr>
+                                            <th className="px-3 py-2.5 text-left">#</th>
+                                            <th className="px-3 py-2.5 text-left">Customer</th>
+                                            <th className="px-3 py-2.5 text-left">Bank</th>
+                                            <th className="px-3 py-2.5 text-left">Type</th>
+                                            <th className="px-3 py-2.5 text-left">Severity</th>
+                                            <th className="px-3 py-2.5 text-left">Description</th>
+                                            <th className="px-3 py-2.5 text-left">Status</th>
+                                            <th className="px-3 py-2.5 text-left">Reported</th>
+                                            <th className="px-3 py-2.5 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {issueReports.map(issue => (
+                                            <React.Fragment key={issue.id}>
+                                                <tr className="hover:bg-indigo-50/30 transition-colors">
+                                                    <td className="px-3 py-2.5 font-mono text-xs text-slate-500">#{issue.id}</td>
+                                                    <td className="px-3 py-2.5">
+                                                        <span className="text-slate-800 font-medium block max-w-[160px] truncate" title={issue.customer_name}>{issue.customer_name}</span>
+                                                        <span className="text-[11px] text-slate-400 block max-w-[160px] truncate" title={issue.reported_by_email}>{issue.reported_by_email}</span>
+                                                    </td>
+                                                    <td className="px-3 py-2.5 text-slate-700">{issue.bank_name}</td>
+                                                    <td className="px-3 py-2.5">
+                                                        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{issue.issue_type?.replace(/_/g, ' ')}</span>
+                                                    </td>
+                                                    <td className="px-3 py-2.5">
+                                                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                                            issue.severity === 'CRITICAL' ? 'bg-rose-100 text-rose-700' :
+                                                            issue.severity === 'HIGH' ? 'bg-orange-100 text-orange-700' :
+                                                            issue.severity === 'MEDIUM' ? 'bg-amber-100 text-amber-700' :
+                                                            'bg-slate-100 text-slate-600'
+                                                        }`}>{issue.severity}</span>
+                                                    </td>
+                                                    <td className="px-3 py-2.5 text-slate-600 max-w-xs truncate" title={issue.description}>{issue.description}</td>
+                                                    <td className="px-3 py-2.5">
+                                                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                                                            issue.status === 'OPEN' ? 'bg-blue-100 text-blue-700' :
+                                                            issue.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700' :
+                                                            issue.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-700' :
+                                                            'bg-slate-100 text-slate-600'
+                                                        }`}>{issue.status}</span>
+                                                    </td>
+                                                    <td className="px-3 py-2.5 text-[11px] text-slate-400 whitespace-nowrap">{formatDate(issue.created_at)}</td>
+                                                    <td className="px-3 py-2.5 text-right">
+                                                        <button
+                                                            onClick={() => setResolvingIssue(resolvingIssue === issue.id ? null : issue.id)}
+                                                            className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold"
+                                                        >
+                                                            {resolvingIssue === issue.id ? 'Cancel' : 'Resolve'}
+                                                        </button>
                                                     </td>
                                                 </tr>
-                                            )}
-                                        </React.Fragment>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                {resolvingIssue === issue.id && (
+                                                    <tr>
+                                                        <td colSpan="9" className="px-4 py-3 bg-indigo-50/60">
+                                                            <div className="flex items-end gap-3">
+                                                                <div className="flex-1">
+                                                                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Resolution Notes</label>
+                                                                    <textarea
+                                                                        value={resolutionNotes}
+                                                                        onChange={e => setResolutionNotes(e.target.value)}
+                                                                        placeholder="Describe the fix or resolution..."
+                                                                        className="w-full px-3 py-2 border border-slate-300 bg-white rounded-xl text-sm resize-none h-16 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                                    />
+                                                                </div>
+                                                                <div className="flex gap-2">
+                                                                    <button
+                                                                        onClick={() => handleResolveIssue(issue.id, 'IN_PROGRESS')}
+                                                                        className="px-3 py-2 text-xs font-semibold text-amber-700 bg-amber-100 border border-amber-200 rounded-xl hover:bg-amber-200 transition-colors"
+                                                                    >
+                                                                        In Progress
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleResolveIssue(issue.id, 'RESOLVED')}
+                                                                        className="px-3 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-colors"
+                                                                    >
+                                                                        <CheckCircle className="w-3 h-3 inline mr-1" /> Resolved
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleResolveIssue(issue.id, 'WONT_FIX')}
+                                                                        className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
+                                                                    >
+                                                                        Won&apos;t Fix
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            {issue.resolution_notes && (
+                                                                <p className="text-xs text-slate-500 mt-2"><strong>Previous notes:</strong> {issue.resolution_notes}</p>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
                     </div>
                 )}
@@ -1011,14 +1026,14 @@ export default function BankFormManagement() {
 
             {/* Details Side Panel */}
             {selectedForm && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-end z-50" onClick={() => setSelectedForm(null)}>
-                    <div className="bg-white w-full max-w-6xl h-full overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
-                            <h2 className="text-lg font-bold text-gray-900">Form Details</h2>
-                            <div className="flex items-center gap-2">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-end z-50" onClick={() => setSelectedForm(null)}>
+                    <div className="bg-white w-full max-w-6xl h-full overflow-y-auto shadow-2xl border-l border-slate-200" onClick={e => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex flex-wrap items-center justify-between gap-2 z-10">
+                            <h2 className="text-lg font-bold text-slate-900">Form Details</h2>
+                            <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     onClick={() => handleViewPdf(selectedForm.id)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-colors"
                                 >
                                     <FileText className="w-4 h-4" /> View PDF
                                 </button>
@@ -1026,14 +1041,14 @@ export default function BankFormManagement() {
                                     <>
                                         <button
                                             onClick={() => setIsVisualDesignerOpen(true)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors shadow-sm"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors shadow-xs"
                                             title="Open interactive drag-and-drop field designer"
                                         >
                                             <Sparkles className="w-4 h-4 text-purple-600" /> Visual Designer
                                         </button>
                                         <button
                                             onClick={() => handlePreviewFill(selectedForm.id)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-lg hover:bg-cyan-100 transition-colors"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-xl hover:bg-cyan-100 transition-colors"
                                         >
                                             <Eye className="w-4 h-4" /> Preview Fill
                                         </button>
@@ -1042,7 +1057,7 @@ export default function BankFormManagement() {
                                                 <button
                                                     onClick={() => handleEnhance(selectedForm.id)}
                                                     disabled={enhancing === selectedForm.id}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 disabled:opacity-50 transition-colors"
                                                     title="AI visual feedback: compares preview vs original and corrects misplaced fields"
                                                 >
                                                     {enhancing === selectedForm.id
@@ -1054,7 +1069,7 @@ export default function BankFormManagement() {
                                                 {selectedForm.field_mapping_backup && (
                                                     <button
                                                         onClick={() => handleUndoEnhance(selectedForm.id)}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl hover:bg-rose-100 transition-colors"
                                                         title="Revert to pre-enhancement mapping"
                                                     >
                                                         <Undo2 className="w-4 h-4" /> Undo Enhance
@@ -1064,35 +1079,37 @@ export default function BankFormManagement() {
                                         )}
                                     </>
                                 )}
-                                <button onClick={() => setSelectedForm(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                                <button onClick={() => setSelectedForm(null)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
                         </div>
 
-                        <div className="p-6 space-y-6">
+                        <div className="p-6 space-y-5">
                             {/* Info */}
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-slate-50/80 p-4 rounded-xl border border-slate-200">
                                 <div>
-                                    <span className="text-xs text-gray-500 uppercase">Form Name</span>
-                                    <p className="text-sm font-medium text-gray-800">{selectedForm.name}</p>
+                                    <span className="text-xs font-semibold text-slate-500 uppercase">Form Name</span>
+                                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{selectedForm.name}</p>
                                 </div>
                                 <div>
-                                    <span className="text-xs text-gray-500 uppercase">Bank</span>
-                                    <p className="text-sm font-medium text-gray-800">{selectedForm.bank_name || selectedForm.bank_name_detected || 'N/A'}</p>
+                                    <span className="text-xs font-semibold text-slate-500 uppercase">Bank</span>
+                                    <p className="text-sm font-semibold text-slate-900 mt-0.5">{selectedForm.bank_name || selectedForm.bank_name_detected || 'N/A'}</p>
                                 </div>
                                 <div>
-                                    <span className="text-xs text-gray-500 uppercase">Version</span>
-                                    <p className="text-sm font-medium text-gray-800">v{selectedForm.version}</p>
+                                    <span className="text-xs font-semibold text-slate-500 uppercase">Version</span>
+                                    <p className="text-sm font-semibold text-slate-900 mt-0.5">v{selectedForm.version}</p>
                                 </div>
                                 <div>
-                                    <span className="text-xs text-gray-500 uppercase">AI Status</span>
+                                    <span className="text-xs font-semibold text-slate-500 uppercase">AI Status</span>
                                     <div className="flex items-center gap-1.5 mt-0.5">
                                         {statusIcon(selectedForm.ai_analysis_status || selectedForm.status)}
-                                        <span className="text-sm">{selectedForm.ai_analysis_status || selectedForm.status}</span>
+                                        <span className="text-sm text-slate-800">{selectedForm.ai_analysis_status || selectedForm.status}</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <span className="text-xs text-gray-500 uppercase">Form Language</span>
-                                    <p className="text-sm font-medium text-gray-800">
+                                    <span className="text-xs font-semibold text-slate-500 uppercase">Form Language</span>
+                                    <p className="text-sm font-semibold text-slate-900 mt-0.5">
                                         {selectedForm.form_language === 'AR' ? 'Arabic Only' :
                                             selectedForm.form_language === 'EN' ? 'English Only' : 'Bilingual'}
                                     </p>
@@ -1101,7 +1118,7 @@ export default function BankFormManagement() {
 
                             {/* AI Notes */}
                             {(selectedForm.form_notes || selectedForm.form_title) && (
-                                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
                                     <h3 className="text-sm font-semibold text-purple-800 mb-1 flex items-center gap-1.5">
                                         <Brain className="w-4 h-4" /> AI Analysis Notes
                                     </h3>
@@ -1118,13 +1135,13 @@ export default function BankFormManagement() {
                             {selectedForm.field_mapping && selectedForm.field_mapping.length > 0 && (
                                 <div>
                                     <div className="flex items-center justify-between mb-2">
-                                        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
-                                            <Edit3 className="w-4 h-4" /> Field Mapping ({(editingMapping ? editableMapping : selectedForm.field_mapping).length} fields)
+                                        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                                            <Edit3 className="w-4 h-4 text-indigo-600" /> Field Mapping ({(editingMapping ? editableMapping : selectedForm.field_mapping).length} fields)
                                         </h3>
                                         {!editingMapping ? (
                                             <button
                                                 onClick={startEditMapping}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition-colors"
                                             >
                                                 <Edit3 className="w-3 h-3" /> Edit Mappings
                                             </button>
@@ -1132,25 +1149,25 @@ export default function BankFormManagement() {
                                             <div className="flex items-center gap-2">
                                                 {/* Nudge controls — only for overlay/scanned forms */}
                                                 {['PHYSICAL_OVERLAY', 'SCANNED_FILL'].includes(selectedForm.form_type) && (
-                                                    <div className="flex items-center gap-1 ml-2 pl-2 border-l border-gray-200">
-                                                        <span className="text-[10px] text-gray-400 mr-1">{selectedRows.size > 0 ? `Nudge ${selectedRows.size}:` : 'Nudge All:'}</span>
-                                                        <button onClick={() => nudgeAllFields('x', -0.1)} title="Move all fields left 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">←</button>
-                                                        <button onClick={() => nudgeAllFields('x', 0.1)} title="Move all fields right 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">→</button>
-                                                        <button onClick={() => nudgeAllFields('y', -0.1)} title="Move all fields up 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">↑</button>
-                                                        <button onClick={() => nudgeAllFields('y', 0.1)} title="Move all fields down 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-gray-600 bg-gray-100 rounded hover:bg-blue-100 hover:text-blue-700 transition-colors">↓</button>
+                                                    <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200">
+                                                        <span className="text-[10px] text-slate-400 mr-1">{selectedRows.size > 0 ? `Nudge ${selectedRows.size}:` : 'Nudge All:'}</span>
+                                                        <button onClick={() => nudgeAllFields('x', -0.1)} title="Move all fields left 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-slate-600 bg-slate-100 rounded hover:bg-indigo-100 hover:text-indigo-700 transition-colors">←</button>
+                                                        <button onClick={() => nudgeAllFields('x', 0.1)} title="Move all fields right 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-slate-600 bg-slate-100 rounded hover:bg-indigo-100 hover:text-indigo-700 transition-colors">→</button>
+                                                        <button onClick={() => nudgeAllFields('y', -0.1)} title="Move all fields up 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-slate-600 bg-slate-100 rounded hover:bg-indigo-100 hover:text-indigo-700 transition-colors">↑</button>
+                                                        <button onClick={() => nudgeAllFields('y', 0.1)} title="Move all fields down 1%" className="w-6 h-6 flex items-center justify-center text-xs font-bold text-slate-600 bg-slate-100 rounded hover:bg-indigo-100 hover:text-indigo-700 transition-colors">↓</button>
                                                     </div>
                                                 )}
                                                 <button
                                                     onClick={handleSaveMapping}
                                                     disabled={savingMapping}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                                                 >
                                                     {savingMapping ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                                                     Save
                                                 </button>
                                                 <button
                                                     onClick={() => setEditingMapping(false)}
-                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
                                                 >
                                                     <X className="w-3 h-3" /> Cancel
                                                 </button>
@@ -1158,9 +1175,9 @@ export default function BankFormManagement() {
                                         )}
                                     </div>
 
-                                    <div className="border rounded-lg overflow-x-auto">
+                                    <div className="border border-slate-200 rounded-xl overflow-x-auto">
                                         <table className="w-full text-xs">
-                                            <thead className="bg-gray-50 text-gray-500 uppercase">
+                                            <thead className="bg-slate-50/80 text-slate-500 uppercase">
                                                 <tr>
                                                     {editingMapping && ['PHYSICAL_OVERLAY', 'SCANNED_FILL'].includes(selectedForm.form_type) && (
                                                         <th className="px-2 py-2 text-center w-8">

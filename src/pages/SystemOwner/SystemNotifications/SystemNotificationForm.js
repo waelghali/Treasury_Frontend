@@ -13,26 +13,26 @@ import { format, parseISO } from 'date-fns';
 import clsx from 'clsx';
 
 // Reusable styling classes
-const inputClassNames = "mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200";
-const labelClassNames = "block text-sm font-medium text-gray-700";
+const inputClassNames = "mt-1 block w-full text-sm px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors";
+const labelClassNames = "block text-xs font-semibold text-slate-700 mb-0.5";
 
 const Button = ({ children, className, variant = 'default', size = 'default', ...props }) => {
-  const baseClass = "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 disabled:pointer-events-none disabled:opacity-50";
-  const sizeClass = size === 'sm' ? "h-8 px-3 text-xs" : size === 'lg' ? "h-10 px-8" : "h-9 px-4 py-2";
+  const baseClass = "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:pointer-events-none disabled:opacity-50";
+  const sizeClass = size === 'sm' ? "h-8 px-3 text-xs" : size === 'lg' ? "h-10 px-6" : "h-9 px-4 py-2";
   const variantClass = clsx({
-    "bg-blue-600 text-white shadow hover:bg-blue-700": variant === 'default',
-    "bg-red-600 text-white shadow-sm hover:bg-red-700": variant === 'destructive',
-    "border border-gray-300 bg-white shadow-sm hover:bg-gray-100": variant === 'outline',
-    "bg-gray-200 text-gray-900 shadow-sm hover:bg-gray-300": variant === 'secondary',
-    "hover:bg-gray-100": variant === 'ghost',
-    "text-blue-600 underline-offset-4 hover:underline": variant === 'link',
+    "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700": variant === 'default',
+    "bg-rose-600 text-white shadow-sm hover:bg-rose-700": variant === 'destructive',
+    "border border-slate-300 bg-white text-slate-700 shadow-xs hover:bg-slate-50": variant === 'outline',
+    "bg-slate-100 text-slate-800 shadow-xs hover:bg-slate-200": variant === 'secondary',
+    "hover:bg-slate-100 text-slate-700": variant === 'ghost',
+    "text-indigo-600 underline-offset-4 hover:underline": variant === 'link',
   });
   return <button className={clsx(baseClass, sizeClass, variantClass, className)} {...props}>{children}</button>;
 };
 
-const Card = ({ children, className, ...props }) => <div className={clsx("bg-white p-6 rounded-lg shadow-md", className)} {...props}>{children}</div>;
-const CardHeader = ({ children, ...props }) => <div className="border-b border-gray-200 pb-4 mb-4" {...props}>{children}</div>;
-const CardTitle = ({ children, ...props }) => <h3 className="text-lg font-medium text-gray-800" {...props}>{children}</h3>;
+const Card = ({ children, className, ...props }) => <div className={clsx("bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm", className)} {...props}>{children}</div>;
+const CardHeader = ({ children, ...props }) => <div className="border-b border-slate-200 pb-3.5 mb-4" {...props}>{children}</div>;
+const CardTitle = ({ children, ...props }) => <h3 className="text-lg font-bold text-slate-900" {...props}>{children}</h3>;
 const CardContent = ({ children, ...props }) => <div className="space-y-4" {...props}>{children}</div>;
 const Input = ({ className, ...props }) => <input className={clsx(inputClassNames, className)} {...props} />;
 const Label = ({ htmlFor, children, className, ...props }) => <label htmlFor={htmlFor} className={clsx(labelClassNames, className)} {...props}>{children}</label>;
@@ -40,10 +40,10 @@ const Textarea = ({ className, ...props }) => <textarea className={clsx(inputCla
 const Select = ({ children, className, ...props }) => <select className={clsx(inputClassNames, className)} {...props}>{children}</select>;
 
 const ToggleSwitch = ({ id, name, checked, onChange, label, className }) => (
-  <label htmlFor={id} className={clsx("relative inline-flex items-center cursor-pointer mb-2", className)}>
+  <label htmlFor={id} className={clsx("relative inline-flex items-center cursor-pointer py-1", className)}>
     <input type="checkbox" name={name} id={id} checked={checked} onChange={onChange} className="sr-only peer" />
-    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-    <span className="ml-3 text-sm font-medium text-gray-900">{label}</span>
+    <div className="w-11 h-6 bg-slate-200 shrink-0 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[6px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+    <span className="ml-3 text-sm font-medium text-slate-800">{label}</span>
   </label>
 );
 
@@ -350,8 +350,9 @@ function SystemNotificationForm() {
 
     if (isLoading || isLoadingCustomers || isLoadingUsers) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin" />
+            <div className="flex flex-col justify-center items-center py-16">
+                <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+                <p className="text-sm text-slate-500 mt-3">Loading notification form...</p>
             </div>
         );
     }
@@ -362,11 +363,11 @@ function SystemNotificationForm() {
     };
 
     return (
-        <div>
+        <div className="max-w-4xl mx-auto">
             <Card>
                 <CardHeader><CardTitle>{isEditMode ? 'Edit' : 'Create'} System Notification</CardTitle></CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             
                             <div className="md:col-span-2">
@@ -381,16 +382,16 @@ function SystemNotificationForm() {
                             </div>
                             
                             <div className="md:col-span-2">
-                                <Label htmlFor="content">Content <span className="text-red-500">*</span></Label>
+                                <Label htmlFor="content">Content <span className="text-rose-500">*</span></Label>
                                 <Textarea id="content" value={formData.content} onChange={handleChange} required />
                             </div>
                             
                             <div className="md:col-span-2">
                                 <label className={labelClassNames}>Notification Image (Optional)</label>
-                                <div className="mt-1 flex items-start space-x-4">
+                                <div className="mt-1.5 flex items-start space-x-4">
                                     {formData.image_url ? (
                                         <div className="relative group">
-                                            <div className="h-24 w-24 rounded-md border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
+                                            <div className="h-24 w-24 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 flex items-center justify-center shadow-sm">
                                                 <img 
                                                     src={formData.image_url} 
                                                     alt="Notification Preview" 
@@ -405,18 +406,18 @@ function SystemNotificationForm() {
                                                     _gcs_uri: '',
                                                     _original_gcs_uri: ''
                                                 }))}
-                                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600"
+                                                className="absolute -top-2 -right-2 bg-rose-600 text-white rounded-full p-1 shadow-sm hover:bg-rose-700 transition-colors"
                                                 title="Remove image"
                                             >
                                                 <X className="h-3 w-3" />
                                             </button>
                                         </div>
                                     ) : (
-                                        <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                        <label className="cursor-pointer inline-flex items-center px-4 py-2 border border-slate-300 rounded-xl shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition-colors">
                                             {uploading ? (
-                                                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                                                <Loader2 className="animate-spin h-4 w-4 mr-2 text-indigo-600" />
                                             ) : (
-                                                <UploadCloud className="h-4 w-4 mr-2" />
+                                                <UploadCloud className="h-4 w-4 mr-2 text-slate-500" />
                                             )}
                                             {uploading ? 'Uploading...' : 'Upload Image'}
                                             <input 
@@ -429,7 +430,7 @@ function SystemNotificationForm() {
                                         </label>
                                     )}
                                 </div>
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="text-xs text-slate-500 mt-1.5">
                                     This image will appear as a banner thumbnail or a hero image in popups.
                                 </p>
                             </div>
@@ -439,8 +440,8 @@ function SystemNotificationForm() {
                                 <Input id="link" type="url" value={formData.link} onChange={handleChange} />
                             </div>
 
-                            <div className="md:col-span-2 bg-gray-50 p-4 rounded-md border border-gray-200">
-                                <h4 className="font-medium text-gray-800 mb-2">Display Style</h4>
+                            <div className="md:col-span-2 bg-slate-50/80 p-4 rounded-xl border border-slate-200/80">
+                                <h4 className="font-semibold text-sm text-slate-800 mb-2">Display Style</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="flex items-center space-x-2 mt-2">
                                         <ToggleSwitch
@@ -467,11 +468,11 @@ function SystemNotificationForm() {
                                 </div>
                             </div>
                             <div className="mb-2">
-                                <Label htmlFor="start_date">Start Date <span className="text-red-500">*</span></Label>
+                                <Label htmlFor="start_date">Start Date <span className="text-rose-500">*</span></Label>
                                 <Input id="start_date" type="datetime-local" value={formData.start_date} onChange={handleChange} required />
                             </div>
                             <div className="mb-2">
-                                <Label htmlFor="end_date">End Date <span className="text-red-500">*</span></Label>
+                                <Label htmlFor="end_date">End Date <span className="text-rose-500">*</span></Label>
                                 <Input id="end_date" type="datetime-local" value={formData.end_date} onChange={handleChange} required />
                             </div>
 
@@ -506,7 +507,7 @@ function SystemNotificationForm() {
                                 <ToggleSwitch id="is_active" name="is_active" checked={formData.is_active} onChange={handleChange} label="Active Status" />
                             </div>
                             
-                            <hr className="md:col-span-2 my-2 border-gray-200" />
+                            <hr className="md:col-span-2 my-2 border-slate-200" />
 
                             <div className="mb-2">
                                 <Label htmlFor="target_customer_ids">Target Customer(s) (Optional)</Label>
@@ -524,7 +525,7 @@ function SystemNotificationForm() {
                             </div>
                             <div className="mb-2">
                                 <Label htmlFor="target_user_ids">Target User(s) (Optional)</Label>
-                                <div className="text-xs text-gray-500 mb-1">Showing {filteredUsers.length} users based on current filters.</div>
+                                <div className="text-xs text-slate-500 mb-1">Showing {filteredUsers.length} users based on current filters.</div>
                                 <select id="target_user_ids" multiple value={getMultiSelectValue('target_user_ids')} onChange={(e) => handleMultiSelectChange(e, 'target_user_ids')} className={clsx(inputClassNames, "h-32")} disabled={isLoadingUsers}>
                                     <option value="">All Users</option>
                                     {filteredUsers.map((u) => (<option key={u.id} value={u.id}>{u.email}</option>))}
@@ -532,7 +533,7 @@ function SystemNotificationForm() {
                             </div>
                         </div>
                         
-                        <div className="flex justify-end space-x-3 mt-6">
+                        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-slate-200">
                             <Button type="button" onClick={() => navigate('/system-owner/system-notifications')} variant="outline">Cancel</Button>
                             <Button type="submit" disabled={isSubmitting}>
                                 {isSubmitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}

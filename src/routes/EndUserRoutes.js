@@ -63,6 +63,7 @@ function EndUserRoutes({ onLogout, subscriptionStatus, customerId, isTrial = fal
           <Route path="lg-records/:id" element={<LGDetailsPage isGracePeriod={isGracePeriod} />} />
           <Route path="expiring-lgs" element={<LGRecordList isGracePeriod={isGracePeriod} />} />
           <Route path="internal-owners" element={<ManageInternalOwnersPage isGracePeriod={isGracePeriod} />} />
+          <Route path="internal-data" element={<ManageInternalOwnersPage isGracePeriod={isGracePeriod} />} />
           <Route path="pending-approvals" element={<EndUserPendingApprovalsPage isGracePeriod={isGracePeriod} />} />
         </>
       ) : (
@@ -71,6 +72,7 @@ function EndUserRoutes({ onLogout, subscriptionStatus, customerId, isTrial = fal
           <Route path="lg-records/*" element={<Navigate to="../dashboard" replace />} />
           <Route path="expiring-lgs" element={<Navigate to="../dashboard" replace />} />
           <Route path="internal-owners" element={<Navigate to="../dashboard" replace />} />
+          <Route path="internal-data" element={<Navigate to="../dashboard" replace />} />
           <Route path="pending-approvals" element={<Navigate to="../dashboard" replace />} />
         </>
       )}

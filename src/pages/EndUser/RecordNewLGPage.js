@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle, Search, FileUp, FileText, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loader2, CheckCircle, Search, FileUp, FileText, Sparkles, Landmark, Users } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import FormattedDateInput from 'components/FormattedDateInput';
@@ -13,9 +13,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return (
       <div className="relative group inline-block">
         {children}
-        <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+        <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
           This action is disabled during your subscription's grace period.
-          <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+          <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
             <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
           </svg>
         </div>
@@ -350,6 +350,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   const [advisingStatusOptions, setAdvisingStatusOptions] = useState([]);
   const [communicationBanks, setCommunicationBanks] = useState([]);
   const [isTrialSandbox, setIsTrialSandbox] = useState(false);
+  const [defaultCategoryId, setDefaultCategoryId] = useState('');
 
   const aiFileInputRef = useRef(null);
   const internalDocInputRef = useRef(null);
@@ -407,10 +408,13 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
         setIsTrialSandbox(trialActive);
 
         const defaultTrialOwner = trialActive && ownersList.length > 0 ? ownersList[0] : null;
-        const defaultTrialCategory =
-          trialActive && Array.isArray(lgCategories) && lgCategories.length > 0
-            ? lgCategories.find((c) => c.customer_id !== null) || lgCategories[0]
+        const effectiveDefaultCategory =
+          Array.isArray(lgCategories) && lgCategories.length > 0
+            ? (lgCategories.find((c) => c.is_default) ||
+              (trialActive ? (lgCategories.find((c) => c.customer_id !== null) || lgCategories[0]) : null))
             : null;
+        const resolvedDefaultCatId = effectiveDefaultCategory ? String(effectiveDefaultCategory.id) : '';
+        setDefaultCategoryId(resolvedDefaultCatId);
 
         setFormData((prev) => ({
           ...prev,
@@ -425,9 +429,9 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                   prev.internal_owner_manager_email || defaultTrialOwner.manager_email || '',
               }
             : {}),
-          ...(defaultTrialCategory
+          ...(resolvedDefaultCatId
             ? {
-                lg_category_id: prev.lg_category_id || String(defaultTrialCategory.id),
+                lg_category_id: prev.lg_category_id || resolvedDefaultCatId,
               }
             : {}),
         }));
@@ -590,6 +594,14 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 			 'lg_category_id', 'communication_bank_id'].includes(name)) {
 		  const parsedValue = parseInt(value, 10);
 		  const normalizedValue = value === '' ? '' : String(parsedValue);
+          if (name === 'lg_category_id') {
+              const nextCat = (dropdownData.lgCategories || []).find(c => String(c.id) === normalizedValue);
+              const nextExtraName = nextCat?.extra_field_name;
+              const preservedExtra = nextExtraName && prevData.additional_field_values?.[nextExtraName]
+                ? { [nextExtraName]: prevData.additional_field_values[nextExtraName] }
+                : {};
+              return { ...prevData, lg_category_id: normalizedValue, additional_field_values: preservedExtra };
+          }
           // Auto-sync payable currency to LG currency unless user deliberately diverged
           if (name === 'lg_currency_id' && !payableCurrencyTouched) {
               return { ...prevData, [name]: normalizedValue, lg_payable_currency_id: normalizedValue };
@@ -634,6 +646,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     setFormData({
         ...initialFormData,
         issuing_method_id: manualDeliveryId,
+        lg_category_id: defaultCategoryId,
     });
     setError('');
     setAccordionsOpen({
@@ -688,6 +701,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
       ai_scan_file: fileToProcess,
       internal_supporting_document_file: internalSupportingDocFile,
       issuing_method_id: manualDeliveryId, // Set default for new form
+      lg_category_id: prev.lg_category_id || defaultCategoryId,
     }));
 
     try {
@@ -784,7 +798,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
           mandatory_claim_statement: extractedData.mandatory_claim_statement || '',
           lg_category_id: extractedData.lg_category_id
             ? String(extractedData.lg_category_id)
-            : (isTrialSandbox ? prev.lg_category_id : ''),
+            : (prev.lg_category_id || defaultCategoryId),
           additional_field_values: extractedData.additional_field_values || {},
           internal_owner_email:
             extractedData.internal_owner_email || (isTrialSandbox ? prev.internal_owner_email : ''),
@@ -944,6 +958,9 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     } else if (lower.includes('internal owner email')) {
       targetField = 'internal_owner_email';
       section = 'internalData';
+    } else if (lower.includes('custom field')) {
+      targetField = 'additional_field_value';
+      section = 'internalData';
     } else if (lower.includes('category')) {
       targetField = 'lg_category_id';
       section = 'internalData';
@@ -1066,7 +1083,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
         errors.push(`Custom field '${selectedLGCategory.extra_field_name}' is mandatory for the selected LG Category.`);
       }
     } else if (selectedLGCategory && !selectedLGCategory.extra_field_name && Object.keys(formData.additional_field_values).length > 0) {
-      errors.push(`No custom field is expected for the selected LG Category '${selectedLGCategory.category_name}'.`);
+      errors.push(`No custom field is expected for the selected LG Category '${selectedLGCategory.name}'.`);
     }
 
     if (errors.length > 0) {
@@ -1156,18 +1173,15 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
     }
   };
 
-  const inputClassNames = "mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200";
-  const labelClassNames = "block text-sm font-medium text-gray-700";
-  const requiredSpan = <span className="text-red-500">*</span>;
+  const inputClassNames = "mb-1 mt-1 block w-full text-sm px-3 py-2 rounded-xl border border-slate-200 bg-white shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200";
+  const labelClassNames = "block text-xs font-semibold text-slate-700";
+  const requiredSpan = <span className="text-rose-500">*</span>;
 
   if (isLoading) {
     return (
-      <div className="text-center py-8">
-        <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p className="text-gray-600 mt-2">Loading form data...</p>
+      <div className="text-center py-12">
+        <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" />
+        <p className="text-slate-500 text-sm mt-2">Loading form data...</p>
       </div>
     );
   }
@@ -1190,28 +1204,28 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
 
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-100">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Record New LG</h2>
-        <p className="text-sm text-gray-500 mt-1">Fill in the details below to record a new Letter of Guarantee.</p>
+    <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-sm">
+      <div className="mb-4">
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Record New LG</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Fill in the details below to record a new Letter of Guarantee.</p>
       </div>
 
       {error && (
-        <div ref={errorBannerRef} className="bg-red-50 border-l-4 border-red-500 text-red-800 px-4 py-3.5 rounded-lg shadow-sm relative mb-5 flex items-start gap-2.5 animate-pulse" role="alert">
-          <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+        <div ref={errorBannerRef} className="bg-rose-50 border border-rose-200 border-l-4 border-l-rose-500 text-rose-800 px-4 py-3 rounded-xl shadow-2xs relative mb-4 flex items-start gap-2.5" role="alert">
+          <AlertCircle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
           <div className="flex-1 text-sm font-medium">{error}</div>
-          <button type="button" onClick={() => { setError(''); setErrorField(''); }} className="text-red-500 hover:text-red-700">
+          <button type="button" onClick={() => { setError(''); setErrorField(''); }} className="text-rose-500 hover:text-rose-700">
             <XCircle className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* Main LG Data Accordion */}
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
           <button
             type="button"
-            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-white hover:bg-gray-50 focus:outline-none transition-colors"
+            className="flex justify-between items-center w-full p-3.5 font-medium text-left text-slate-800 bg-white hover:bg-slate-50/80 focus:outline-none transition-colors"
             onClick={() => toggleAccordion('mainLGData')}
             disabled={isFormDisabled || isGracePeriod}
           >
@@ -1220,15 +1234,15 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 <FileText size={18} />
               </div>
               <div>
-                <span className="block text-sm font-bold text-gray-900 uppercase tracking-wide">Main LG Data</span>
-                <span className="block text-xs text-gray-400">Core guarantee details and validity</span>
+                <span className="block text-sm font-bold text-slate-900 uppercase tracking-wide">Main LG Data</span>
+                <span className="block text-xs text-slate-400">Core guarantee details and validity</span>
               </div>
             </div>
-            {accordionsOpen.mainLGData ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+            {accordionsOpen.mainLGData ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
           </button>
           {accordionsOpen.mainLGData && (
-            <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
-              <div className="md:col-span-2 mb-4">
+            <div className={`p-4 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-3.5 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
+              <div className="md:col-span-2 mb-2">
                 <input
                   type="file"
                   name="ai_scan_file"
@@ -1241,7 +1255,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 />
                 {!formData.ai_scan_file ? (
                   <div
-                    className={`border-2 border-dashed border-blue-200 rounded-2xl p-8 sm:p-10 text-center bg-blue-50/30 hover:bg-blue-50/60 hover:border-blue-300 transition-all duration-300 cursor-pointer relative overflow-hidden group ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`border-2 border-dashed border-blue-200 rounded-2xl p-5 sm:p-6 text-center bg-blue-50/30 hover:bg-blue-50/60 hover:border-blue-300 transition-all duration-300 cursor-pointer relative overflow-hidden group ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={() => { if (!isFormDisabled && !isGracePeriod && aiFileInputRef.current) { aiFileInputRef.current.value = ''; aiFileInputRef.current.click(); } }}
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     onDrop={(e) => {
@@ -1252,18 +1266,18 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                       }
                     }}
                   >
-                    <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
-                      <FileUp size={28} />
+                    <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:scale-105 transition-transform duration-300">
+                      <FileUp size={24} />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">Intelligent LG Auto-Population</h3>
-                    <p className="text-sm text-gray-500 mb-5 max-w-md mx-auto">
+                    <h3 className="text-base font-bold text-slate-900 mb-1">Intelligent LG Auto-Population</h3>
+                    <p className="text-xs sm:text-sm text-slate-500 mb-3.5 max-w-md mx-auto">
                       Drag and drop your Letter of Guarantee PDF or Image here. Our AI will extract all critical data points automatically.
                     </p>
-                    <div className="flex items-center justify-center gap-3">
+                    <div className="flex flex-wrap items-center justify-center gap-2.5">
                       <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                         <button
                           type="button"
-                          className={`inline-flex items-center px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                           onClick={(e) => { e.stopPropagation(); if (aiFileInputRef.current) { aiFileInputRef.current.value = ''; aiFileInputRef.current.click(); } }}
                           disabled={isFormDisabled || isGracePeriod}
                         >
@@ -1273,7 +1287,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                       </GracePeriodTooltip>
                       <button
                         type="button"
-                        className={`inline-flex items-center px-5 py-2.5 bg-white text-gray-700 text-sm font-semibold rounded-xl border border-gray-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`inline-flex items-center px-4 py-2 bg-white text-slate-700 text-sm font-semibold rounded-xl border border-slate-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-300 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                         onClick={(e) => { e.stopPropagation(); if (aiFileInputRef.current) { aiFileInputRef.current.value = ''; aiFileInputRef.current.click(); } }}
                         disabled={isFormDisabled || isGracePeriod}
                       >
@@ -1282,7 +1296,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                       {isTrialSandbox && (
                         <button
                           type="button"
-                          className={`inline-flex items-center px-5 py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 ${isFormDisabled || isGracePeriod || aiScanInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          className={`inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 ${isFormDisabled || isGracePeriod || aiScanInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             window.dispatchEvent(
@@ -1299,23 +1313,23 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                     </div>
                   </div>
                 ) : (
-                  <div className="border-2 border-dashed border-green-300 rounded-2xl p-6 sm:p-8 text-center bg-green-50/40">
-                    <div className="w-14 h-14 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle size={28} />
+                  <div className="border-2 border-dashed border-emerald-300 rounded-2xl p-5 sm:p-6 text-center bg-emerald-50/40">
+                    <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                      <CheckCircle size={24} />
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">LG Document Uploaded</h3>
-                    <p className="text-sm text-gray-600 mb-1">
+                    <h3 className="text-base font-bold text-slate-900 mb-1">LG Document Uploaded</h3>
+                    <p className="text-sm text-slate-600 mb-1">
                       <FileText className="inline h-4 w-4 mr-1" />
                       {formData.ai_scan_file.name}
                     </p>
-                    {aiScanSuccess && <p className="text-sm text-green-600 font-medium">✓ AI scan complete — data extracted successfully!</p>}
+                    {aiScanSuccess && <p className="text-sm text-emerald-600 font-medium">✓ AI scan complete — data extracted successfully!</p>}
                     {aiScanInProgress && (
                       <div className="flex items-center justify-center gap-2 mt-2 text-sm text-blue-600">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Scanning document...
                       </div>
                     )}
-                    <div className="flex items-center justify-center gap-3 mt-4">
+                    <div className="flex items-center justify-center gap-3 mt-3.5">
                       {!aiScanSuccess && !aiScanInProgress && (
                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                           <button
@@ -1490,26 +1504,26 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
         </div>
 
         {/* Bank Data Accordion */}
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
           <button
             type="button"
-            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-white hover:bg-gray-50 focus:outline-none transition-colors"
+            className="flex justify-between items-center w-full p-3.5 font-medium text-left text-slate-800 bg-white hover:bg-slate-50/80 focus:outline-none transition-colors"
             onClick={() => toggleAccordion('bankData')}
             disabled={isFormDisabled || isGracePeriod}
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>
+                <Landmark size={18} />
               </div>
               <div>
-                <span className="block text-sm font-bold text-gray-900 uppercase tracking-wide">Bank Data</span>
-                <span className="block text-xs text-gray-400">Issuing bank and communication details</span>
+                <span className="block text-sm font-bold text-slate-900 uppercase tracking-wide">Bank Data</span>
+                <span className="block text-xs text-slate-400">Issuing bank and communication details</span>
               </div>
             </div>
-            {accordionsOpen.bankData ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+            {accordionsOpen.bankData ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
           </button>
           {accordionsOpen.bankData && (
-            <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
+            <div className={`p-4 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-3.5 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
               <div className="mb-2">
                 <label htmlFor="issuing_bank_id" className={labelClassNames}>Issuing Bank {requiredSpan}</label>
                 <SearchableBankSelect
@@ -1661,20 +1675,20 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
         </div>
 
         {/* Internal Data Accordion */}
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
           <button
             type="button"
-            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 bg-white hover:bg-gray-50 focus:outline-none transition-colors"
+            className="flex justify-between items-center w-full p-3.5 font-medium text-left text-slate-800 bg-white hover:bg-slate-50/80 focus:outline-none transition-colors"
             onClick={() => toggleAccordion('internalData')}
             disabled={isFormDisabled || isGracePeriod}
           >
             <div className="flex items-center gap-3 flex-wrap">
               <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <Users size={18} />
               </div>
               <div>
-                <span className="block text-sm font-bold text-gray-900 uppercase tracking-wide">Internal Data</span>
-                <span className="block text-xs text-gray-400">Owner contacts and classification</span>
+                <span className="block text-sm font-bold text-slate-900 uppercase tracking-wide">Internal Data</span>
+                <span className="block text-xs text-slate-400">Owner contacts and classification</span>
               </div>
               {isTrialSandbox && formData.internal_owner_email && formData.lg_category_id && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
@@ -1683,10 +1697,10 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                 </span>
               )}
             </div>
-            {accordionsOpen.internalData ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+            {accordionsOpen.internalData ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
           </button>
           {accordionsOpen.internalData && (
-            <div className={`p-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
+            <div className={`p-4 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-3.5 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
               {isTrialSandbox && (
                 <div className="md:col-span-2 rounded-xl bg-emerald-50/70 border border-emerald-200 px-3.5 py-2.5 text-xs text-emerald-950">
                   <strong>Already filled for your Free Trial:</strong> Bank LG papers do not show which employee manages the project inside your company. Grow uses <strong>Internal Owner</strong> to send automatic email reminders 30 days before expiry (and notify their manager if there is no reply), and <strong>Category</strong> to group your LGs.
@@ -1779,7 +1793,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                     <option value="">Select Category</option>
                     {dropdownData.lgCategories.map(cat => (
                       <option key={`lg-category-${cat.type}-${cat.id}`} value={String(cat.id)}>
-                        {cat.name} ({cat.code}) {cat.customer_id === null ? '(System Default)' : ''}
+                        {cat.name} ({cat.code}) {cat.is_default ? '★ Default' : (cat.customer_id === null ? '(System)' : '')}
                       </option>
                     ))}
                   </select>
@@ -1819,8 +1833,8 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
               </div>
               <div className="md:col-span-2 mb-2">
                 <label htmlFor="internal_supporting_document_file" className={labelClassNames}>Internal Supporting Document</label>
-                <div className={`flex items-stretch rounded-md shadow-sm border border-gray-300 focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
-                  <label htmlFor="internal_supporting_document_file" className={`cursor-pointer bg-gray-50 hover:bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 rounded-l-md flex items-center border-r border-gray-300 ${isFormDisabled || isGracePeriod ? 'cursor-not-allowed' : ''}`}>
+                <div className={`mt-1 flex items-stretch rounded-xl shadow-2xs border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all duration-200 ${isFormDisabled || isGracePeriod ? 'opacity-50' : ''}`}>
+                  <label htmlFor="internal_supporting_document_file" className={`cursor-pointer bg-slate-50 hover:bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 flex items-center border-r border-slate-200 ${isFormDisabled || isGracePeriod ? 'cursor-not-allowed' : ''}`}>
                     Choose File
                   </label>
                   <input
@@ -1833,11 +1847,11 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
                     className="hidden"
                     disabled={isFormDisabled || isGracePeriod}
                   />
-                  <div className="flex-grow px-3 py-2 text-sm text-gray-900 bg-white flex items-center truncate">
+                  <div className="flex-grow px-3 py-2 text-sm text-slate-800 bg-white flex items-center truncate">
                     {formData.internal_supporting_document_file ? formData.internal_supporting_document_file.name : 'No file chosen'}
                   </div>
                 </div>
-                <p className="mt-1 text-sm text-gray-500">Upload a PDF supporting document, if applicable.</p>
+                <p className="mt-1 text-xs text-slate-500">Upload a PDF supporting document, if applicable.</p>
               </div>
               <div className="md:col-span-2 mb-2">
                 <label htmlFor="notes" className={labelClassNames}>Notes</label>
@@ -1858,11 +1872,11 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
         </div>
 
         {/* Form Actions */}
-        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-gray-100">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-slate-100">
           <button
             type="button"
             onClick={handleClearForm}
-            className={`w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-slate-200 text-sm font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 shadow-2xs transition-colors ${isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={isFormDisabled || isGracePeriod}
           >
             <XCircle className="h-4 w-4 mr-2" />
@@ -1872,7 +1886,7 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
             <button
               type="submit"
               disabled={isSaving || isFormDisabled || isGracePeriod}
-              className={`w-full sm:w-auto inline-flex items-center justify-center px-6 py-2.5 border border-transparent text-sm font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-md transition-all duration-200 ease-in-out ${isSaving || isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full sm:w-auto inline-flex items-center justify-center px-5 py-2 border border-transparent text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all duration-200 ease-in-out ${isSaving || isFormDisabled || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isSaving ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -8,15 +8,44 @@ import { formatDate } from '../../utils/dateFormat';
 import {
     Upload, Search, CheckCircle2, AlertTriangle, AlertCircle, Info,
     RefreshCw, FileText, Calendar, Building2, ChevronDown, ChevronUp,
-    Check, X, Clock, Shield, Eye, Download, Loader2, BarChart3, Trash2, Sparkles
+    Check, X, Clock, Shield, Eye, Download, Loader2, BarChart3, Trash2, Sparkles,
+    ArrowLeft, List, XCircle, Ban
 } from 'lucide-react';
 
 // ─── Severity config ───
 const SEVERITY_CONFIG = {
-    HIGH: { color: '#ef4444', bg: '#fef2f2', icon: AlertCircle, label: '🔴 High' },
-    MEDIUM: { color: '#f59e0b', bg: '#fffbeb', icon: AlertTriangle, label: '🟠 Medium' },
-    LOW: { color: '#eab308', bg: '#fefce8', icon: Info, label: '🟡 Low' },
-    INFO: { color: '#3b82f6', bg: '#eff6ff', icon: Info, label: '🔵 Info' },
+    HIGH: {
+        color: '#ef4444',
+        icon: AlertCircle,
+        label: 'High',
+        iconCls: 'text-rose-500',
+        valCls: 'text-rose-600',
+        borderCls: 'border-rose-200',
+    },
+    MEDIUM: {
+        color: '#f59e0b',
+        icon: AlertTriangle,
+        label: 'Medium',
+        iconCls: 'text-amber-500',
+        valCls: 'text-amber-600',
+        borderCls: 'border-amber-200',
+    },
+    LOW: {
+        color: '#eab308',
+        icon: Info,
+        label: 'Low',
+        iconCls: 'text-yellow-500',
+        valCls: 'text-yellow-700',
+        borderCls: 'border-yellow-200',
+    },
+    INFO: {
+        color: '#3b82f6',
+        icon: Info,
+        label: 'Info',
+        iconCls: 'text-blue-500',
+        valCls: 'text-blue-600',
+        borderCls: 'border-blue-200',
+    },
 };
 
 const MISMATCH_LABELS = {
@@ -279,30 +308,42 @@ export default function LGReconciliationPage() {
         total: selectedSession.total_bank_records || 0,
     } : {};
 
+    const selectCls = 'w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none';
+    const labelCls = 'block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5';
+
     return (
-        <div style={{ width: '100%', minWidth: 0 }}>
+        <div className="w-full min-w-0 space-y-6">
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>
-                        📊 LG Position Reconciliation
+                    <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+                        <span className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
+                            <BarChart3 className="w-5 h-5" />
+                        </span>
+                        <span>LG Position Reconciliation</span>
                     </h1>
-                    <p style={{ color: '#64748b', margin: '4px 0 0' }}>
+                    <p className="text-sm text-slate-500 mt-1">
                         {isCorporateAdmin
                             ? 'Oversight & checker view — monitor bank position sessions and approve or reject maker adjustments'
                             : 'Import bank position reports, match against system records, resolve variances'}
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="inline-flex rounded-xl p-1 bg-slate-100 border border-slate-200/80 w-fit">
                     {(isEndUser ? ['sessions', 'upload'] : ['sessions']).map(tab => (
-                        <button key={tab} onClick={() => setActiveTab(tab)}
-                            style={{
-                                padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                                background: activeTab === tab ? '#3b82f6' : '#f1f5f9',
-                                color: activeTab === tab ? '#fff' : '#475569',
-                                fontWeight: 600, fontSize: 13,
-                            }}>
-                            {tab === 'sessions' ? '📋 Sessions' : '⬆️ Upload Report'}
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-none focus:ring-0 ${
+                                activeTab === tab
+                                    ? 'bg-white text-blue-700 shadow-sm'
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            {tab === 'sessions' ? (
+                                <><List className="w-3.5 h-3.5" /> Sessions</>
+                            ) : (
+                                <><Upload className="w-3.5 h-3.5" /> Upload Report</>
+                            )}
                         </button>
                     ))}
                 </div>
@@ -310,52 +351,61 @@ export default function LGReconciliationPage() {
 
             {/* ═══ Upload Tab ═══ */}
             {isEndUser && activeTab === 'upload' && (
-                <div style={{ background: '#fff', borderRadius: 16, padding: 32, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', width: '100%' }}>
-                    <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, color: '#0f172a' }}>
-                        ⬆️ Upload Bank Position Report
-                    </h2>
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-5">
+                    <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+                        <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+                            <Upload className="w-5 h-5" />
+                        </div>
+                        <h2 className="text-lg font-bold text-slate-900">
+                            Upload Bank Position Report
+                        </h2>
+                    </div>
 
-                    <div style={{ display: 'grid', gap: 20 }}>
+                    <div className="grid gap-5">
                         <div>
-                            <label style={labelStyle}>Bank</label>
-                            <select value={uploadBank} onChange={e => setUploadBank(e.target.value)}
-                                style={inputStyle}>
+                            <label className={labelCls}>Bank</label>
+                            <select value={uploadBank} onChange={e => setUploadBank(e.target.value)} className={selectCls}>
                                 <option value="">Select bank...</option>
                                 {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                             </select>
                         </div>
 
                         <div>
-                            <label style={labelStyle}>Position Date</label>
-                            <FormattedDateInput value={uploadDate} onChange={e => setUploadDate(e.target.value)}
-                                style={inputStyle} />
+                            <label className={labelCls}>Position Date</label>
+                            <FormattedDateInput
+                                value={uploadDate}
+                                onChange={e => setUploadDate(e.target.value)}
+                                className={selectCls}
+                            />
                         </div>
 
                         <div>
-                            <label style={labelStyle}>Position Report File</label>
-                            <div style={{
-                                border: '2px dashed #cbd5e1', borderRadius: 12, padding: 32,
-                                textAlign: 'center', cursor: 'pointer', background: uploadFile ? '#f0fdf4' : '#fafafa',
-                                transition: 'all 0.2s',
-                            }}
+                            <label className={labelCls}>Position Report File</label>
+                            <div
+                                className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                                    uploadFile
+                                        ? 'border-emerald-300 bg-emerald-50/40'
+                                        : 'border-slate-200 bg-slate-50/50 hover:bg-blue-50/30 hover:border-blue-300'
+                                }`}
                                 onClick={() => document.getElementById('recon-file-input').click()}
                                 onDragOver={e => e.preventDefault()}
-                                onDrop={e => { e.preventDefault(); setUploadFile(e.dataTransfer.files[0]); }}>
+                                onDrop={e => { e.preventDefault(); setUploadFile(e.dataTransfer.files[0]); }}
+                            >
                                 {uploadFile ? (
                                     <div>
-                                        <FileText size={32} color="#22c55e" />
-                                        <p style={{ fontWeight: 600, color: '#16a34a', marginTop: 8 }}>{uploadFile.name}</p>
-                                        <p style={{ color: '#64748b', fontSize: 12 }}>
+                                        <FileText size={32} className="text-emerald-600 mx-auto" />
+                                        <p className="font-semibold text-emerald-700 mt-2 text-sm">{uploadFile.name}</p>
+                                        <p className="text-slate-500 text-xs mt-0.5">
                                             {(uploadFile.size / 1024).toFixed(1)} KB — Click to change
                                         </p>
                                     </div>
                                 ) : (
                                     <div>
-                                        <Upload size={32} color="#94a3b8" />
-                                        <p style={{ fontWeight: 600, color: '#475569', marginTop: 8 }}>
+                                        <Upload size={32} className="text-slate-400 mx-auto" />
+                                        <p className="font-semibold text-slate-700 mt-2 text-sm">
                                             Drop file here or click to browse
                                         </p>
-                                        <p style={{ color: '#94a3b8', fontSize: 12 }}>
+                                        <p className="text-slate-400 text-xs mt-0.5">
                                             Excel (.xlsx), CSV, PDF, or Text
                                         </p>
                                     </div>
@@ -367,20 +417,24 @@ export default function LGReconciliationPage() {
                         </div>
 
                         <div>
-                            <label style={labelStyle}>Notes (optional)</label>
-                            <textarea value={uploadNotes} onChange={e => setUploadNotes(e.target.value)}
-                                style={{ ...inputStyle, height: 60, resize: 'vertical' }}
-                                placeholder="Any notes about this position report..." />
+                            <label className={labelCls}>Notes (optional)</label>
+                            <textarea
+                                value={uploadNotes}
+                                onChange={e => setUploadNotes(e.target.value)}
+                                rows={2}
+                                className={`${selectCls} resize-y`}
+                                placeholder="Any notes about this position report..."
+                            />
                         </div>
 
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                            <button onClick={handleUpload} disabled={uploading}
-                                style={{
-                                    ...btnPrimary, opacity: uploading ? 0.7 : 1,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flex: '1 1 220px',
-                                }}>
-                                {uploading ? <><Loader2 size={16} className="spin" /> Uploading & Parsing...</>
-                                    : <><Upload size={16} /> Upload & Parse</>}
+                        <div className="flex flex-wrap gap-3">
+                            <button
+                                onClick={handleUpload}
+                                disabled={uploading}
+                                className={`flex-1 min-w-[220px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm transition-colors ${uploading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            >
+                                {uploading ? <><Loader2 size={16} className="animate-spin" /> Uploading &amp; Parsing...</>
+                                    : <><Upload size={16} /> Upload &amp; Parse</>}
                             </button>
                             {isTrialSandbox && (
                                 <button
@@ -393,15 +447,10 @@ export default function LGReconciliationPage() {
                                         );
                                         setTimeout(() => setIsAutoLoadingTrial(false), 12000);
                                     }}
-                                    style={{
-                                        ...btnPrimary,
-                                        background: '#059669',
-                                        opacity: (isAutoLoadingTrial || uploading) ? 0.7 : 1,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flex: '1 1 220px',
-                                    }}
+                                    className={`flex-1 min-w-[220px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-sm transition-colors ${(isAutoLoadingTrial || uploading) ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     title="Automatically upload & match the sample Bank LG Position Statement"
                                 >
-                                    {isAutoLoadingTrial ? <><Loader2 size={16} className="spin" /> Comparing Bank List...</>
+                                    {isAutoLoadingTrial ? <><Loader2 size={16} className="animate-spin" /> Comparing Bank List...</>
                                         : <><Sparkles size={16} /> Do It For Me (Load Sample Bank List)</>}
                                 </button>
                             )}
@@ -414,51 +463,59 @@ export default function LGReconciliationPage() {
             {activeTab === 'sessions' && (
                 <div>
                     {loading ? (
-                        <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>
-                            <Loader2 size={32} className="spin" />
-                            <p>Loading sessions...</p>
+                        <div className="py-16 text-center text-slate-500">
+                            <Loader2 size={32} className="animate-spin text-blue-600 mx-auto mb-2.5" />
+                            <p className="text-sm font-medium">Loading sessions...</p>
                         </div>
                     ) : sessions.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: 60, background: '#fff', borderRadius: 16 }}>
-                            <BarChart3 size={48} color="#cbd5e1" />
-                            <p style={{ color: '#64748b', marginTop: 12, fontWeight: 600 }}>No reconciliation sessions yet</p>
+                        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-sm">
+                            <BarChart3 size={44} className="text-slate-300 mx-auto" />
+                            <p className="text-slate-600 mt-3 font-semibold text-sm">No reconciliation sessions yet</p>
                             {isEndUser ? (
-                                <button onClick={() => setActiveTab('upload')} style={{ ...btnPrimary, marginTop: 16 }}>
-                                    ⬆️ Upload First Report
+                                <button
+                                    onClick={() => setActiveTab('upload')}
+                                    className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm transition-colors"
+                                >
+                                    <Upload className="w-4 h-4" /> Upload First Report
                                 </button>
                             ) : (
-                                <p style={{ color: '#94a3b8', fontSize: 13, marginTop: 6 }}>
+                                <p className="text-slate-400 text-xs mt-1.5">
                                     Sessions uploaded by Treasury Makers (End Users) will appear here for review.
                                 </p>
                             )}
                         </div>
                     ) : (
-                        <div style={{ display: 'grid', gap: 12 }}>
+                        <div className="grid gap-3">
                             {sessions.map(s => (
-                                <div key={s.id} onClick={() => fetchSessionDetail(s.id)}
-                                    style={{
-                                        background: '#fff', borderRadius: 12, padding: 20, cursor: 'pointer',
-                                        border: '1px solid #e2e8f0', transition: 'all 0.15s',
-                                        display: 'grid', gridTemplateColumns: '1fr auto',
-                                    }}
-                                    onMouseEnter={e => e.currentTarget.style.borderColor = '#3b82f6'}
-                                    onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}>
+                                <div
+                                    key={s.id}
+                                    onClick={() => fetchSessionDetail(s.id)}
+                                    className="bg-white rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-md p-5 cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                                >
                                     <div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <Building2 size={16} color="#64748b" />
-                                            <span style={{ fontWeight: 700, color: '#0f172a' }}>{s.bank_name}</span>
-                                            <span style={{ color: '#94a3b8' }}>•</span>
-                                            <Calendar size={14} color="#94a3b8" />
-                                            <span style={{ color: '#64748b', fontSize: 13 }}>{formatDate(s.position_date)}</span>
+                                        <div className="flex items-center gap-2.5 flex-wrap">
+                                            <Building2 size={16} className="text-slate-500" />
+                                            <span className="font-bold text-slate-900">{s.bank_name}</span>
+                                            <span className="text-slate-300">•</span>
+                                            <Calendar size={14} className="text-slate-400" />
+                                            <span className="text-slate-500 text-xs font-medium">{formatDate(s.position_date)}</span>
                                         </div>
-                                        <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 13 }}>
-                                            <span style={{ color: '#22c55e' }}>✅ {s.matched_count} matched</span>
-                                            <span style={{ color: '#ef4444' }}>⚠️ {s.mismatched_count} mismatches</span>
-                                            <span style={{ color: '#f59e0b' }}>📄 {s.bank_only_count} bank-only</span>
-                                            <span style={{ color: '#8b5cf6' }}>🔍 {s.system_only_count} system-only</span>
+                                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2.5 text-xs font-semibold">
+                                            <span className="inline-flex items-center gap-1 text-emerald-600">
+                                                <CheckCircle2 className="w-3.5 h-3.5" /> {s.matched_count} matched
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 text-rose-600">
+                                                <AlertTriangle className="w-3.5 h-3.5" /> {s.mismatched_count} mismatches
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 text-amber-600">
+                                                <FileText className="w-3.5 h-3.5" /> {s.bank_only_count} bank-only
+                                            </span>
+                                            <span className="inline-flex items-center gap-1 text-violet-600">
+                                                <Search className="w-3.5 h-3.5" /> {s.system_only_count} system-only
+                                            </span>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div className="flex items-center gap-2.5">
                                         <StatusBadge status={s.status} />
                                     </div>
                                 </div>
@@ -472,45 +529,50 @@ export default function LGReconciliationPage() {
             {activeTab === 'detail' && selectedSession && (
                 <div>
                     {/* Back button */}
-                    <button onClick={() => { setActiveTab('sessions'); setSelectedSession(null); }}
-                        style={{
-                            background: 'none', border: 'none', cursor: 'pointer', color: '#3b82f6',
-                            fontWeight: 600, fontSize: 14, marginBottom: 16, padding: 0
-                        }}>
-                        ← Back to sessions
+                    <button
+                        onClick={() => { setActiveTab('sessions'); setSelectedSession(null); }}
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800 mb-4 shadow-none focus:ring-0"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span>Back to sessions</span>
                     </button>
 
                     {/* Session header */}
-                    <div style={{
-                        background: '#fff', borderRadius: 16, padding: 24, marginBottom: 20,
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                             <div>
-                                <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
                                     {selectedSession.bank_name} — {formatDate(selectedSession.position_date)}
                                 </h2>
-                                <p style={{ color: '#64748b', fontSize: 13, margin: '4px 0 0' }}>
+                                <p className="text-slate-500 text-xs mt-1">
                                     {selectedSession.original_file_name} • {selectedSession.total_bank_records} records •
                                     Parsed via {selectedSession.parsing_method}
                                 </p>
                             </div>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <div className="flex flex-wrap gap-2 items-center">
                                 {isEndUser && (
-                                    <button onClick={handleDeleteSession}
-                                        style={{ ...btnPrimary, background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
+                                    <button
+                                        onClick={handleDeleteSession}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 shadow-none transition-colors"
+                                    >
                                         <Trash2 size={14} /> Delete
                                     </button>
                                 )}
                                 {isEndUser && selectedSession.status === 'PARSED' && (
-                                    <button onClick={handleRunMatching} disabled={matching}
-                                        style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        {matching ? <><Loader2 size={14} className="spin" /> Matching...</>
+                                    <button
+                                        onClick={handleRunMatching}
+                                        disabled={matching}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors disabled:opacity-60"
+                                    >
+                                        {matching ? <><Loader2 size={14} className="animate-spin" /> Matching...</>
                                             : <><RefreshCw size={14} /> Run Matching</>}
                                     </button>
                                 )}
                                 {isEndUser && selectedSession.status === 'MATCHED' && (
-                                    <button onClick={handleComplete} style={btnSuccess}>
+                                    <button
+                                        onClick={handleComplete}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+                                    >
                                         <Check size={14} /> Complete
                                     </button>
                                 )}
@@ -520,24 +582,20 @@ export default function LGReconciliationPage() {
 
                         {/* Stats cards */}
                         {selectedSession.status !== 'PARSED' && (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginTop: 20 }}>
-                                <StatCard label="Total" value={stats.total} color="#475569" />
-                                <StatCard label="Matched" value={stats.matched} color="#22c55e" />
-                                <StatCard label="Mismatched" value={stats.mismatched} color="#ef4444" />
-                                <StatCard label="Bank Only" value={stats.bankOnly} color="#f59e0b" />
-                                <StatCard label="System Only" value={stats.systemOnly} color="#8b5cf6" />
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-5">
+                                <StatCard label="Total" value={stats.total} tone="slate" />
+                                <StatCard label="Matched" value={stats.matched} tone="emerald" />
+                                <StatCard label="Mismatched" value={stats.mismatched} tone="rose" />
+                                <StatCard label="Bank Only" value={stats.bankOnly} tone="amber" />
+                                <StatCard label="System Only" value={stats.systemOnly} tone="violet" />
                             </div>
                         )}
 
                         {/* G3: Completeness warning banner */}
                         {selectedSession.completeness_status === 'COUNT_MISMATCH' && (
-                            <div style={{
-                                marginTop: 16, padding: '12px 20px', borderRadius: 10,
-                                background: '#fffbeb', border: '1px solid #fbbf24',
-                                display: 'flex', alignItems: 'center', gap: 10,
-                            }}>
-                                <AlertTriangle size={18} color="#d97706" />
-                                <span style={{ color: '#92400e', fontWeight: 600, fontSize: 13 }}>
+                            <div className="mt-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2.5">
+                                <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+                                <span className="text-amber-900 font-semibold text-xs sm:text-sm">
                                     {selectedSession.completeness_note || 'Record count mismatch detected between bank report and parsed data'}
                                 </span>
                             </div>
@@ -546,20 +604,23 @@ export default function LGReconciliationPage() {
 
                     {/* Filters */}
                     {results.length > 0 && (
-                        <div style={{
-                            display: 'flex', gap: 12, marginBottom: 16,
-                            background: '#fff', borderRadius: 12, padding: 16,
-                        }}>
-                            <select value={filterSeverity} onChange={e => setFilterSeverity(e.target.value)}
-                                style={{ ...inputStyle, width: 160, height: 36, fontSize: 13, padding: '4px 12px' }}>
+                        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs mb-4 flex flex-wrap items-center gap-3">
+                            <select
+                                value={filterSeverity}
+                                onChange={e => setFilterSeverity(e.target.value)}
+                                className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                            >
                                 <option value="">All Severity</option>
-                                <option value="HIGH">🔴 High</option>
-                                <option value="MEDIUM">🟠 Medium</option>
-                                <option value="LOW">🟡 Low</option>
-                                <option value="INFO">🔵 Info</option>
+                                <option value="HIGH">High</option>
+                                <option value="MEDIUM">Medium</option>
+                                <option value="LOW">Low</option>
+                                <option value="INFO">Info</option>
                             </select>
-                            <select value={filterType} onChange={e => setFilterType(e.target.value)}
-                                style={{ ...inputStyle, width: 200, height: 36, fontSize: 13, padding: '4px 12px' }}>
+                            <select
+                                value={filterType}
+                                onChange={e => setFilterType(e.target.value)}
+                                className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                            >
                                 <option value="">All Types</option>
                                 <option value="AMOUNT">Amount Variance</option>
                                 <option value="CURRENCY">Currency Mismatch</option>
@@ -569,13 +630,16 @@ export default function LGReconciliationPage() {
                                 <option value="BANK_ONLY">Bank Only</option>
                                 <option value="SYSTEM_ONLY">System Only</option>
                             </select>
-                            <select value={filterResolved} onChange={e => setFilterResolved(e.target.value)}
-                                style={{ ...inputStyle, width: 160, height: 36, fontSize: 13, padding: '4px 12px' }}>
+                            <select
+                                value={filterResolved}
+                                onChange={e => setFilterResolved(e.target.value)}
+                                className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                            >
                                 <option value="">All Status</option>
                                 <option value="no">Unresolved</option>
                                 <option value="yes">Resolved</option>
                             </select>
-                            <span style={{ color: '#94a3b8', fontSize: 13, lineHeight: '36px' }}>
+                            <span className="text-slate-400 text-xs font-medium ml-auto">
                                 {filteredResults.length} of {results.length} items
                             </span>
                         </div>
@@ -585,34 +649,37 @@ export default function LGReconciliationPage() {
                     
                     {/* Resolution Banner */}
                     {selectedSession.status !== 'COMPLETED' && isEndUser && filteredResults.some(r => !r.user_resolution) && (
-                        <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', padding: '12px 16px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                            <AlertTriangle size={20} color="#d97706" style={{ flexShrink: 0 }} />
-                            <div style={{ fontSize: 14, color: '#b45309' }}>
-                                <strong style={{ display: 'block', marginBottom: 2 }}>Action Required: Resolve Discrepancies</strong>
+                        <div className="bg-amber-50 border border-amber-200 px-4 py-3 rounded-xl flex items-start gap-3 mb-4">
+                            <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                            <div className="text-xs sm:text-sm text-amber-800">
+                                <strong className="block font-bold mb-0.5">Action Required: Resolve Discrepancies</strong>
                                 Please click on each pending row below to review the differences and select a resolution (Adjust, Dispute, or Ignore) before completing.
                             </div>
                         </div>
                     )}
                     {isCorporateAdmin && filteredResults.some(r => r.user_resolution === 'ADJUSTED' && r.approval_status === 'PENDING_APPROVAL') && (
-                        <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', padding: '12px 16px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                            <Shield size={20} color="#2563eb" style={{ flexShrink: 0 }} />
-                            <div style={{ fontSize: 14, color: '#1e40af' }}>
-                                <strong style={{ display: 'block', marginBottom: 2 }}>Checker Review Required: Pending Adjustments</strong>
+                        <div className="bg-blue-50 border border-blue-200 px-4 py-3 rounded-xl flex items-start gap-3 mb-4">
+                            <Shield size={18} className="text-blue-600 shrink-0 mt-0.5" />
+                            <div className="text-xs sm:text-sm text-blue-800">
+                                <strong className="block font-bold mb-0.5">Checker Review Required: Pending Adjustments</strong>
                                 Expand rows marked <em>Pending Approval</em> below to approve or reject maker-submitted LG record adjustments.
                             </div>
                         </div>
                     )}
 
                     {filteredResults.length === 0 && selectedSession.status !== 'PARSED' ? (
-                        <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', background: '#fff', borderRadius: 12 }}>
+                        <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-500 shadow-sm">
                             {results.length === 0 ? (
-                                <><CheckCircle2 size={40} color="#22c55e" style={{ margin: '0 auto' }}/><p style={{ marginTop: 8 }}>All records matched perfectly!</p></>
+                                <>
+                                    <CheckCircle2 size={40} className="text-emerald-500 mx-auto" />
+                                    <p className="mt-2.5 text-sm font-semibold text-slate-700">All records matched perfectly!</p>
+                                </>
                             ) : (
-                                <p>No items match your filters</p>
+                                <p className="text-sm">No items match your filters</p>
                             )}
                         </div>
                     ) : (
-                        <div style={{ display: 'grid', gap: 8 }}>
+                        <div className="grid gap-2.5">
                             {filteredResults.map(r => (
                                 <ResultRow
                                     key={r.id}
@@ -630,17 +697,12 @@ export default function LGReconciliationPage() {
 
                     {/* Bank rows toggle */}
                     {bankRows.length > 0 && (
-                        <div style={{ marginTop: 24 }}>
+                        <div className="mt-6">
                             <BankRowsTable rows={bankRows} />
                         </div>
                     )}
                 </div>
             )}
-
-            <style>{`
-                @keyframes spin { to { transform: rotate(360deg); } }
-                .spin { animation: spin 1s linear infinite; }
-            `}</style>
         </div>
     );
 }
@@ -657,58 +719,55 @@ function ResultRow({ result, onResolve, onApproveAdjustment, onRejectAdjustment,
     const SevIcon = sev.icon;
 
     return (
-        <div style={{
-            background: '#fff', borderRadius: 12, border: `1px solid ${sev.color}22`,
-            overflow: 'hidden',
-        }}>
-            <div onClick={() => setExpanded(!expanded)}
-                style={{
-                    padding: '14px 20px', cursor: 'pointer', display: 'grid',
-                    gridTemplateColumns: '32px 1fr 180px 180px auto', alignItems: 'center', gap: 12,
-                }}>
-                <SevIcon size={18} color={sev.color} />
+        <div className={`bg-white rounded-2xl border ${sev.borderCls || 'border-slate-200'} shadow-xs overflow-hidden`}>
+            <div
+                onClick={() => setExpanded(!expanded)}
+                className="px-5 py-3.5 cursor-pointer grid grid-cols-1 md:grid-cols-[24px_1fr_170px_170px_auto] items-center gap-3 hover:bg-slate-50/70 transition-colors"
+            >
+                <SevIcon size={18} className={sev.iconCls} />
                 <div>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>
+                    <span className="font-semibold text-sm text-slate-900">
                         {MISMATCH_LABELS[result.mismatch_type] || result.mismatch_type}
                     </span>
                     {result.field_name && (
-                        <span style={{ color: '#94a3b8', fontSize: 12, marginLeft: 8 }}>({result.field_name})</span>
+                        <span className="text-slate-400 text-xs ml-2">({result.field_name})</span>
                     )}
                 </div>
-                <div style={{ fontSize: 13 }}>
-                    <span style={{ color: '#94a3b8' }}>Bank: </span>
-                    <span style={{ fontWeight: 600, color: sev.color }}>{result.bank_value || '—'}</span>
+                <div className="text-xs sm:text-sm">
+                    <span className="text-slate-400">Bank: </span>
+                    <span className={`font-semibold ${sev.valCls}`}>{result.bank_value || '—'}</span>
                 </div>
-                <div style={{ fontSize: 13 }}>
-                    <span style={{ color: '#94a3b8' }}>System: </span>
-                    <span style={{ fontWeight: 600, color: '#475569' }}>{result.system_value || '—'}</span>
+                <div className="text-xs sm:text-sm">
+                    <span className="text-slate-400">System: </span>
+                    <span className="font-semibold text-slate-700">{result.system_value || '—'}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="flex items-center justify-end gap-2">
                     {result.user_resolution ? (
                         <ResolutionBadge resolution={result.user_resolution} approval={result.approval_status} />
                     ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fefce8', color: '#d97706', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: '1px solid #fef08a' }}>
-                            <span>⏳ Needs Resolution</span>
-                            {!expanded && <span style={{ color: '#b45309', fontWeight: 500, fontStyle: 'italic', fontSize: 11 }}>(Click to expand)</span>}
+                        <div className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-amber-200">
+                            <Clock className="w-3 h-3" />
+                            <span>Needs Resolution</span>
+                            {!expanded && <span className="text-amber-700/80 font-medium italic text-[11px]">(Click to expand)</span>}
                         </div>
                     )}
-                    {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {expanded ? <ChevronUp size={15} className="text-slate-400" /> : <ChevronDown size={15} className="text-slate-400" />}
                 </div>
             </div>
 
             {expanded && (
-                <div style={{ padding: '0 20px 16px', borderTop: `1px solid ${sev.color}11` }}>
+                <div className="px-5 pb-4 pt-3 border-t border-slate-100 bg-slate-50/40">
                     {/* Context */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12, fontSize: 13 }}>
-                        <div>
-                            <p style={{ color: '#94a3b8', marginBottom: 4 }}>System LG</p>
-                            <p style={{ fontWeight: 600 }}>{result.lg_ref_number || result.lg_bank_number || '—'}</p>
-                            <p style={{ color: '#64748b' }}>{result.lg_beneficiary || ''}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+                        <div className="bg-white rounded-xl border border-slate-200/80 p-3">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">System LG</p>
+                            <p className="font-semibold text-slate-900 font-mono">{result.lg_ref_number || result.lg_bank_number || '—'}</p>
+                            <p className="text-slate-500 text-xs mt-0.5">{result.lg_beneficiary || ''}</p>
                         </div>
-                        <div>
-                            <p style={{ color: '#94a3b8', marginBottom: 4 }}>Bank Report</p>
-                            <p style={{ fontWeight: 600 }}>{result.bank_row_lg_number || '—'}</p>
-                            <p style={{ color: '#64748b' }}>{result.bank_row_beneficiary || ''}</p>
+                        <div className="bg-white rounded-xl border border-slate-200/80 p-3">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Bank Report</p>
+                            <p className="font-semibold text-slate-900 font-mono">{result.bank_row_lg_number || '—'}</p>
+                            <p className="text-slate-500 text-xs mt-0.5">{result.bank_row_beneficiary || ''}</p>
                         </div>
                     </div>
 
@@ -725,60 +784,82 @@ function ResultRow({ result, onResolve, onApproveAdjustment, onRejectAdjustment,
                         const blockAdjust = isBankOnly || isAmountIncrease;
 
                         return (
-                            <div style={{ marginTop: 16 }}>
+                            <div className="mt-4 space-y-3">
                                 {/* Governance Warnings */}
                                 {blockAdjust && (
-                                    <div style={{ background: '#fef2f2', borderLeft: '4px solid #ef4444', padding: '10px 14px', marginBottom: 16, borderRadius: '0 8px 8px 0', fontSize: 13, color: '#991b1b' }}>
-                                        <AlertCircle size={16} style={{ float: 'left', marginRight: 8, marginTop: 2 }} />
-                                        {isBankOnly && <strong>Bank-Only Liability: </strong>}
-                                        {isAmountIncrease && <strong>Financial Increase: </strong>}
-                                        {isBankOnly ? (
-                                            <span>This record is missing from the system. <strong>"Adjust" is blocked.</strong> Please ask your Corporate Admin to register this historical LG in the Migration Hub or initiate a formal Issuance Request.</span>
-                                        ) : (
-                                            <span>You cannot bypass approval for amount increases. <strong>"Adjust" is blocked.</strong> Please initiate a formal "Amount Increase" request from the LG Maintenance module to follow the corporate approval matrix.</span>
-                                        )}
+                                    <div className="bg-rose-50 border border-rose-200 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm text-rose-800 flex items-start gap-2">
+                                        <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            {isBankOnly && <strong>Bank-Only Liability: </strong>}
+                                            {isAmountIncrease && <strong>Financial Increase: </strong>}
+                                            {isBankOnly ? (
+                                                <span>This record is missing from the system. <strong>&quot;Adjust&quot; is blocked.</strong> Please ask your Corporate Admin to register this historical LG in the Migration Hub or initiate a formal Issuance Request.</span>
+                                            ) : (
+                                                <span>You cannot bypass approval for amount increases. <strong>&quot;Adjust&quot; is blocked.</strong> Please initiate a formal &quot;Amount Increase&quot; request from the LG Maintenance module to follow the corporate approval matrix.</span>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 {isAmountDecrease && (
-                                    <div style={{ background: '#eff6ff', borderLeft: '4px solid #3b82f6', padding: '10px 14px', marginBottom: 16, borderRadius: '0 8px 8px 0', fontSize: 13, color: '#1e40af' }}>
-                                        <Info size={16} style={{ float: 'left', marginRight: 8, marginTop: 2 }} />
-                                        <strong>Amount Decrease Detected:</strong> Adjusting this record will automatically generate a <strong>Partial Liquidation</strong> or <strong>Beneficiary Reduction</strong> maintenance request for Corporate Admin approval.
+                                    <div className="bg-blue-50 border border-blue-200 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm text-blue-800 flex items-start gap-2">
+                                        <Info size={16} className="text-blue-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <strong>Amount Decrease Detected:</strong> Adjusting this record will automatically generate a <strong>Partial Liquidation</strong> or <strong>Beneficiary Reduction</strong> maintenance request for Corporate Admin approval.
+                                        </div>
                                     </div>
                                 )}
 
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <input type="text" placeholder={disableIgnore ? "Notes (required for resolving financial variances)" : "Notes (optional)"}
-                                            value={notes} onChange={e => setNotes(e.target.value)}
-                                            style={{ ...inputStyle, height: 36, fontSize: 13 }} />
+                                <div className="flex flex-wrap gap-2 items-center">
+                                    <div className="flex-1 min-w-[200px]">
+                                        <input
+                                            type="text"
+                                            placeholder={disableIgnore ? "Notes (required for resolving financial variances)" : "Notes (optional)"}
+                                            value={notes}
+                                            onChange={e => setNotes(e.target.value)}
+                                            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                        />
                                     </div>
-                                    <button onClick={() => {
-                                        if (disableIgnore && !notes.trim()) {
-                                            toast.warning("Notes are required when resolving financial variances.");
-                                            return;
-                                        }
-                                        onResolve(result.id, 'ADJUSTED', notes);
-                                    }}
+                                    <button
+                                        onClick={() => {
+                                            if (disableIgnore && !notes.trim()) {
+                                                toast.warning("Notes are required when resolving financial variances.");
+                                                return;
+                                            }
+                                            onResolve(result.id, 'ADJUSTED', notes);
+                                        }}
                                         disabled={blockAdjust}
                                         title={blockAdjust ? "Adjustment blocked by governance policy" : ""}
-                                        style={{ ...btnPrimary, fontSize: 12, padding: '8px 14px', background: blockAdjust ? '#cbd5e1' : '#3b82f6', cursor: blockAdjust ? 'not-allowed' : 'pointer', color: blockAdjust ? '#64748b' : '#fff' }}>
-                                        ✓ Accept & Adjust Record
+                                        className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                                            blockAdjust
+                                                ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none'
+                                                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                                        }`}
+                                    >
+                                        <Check className="w-3.5 h-3.5" /> Accept &amp; Adjust Record
                                     </button>
-                                    <button onClick={() => {
-                                        if (!notes.trim()) {
-                                            toast.warning("Please provide notes for the dispute.");
-                                            return;
-                                        }
-                                        onResolve(result.id, 'DISPUTE', notes);
-                                    }}
-                                        style={{ ...btnPrimary, fontSize: 12, padding: '8px 14px', background: '#f59e0b' }}>
-                                        🔍 Dispute
+                                    <button
+                                        onClick={() => {
+                                            if (!notes.trim()) {
+                                                toast.warning("Please provide notes for the dispute.");
+                                                return;
+                                            }
+                                            onResolve(result.id, 'DISPUTE', notes);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-colors"
+                                    >
+                                        <Search className="w-3.5 h-3.5" /> Dispute
                                     </button>
-                                    <button onClick={() => onResolve(result.id, 'IGNORE', notes)}
+                                    <button
+                                        onClick={() => onResolve(result.id, 'IGNORE', notes)}
                                         disabled={disableIgnore}
                                         title={disableIgnore ? "Cannot ignore financial/liability variance" : ""}
-                                        style={{ ...btnPrimary, fontSize: 12, padding: '8px 14px', background: disableIgnore ? '#cbd5e1' : '#94a3b8', cursor: disableIgnore ? 'not-allowed' : 'pointer', color: disableIgnore ? '#64748b' : '#fff' }}>
-                                        ✕ Ignore
+                                        className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                                            disableIgnore
+                                                ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none'
+                                                : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 shadow-none'
+                                        }`}
+                                    >
+                                        <X className="w-3.5 h-3.5" /> Ignore
                                     </button>
                                 </div>
                             </div>
@@ -786,9 +867,9 @@ function ResultRow({ result, onResolve, onApproveAdjustment, onRejectAdjustment,
                     })()}
 
                     {isCorporateAdmin && !result.user_resolution && result.mismatch_type === 'BANK_ONLY' && (
-                        <div style={{ marginTop: 12, background: '#fef2f2', borderLeft: '4px solid #ef4444', padding: '10px 14px', borderRadius: '0 8px 8px 0', fontSize: 13, color: '#991b1b' }}>
+                        <div className="mt-3 bg-rose-50 border border-rose-200 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm text-rose-800">
                             <strong>Bank-Only Liability:</strong> Missing from system records. You can register historical LGs via the{' '}
-                            <Link to={`${basePrefix}/issuance/migration-hub`} style={{ color: '#b91c1c', textDecoration: 'underline', fontWeight: 700 }}>
+                            <Link to={`${basePrefix}/issuance/migration-hub`} className="text-rose-700 underline font-bold hover:text-rose-900">
                                 Migration Hub
                             </Link>.
                         </div>
@@ -796,21 +877,21 @@ function ResultRow({ result, onResolve, onApproveAdjustment, onRejectAdjustment,
 
                     {/* Corporate Admin Checker Approval Controls for Pending Adjustments */}
                     {isCorporateAdmin && result.user_resolution === 'ADJUSTED' && result.approval_status === 'PENDING_APPROVAL' && (
-                        <div style={{ marginTop: 14, padding: '12px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                            <div style={{ fontSize: 13, color: '#1e3a8a' }}>
+                        <div className="mt-3.5 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl flex flex-wrap justify-between items-center gap-3">
+                            <div className="text-xs sm:text-sm text-blue-900">
                                 <strong>Pending Corporate Admin Sign-Off:</strong> Maker requested updating system value from{' '}
-                                <code>{result.system_value || '—'}</code> to <strong>{result.bank_value || '—'}</strong>.
+                                <code className="px-1.5 py-0.5 rounded bg-white border border-blue-200 font-mono text-xs">{result.system_value || '—'}</code> to <strong>{result.bank_value || '—'}</strong>.
                             </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div className="flex gap-2">
                                 <button
                                     onClick={() => onApproveAdjustment(result.id)}
-                                    style={{ ...btnSuccess, fontSize: 12, padding: '7px 14px' }}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
                                 >
                                     <Check size={14} /> Approve Adjustment
                                 </button>
                                 <button
                                     onClick={() => onRejectAdjustment(result.id)}
-                                    style={{ ...btnPrimary, fontSize: 12, padding: '7px 14px', background: '#ef4444' }}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition-colors"
                                 >
                                     <X size={14} /> Reject
                                 </button>
@@ -819,8 +900,9 @@ function ResultRow({ result, onResolve, onApproveAdjustment, onRejectAdjustment,
                     )}
 
                     {result.resolution_notes && (
-                        <p style={{ marginTop: 8, fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>
-                            📝 {result.resolution_notes}
+                        <p className="mt-2.5 text-xs text-slate-500 italic flex items-center gap-1.5">
+                            <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>{result.resolution_notes}</span>
                         </p>
                     )}
                 </div>
@@ -832,36 +914,37 @@ function ResultRow({ result, onResolve, onApproveAdjustment, onRejectAdjustment,
 function BankRowsTable({ rows }) {
     const [show, setShow] = useState(false);
     return (
-        <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden' }}>
-            <button onClick={() => setShow(!show)}
-                style={{
-                    width: '100%', padding: '14px 20px', border: 'none', background: '#f8fafc',
-                    cursor: 'pointer', display: 'flex', justifyContent: 'space-between',
-                    alignItems: 'center', fontWeight: 600, fontSize: 14, color: '#475569',
-                }}>
-                📄 Parsed Bank Rows ({rows.length})
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <button
+                onClick={() => setShow(!show)}
+                className="w-full px-5 py-3.5 bg-slate-50 hover:bg-slate-100/70 border-b border-slate-100 flex justify-between items-center font-semibold text-sm text-slate-700 rounded-none shadow-none focus:ring-0 transition-colors"
+            >
+                <span className="inline-flex items-center gap-2">
+                    <FileText size={16} className="text-slate-500" />
+                    <span>Parsed Bank Rows ({rows.length})</span>
+                </span>
                 {show ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             {show && (
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-xs sm:text-sm">
                         <thead>
-                            <tr style={{ background: '#f1f5f9' }}>
+                            <tr className="bg-slate-50 border-b border-slate-200">
                                 {['LG Number', 'Beneficiary', 'Amount', 'Currency', 'Issue Date', 'Expiry', 'Match'].map(h => (
-                                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, color: '#475569' }}>{h}</th>
+                                    <th key={h} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">{h}</th>
                                 ))}
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-slate-100">
                             {rows.map(r => (
-                                <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <td style={cellStyle}>{r.bank_lg_number || '—'}</td>
-                                    <td style={cellStyle}>{r.beneficiary_name || '—'}</td>
-                                    <td style={cellStyle}>{r.amount ? Number(r.amount).toLocaleString() : '—'}</td>
-                                    <td style={cellStyle}>{r.currency_code || '—'}</td>
-                                    <td style={cellStyle}>{formatDate(r.issue_date)}</td>
-                                    <td style={cellStyle}>{formatDate(r.expiry_date)}</td>
-                                    <td style={cellStyle}>
+                                <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
+                                    <td className="px-4 py-2.5 text-slate-800 font-mono text-xs">{r.bank_lg_number || '—'}</td>
+                                    <td className="px-4 py-2.5 text-slate-700">{r.beneficiary_name || '—'}</td>
+                                    <td className="px-4 py-2.5 text-slate-900 font-semibold tabular-nums">{r.amount ? Number(r.amount).toLocaleString() : '—'}</td>
+                                    <td className="px-4 py-2.5 text-slate-600">{r.currency_code || '—'}</td>
+                                    <td className="px-4 py-2.5 text-slate-600">{formatDate(r.issue_date)}</td>
+                                    <td className="px-4 py-2.5 text-slate-600">{formatDate(r.expiry_date)}</td>
+                                    <td className="px-4 py-2.5">
                                         <MatchBadge status={r.match_status} />
                                     </td>
                                 </tr>
@@ -874,64 +957,75 @@ function BankRowsTable({ rows }) {
     );
 }
 
-function StatCard({ label, value, color }) {
+const STAT_TONES = {
+    slate: 'bg-slate-50/80 border-slate-200 text-slate-700',
+    emerald: 'bg-emerald-50/70 border-emerald-200 text-emerald-700',
+    rose: 'bg-rose-50/70 border-rose-200 text-rose-700',
+    amber: 'bg-amber-50/70 border-amber-200 text-amber-700',
+    violet: 'bg-violet-50/70 border-violet-200 text-violet-700',
+};
+
+function StatCard({ label, value, tone = 'slate' }) {
+    const cls = STAT_TONES[tone] || STAT_TONES.slate;
     return (
-        <div style={{
-            background: `${color}08`, borderRadius: 10, padding: '14px 16px',
-            border: `1px solid ${color}22`, textAlign: 'center',
-        }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color }}>{value}</div>
-            <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, marginTop: 2 }}>{label}</div>
+        <div className={`rounded-xl p-3.5 border text-center ${cls}`}>
+            <div className="text-2xl font-extrabold tabular-nums">{value}</div>
+            <div className="text-xs text-slate-500 font-semibold mt-0.5">{label}</div>
         </div>
     );
 }
 
 function StatusBadge({ status }) {
     const map = {
-        CREATED: { bg: '#f1f5f9', color: '#64748b' },
-        PARSING: { bg: '#dbeafe', color: '#2563eb' },
-        PARSED: { bg: '#e0f2fe', color: '#0284c7' },
-        MATCHING: { bg: '#fef3c7', color: '#d97706' },
-        MATCHED: { bg: '#dcfce7', color: '#16a34a' },
-        REVIEW: { bg: '#fef3c7', color: '#d97706' },
-        COMPLETED: { bg: '#d1fae5', color: '#059669' },
-        FAILED: { bg: '#fef2f2', color: '#dc2626' },
+        CREATED: 'bg-slate-100 text-slate-600 border-slate-200',
+        PARSING: 'bg-blue-50 text-blue-700 border-blue-200',
+        PARSED: 'bg-sky-50 text-sky-700 border-sky-200',
+        MATCHING: 'bg-amber-50 text-amber-700 border-amber-200',
+        MATCHED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        REVIEW: 'bg-amber-50 text-amber-700 border-amber-200',
+        COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        FAILED: 'bg-rose-50 text-rose-700 border-rose-200',
     };
-    const s = map[status] || map.CREATED;
+    const cls = map[status] || map.CREATED;
     return (
-        <span style={{
-            background: s.bg, color: s.color, padding: '4px 10px',
-            borderRadius: 6, fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-        }}>{status}</span>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase border ${cls}`}>
+            {status}
+        </span>
     );
 }
 
 function MatchBadge({ status }) {
     const map = {
-        MATCHED: { bg: '#d1fae5', color: '#059669', label: '✅ Matched' },
-        PARTIAL_MATCH: { bg: '#fef3c7', color: '#d97706', label: '⚠️ Partial' },
-        BANK_ONLY: { bg: '#fef2f2', color: '#dc2626', label: '❌ Bank Only' },
-        UNMATCHED: { bg: '#f1f5f9', color: '#64748b', label: '⏳ Pending' },
+        MATCHED: { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', Icon: CheckCircle2, label: 'Matched' },
+        PARTIAL_MATCH: { cls: 'bg-amber-50 text-amber-700 border-amber-200', Icon: AlertTriangle, label: 'Partial' },
+        BANK_ONLY: { cls: 'bg-rose-50 text-rose-700 border-rose-200', Icon: XCircle, label: 'Bank Only' },
+        UNMATCHED: { cls: 'bg-slate-100 text-slate-600 border-slate-200', Icon: Clock, label: 'Pending' },
     };
     const m = map[status] || map.UNMATCHED;
-    return <span style={{ background: m.bg, color: m.color, padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{m.label}</span>;
+    const BadgeIcon = m.Icon;
+    return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${m.cls}`}>
+            <BadgeIcon className="w-3 h-3" /> {m.label}
+        </span>
+    );
 }
 
 function ResolutionBadge({ resolution, approval }) {
+    const pillBase = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border';
     if (resolution === 'ADJUSTED') {
-        if (approval === 'APPROVED') return <span style={badgeStyle('#d1fae5', '#059669')}>✅ Adjusted & Approved</span>;
-        if (approval === 'REJECTED') return <span style={badgeStyle('#fef2f2', '#dc2626')}>❌ Rejected</span>;
-        return <span style={badgeStyle('#dbeafe', '#2563eb')}>⏳ Pending Approval</span>;
+        if (approval === 'APPROVED') {
+            return <span className={`${pillBase} bg-emerald-50 text-emerald-700 border-emerald-200`}><CheckCircle2 className="w-3 h-3" /> Adjusted &amp; Approved</span>;
+        }
+        if (approval === 'REJECTED') {
+            return <span className={`${pillBase} bg-rose-50 text-rose-700 border-rose-200`}><XCircle className="w-3 h-3" /> Rejected</span>;
+        }
+        return <span className={`${pillBase} bg-blue-50 text-blue-700 border-blue-200`}><Clock className="w-3 h-3" /> Pending Approval</span>;
     }
-    if (resolution === 'DISPUTE') return <span style={badgeStyle('#fef3c7', '#d97706')}>🔍 Disputed</span>;
-    if (resolution === 'IGNORE') return <span style={badgeStyle('#f1f5f9', '#64748b')}>⊘ Ignored</span>;
+    if (resolution === 'DISPUTE') {
+        return <span className={`${pillBase} bg-amber-50 text-amber-700 border-amber-200`}><Search className="w-3 h-3" /> Disputed</span>;
+    }
+    if (resolution === 'IGNORE') {
+        return <span className={`${pillBase} bg-slate-100 text-slate-600 border-slate-200`}><Ban className="w-3 h-3" /> Ignored</span>;
+    }
     return null;
 }
-
-// ─── Styles ───
-const labelStyle = { display: 'block', fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 6 };
-const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, outline: 'none', boxSizing: 'border-box' };
-const btnPrimary = { padding: '10px 20px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontSize: 14 };
-const btnSuccess = { padding: '10px 20px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 };
-const cellStyle = { padding: '10px 12px', color: '#374151' };
-const badgeStyle = (bg, color) => ({ background: bg, color, padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 });

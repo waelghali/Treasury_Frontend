@@ -15,14 +15,15 @@ import {
   PlusCircle,
   Users,
   Upload,
+  Loader2,
 } from 'lucide-react';
 import TrialRegistrationDetailsModal from './TrialRegistrationDetailsModal';
 import { formatDate } from 'utils/dateFormat';
 
 const statusColors = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800',
+  pending: 'bg-amber-50 text-amber-800 border-amber-200',
+  approved: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  rejected: 'bg-rose-50 text-rose-800 border-rose-200',
 };
 
 const statusText = {
@@ -171,43 +172,43 @@ function TrialRegistrationList() {
 
   return (
     <>
-      <div className="p-6 bg-white rounded-lg shadow-md space-y-4">
+      <div className="p-4 sm:p-5 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-800">Trial Registrations &amp; Funnel</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h2 className="text-xl font-bold text-slate-900">Trial Registrations &amp; Funnel</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
               14-day timer starts on first login · Track activation, real file uploads, team invites
               &amp; personal sales check-ins.
             </p>
           </div>
 
-          <div className="flex space-x-2">
+          <div className="inline-flex bg-slate-100 p-1 rounded-xl border border-slate-200/80 gap-1">
             <button
               onClick={() => setActiveTab('pending')}
-              className={`px-4 py-2 text-sm font-medium rounded-md ${
+              className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
                 activeTab === 'pending'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-white text-indigo-700 font-semibold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 font-medium'
               }`}
             >
               Pending
             </button>
             <button
               onClick={() => setActiveTab('approved')}
-              className={`px-4 py-2 text-sm font-medium rounded-md ${
+              className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
                 activeTab === 'approved'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-white text-indigo-700 font-semibold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 font-medium'
               }`}
             >
               Approved Funnel
             </button>
             <button
               onClick={() => setActiveTab('rejected')}
-              className={`px-4 py-2 text-sm font-medium rounded-md ${
+              className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
                 activeTab === 'rejected'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-white text-indigo-700 font-semibold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 font-medium'
               }`}
             >
               Rejected
@@ -245,7 +246,7 @@ function TrialRegistrationList() {
                 cls: 'bg-purple-50/70 border-purple-200 text-purple-900',
               },
             ].map((st) => (
-              <div key={st.key} className={`rounded-xl border px-3.5 py-2.5 ${st.cls}`}>
+              <div key={st.key} className={`rounded-xl border px-3 py-2 ${st.cls}`}>
                 <div className="text-lg font-extrabold">{funnelCounts[st.key]}</div>
                 <div className="text-[11px] font-semibold opacity-80">{st.label}</div>
               </div>
@@ -253,28 +254,29 @@ function TrialRegistrationList() {
           </div>
         )}
 
-        {error && <div className="p-4 text-sm text-red-800 rounded-lg bg-red-50">{error}</div>}
+        {error && <div className="p-3 text-xs font-medium text-rose-700 rounded-xl bg-rose-50 border border-rose-200">{error}</div>}
 
         {isLoading ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-gray-500">Loading registrations...</p>
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin text-indigo-600 mr-2" />
+            <p className="text-sm text-slate-500">Loading registrations...</p>
           </div>
         ) : registrations.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">No {activeTab} registrations found.</p>
+          <p className="text-center text-sm text-slate-500 py-10">No {activeTab} registrations found.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200">
+              <thead className="bg-slate-50/80">
                 <tr>
                   <th
                     scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
                   >
                     Company &amp; Contact
                   </th>
                   <th
                     scope="col"
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
                   >
                     #1 Priority &amp; Modules
                   </th>
@@ -282,19 +284,19 @@ function TrialRegistrationList() {
                     <>
                       <th
                         scope="col"
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
                       >
                         Funnel Milestone
                       </th>
                       <th
                         scope="col"
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
                       >
                         14d Clock &amp; Extend
                       </th>
                       <th
                         scope="col"
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
                       >
                         Personal Sales Check-In
                       </th>
@@ -303,19 +305,19 @@ function TrialRegistrationList() {
                     <>
                       <th
                         scope="col"
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
                       >
                         Entities
                       </th>
                       <th
                         scope="col"
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
                       >
                         Status
                       </th>
                       <th
                         scope="col"
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
                       >
                         Registered At
                       </th>
@@ -323,13 +325,13 @@ function TrialRegistrationList() {
                   )}
                   <th
                     scope="col"
-                    className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-3 py-2.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider"
                   >
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-slate-100">
                 {registrations.map((reg) => {
                   const insights = reg.trial_insights || null;
                   const stepsDone = insights?.steps_completed || {};
@@ -351,30 +353,30 @@ function TrialRegistrationList() {
                     <tr
                       key={reg.id}
                       onClick={() => handleViewDetails(reg)}
-                      className="hover:bg-blue-50/40 cursor-pointer transition-colors"
+                      className="hover:bg-indigo-50/30 cursor-pointer transition-colors"
                     >
                       {/* Company & Contact */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="text-sm font-semibold text-gray-900">
+                      <td className="px-3 py-2.5">
+                        <div className="text-sm font-semibold text-slate-900 max-w-[200px] truncate" title={reg.organization_name}>
                           {reg.organization_name}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-slate-500 max-w-[200px] truncate" title={`${reg.contact_admin_name ? `${reg.contact_admin_name} · ` : ''}${reg.admin_email}`}>
                           {reg.contact_admin_name ? `${reg.contact_admin_name} · ` : ''}
                           {reg.admin_email}
                         </div>
                         {reg.contact_phone && (
-                          <div className="text-[11px] text-gray-400">{reg.contact_phone}</div>
+                          <div className="text-[11px] text-slate-400">{reg.contact_phone}</div>
                         )}
                       </td>
 
                       {/* #1 Priority + Modules */}
-                      <td className="px-4 py-3.5 text-sm">
-                        <div className="flex gap-1 flex-wrap max-w-[260px]">
+                      <td className="px-3 py-2.5 text-sm">
+                        <div className="flex gap-1 flex-wrap max-w-[240px]">
                           {(reg.requested_modules || ['custody']).map((mod, idx) => {
                             const normKey = mod === 'quotation' ? 'quotations' : mod;
                             const b = MODULE_BADGES[normKey] || {
                               label: mod,
-                              cls: 'bg-gray-100 text-gray-700',
+                              cls: 'bg-slate-100 text-slate-700',
                             };
                             const isPrimary = idx === 0;
                             const isTested = Boolean(stepsDone[normKey]);
@@ -382,7 +384,7 @@ function TrialRegistrationList() {
                               <span
                                 key={`${mod}-${idx}`}
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full ${
-                                  isPrimary ? 'ring-1 ring-blue-500 font-bold' : ''
+                                  isPrimary ? 'ring-1 ring-indigo-500 font-bold' : ''
                                 } ${b.cls}`}
                                 title={
                                   isPrimary ? '#1 Priority selected by prospect' : 'Unlocked module'
@@ -402,7 +404,7 @@ function TrialRegistrationList() {
                       {activeTab === 'approved' ? (
                         <>
                           {/* Live Funnel Milestone */}
-                          <td className="px-4 py-3.5 whitespace-nowrap">
+                          <td className="px-3 py-2.5 whitespace-nowrap">
                             {insights ? (
                               <div className="space-y-1">
                                 <span
@@ -413,7 +415,7 @@ function TrialRegistrationList() {
                                 >
                                   {insights.stage_label}
                                 </span>
-                                <div className="flex items-center gap-2 text-[11px] text-gray-500">
+                                <div className="flex items-center gap-2 text-[11px] text-slate-500">
                                   {insights.own_documents_uploaded && (
                                     <span className="inline-flex items-center gap-0.5 text-emerald-700 font-semibold">
                                       <Upload className="w-3 h-3" /> Own file
@@ -428,13 +430,13 @@ function TrialRegistrationList() {
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-xs text-gray-400">—</span>
+                              <span className="text-xs text-slate-400">—</span>
                             )}
                           </td>
 
                           {/* 14d Clock & 1-Click Extensions */}
                           <td
-                            className="px-4 py-3.5 whitespace-nowrap"
+                            className="px-3 py-2.5 whitespace-nowrap"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {insights ? (
@@ -466,7 +468,7 @@ function TrialRegistrationList() {
                                     type="button"
                                     disabled={extendingId === reg.id}
                                     onClick={() => handleExtendTrial(reg.id, 7)}
-                                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 cursor-pointer disabled:opacity-50"
+                                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 cursor-pointer disabled:opacity-50"
                                     title="Extend evaluation by +7 days"
                                   >
                                     <PlusCircle className="w-3 h-3" />
@@ -476,7 +478,7 @@ function TrialRegistrationList() {
                                     type="button"
                                     disabled={extendingId === reg.id}
                                     onClick={() => handleExtendTrial(reg.id, 14)}
-                                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 cursor-pointer disabled:opacity-50"
+                                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 cursor-pointer disabled:opacity-50"
                                     title="Extend evaluation by +14 days"
                                   >
                                     <PlusCircle className="w-3 h-3" />
@@ -485,18 +487,18 @@ function TrialRegistrationList() {
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-xs text-gray-400">—</span>
+                              <span className="text-xs text-slate-400">—</span>
                             )}
                           </td>
 
                           {/* Suggested Consultative Sales Touchpoint */}
                           <td
-                            className="px-4 py-3.5 whitespace-nowrap"
+                            className="px-3 py-2.5 whitespace-nowrap"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {touchpoint ? (
                               <div className="space-y-1">
-                                <div className="text-xs font-bold text-slate-800">
+                                <div className="text-xs font-bold text-slate-800 max-w-[190px] truncate" title={`${touchpoint.label} (${touchpoint.timing})`}>
                                   {touchpoint.label}{' '}
                                   <span className="text-[11px] font-normal text-slate-500">
                                     ({touchpoint.timing})
@@ -517,7 +519,7 @@ function TrialRegistrationList() {
                                   )}
                                   <a
                                     href={mailHref}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors"
                                     title="Open personalized email draft"
                                   >
                                     <Mail className="w-3 h-3" />
@@ -526,25 +528,25 @@ function TrialRegistrationList() {
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-xs text-gray-400">—</span>
+                              <span className="text-xs text-slate-400">—</span>
                             )}
                           </td>
                         </>
                       ) : (
                         <>
-                          <td className="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-3 py-2.5 whitespace-nowrap text-sm text-slate-600">
                             {reg.entities_count}
                           </td>
-                          <td className="px-4 py-3.5 whitespace-nowrap">
+                          <td className="px-3 py-2.5 whitespace-nowrap">
                             <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              className={`px-2.5 py-0.5 inline-flex text-xs font-semibold rounded-full border ${
                                 statusColors[reg.status]
                               }`}
                             >
                               {statusText[reg.status]}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-3 py-2.5 whitespace-nowrap text-sm text-slate-500">
                             {formatDate(reg.accepted_terms_at)}
                           </td>
                         </>
@@ -552,53 +554,55 @@ function TrialRegistrationList() {
 
                       {/* Actions */}
                       <td
-                        className="px-4 py-3.5 whitespace-nowrap text-right text-sm font-medium"
+                        className="px-3 py-2.5 whitespace-nowrap text-right text-sm font-medium"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {reg.commercial_register_document_path ? (
-                          <button
-                            onClick={() =>
-                              handleViewDocument(reg.commercial_register_document_path)
-                            }
-                            className="text-blue-600 hover:text-blue-900 mr-3"
-                            title="View Commercial Register"
-                          >
-                            <FileText className="h-5 w-5 inline" />
-                          </button>
-                        ) : (
-                          <span
-                            className="text-xs text-gray-400 mr-3"
-                            title="Trial request — no Commercial Register uploaded yet"
-                          >
-                            No CR
-                          </span>
-                        )}
+                        <div className="inline-flex items-center gap-1">
+                          {reg.commercial_register_document_path ? (
+                            <button
+                              onClick={() =>
+                                handleViewDocument(reg.commercial_register_document_path)
+                              }
+                              className="p-1.5 rounded-lg text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 transition-colors"
+                              title="View Commercial Register"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <span
+                              className="text-xs text-slate-400 px-1.5"
+                              title="Trial request — no Commercial Register uploaded yet"
+                            >
+                              No CR
+                            </span>
+                          )}
 
-                        <button
-                          onClick={() => handleViewDetails(reg)}
-                          className="text-gray-600 hover:text-gray-900 mr-3"
-                          title="View Details"
-                        >
-                          <Eye className="h-5 w-5 inline" />
-                        </button>
-                        {reg.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleAction(reg.id, 'approve')}
-                              className="text-green-600 hover:text-green-900 mr-3"
-                              title="Approve Registration"
-                            >
-                              <CheckCircle className="h-5 w-5 inline" />
-                            </button>
-                            <button
-                              onClick={() => handleAction(reg.id, 'reject')}
-                              className="text-red-600 hover:text-red-900"
-                              title="Reject Registration"
-                            >
-                              <XCircle className="h-5 w-5 inline" />
-                            </button>
-                          </>
-                        )}
+                          <button
+                            onClick={() => handleViewDetails(reg)}
+                            className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          {reg.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleAction(reg.id, 'approve')}
+                                className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-900 hover:bg-emerald-50 transition-colors"
+                                title="Approve Registration"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleAction(reg.id, 'reject')}
+                                className="p-1.5 rounded-lg text-rose-600 hover:text-rose-900 hover:bg-rose-50 transition-colors"
+                                title="Reject Registration"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

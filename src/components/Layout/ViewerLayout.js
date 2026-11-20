@@ -50,12 +50,12 @@ function ViewerLayout({ onLogout, userEmail, userName, activeMenuItem, customerN
 
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute -right-3 top-12 rounded-full p-1 shadow-md z-50 transition-colors border"
+          className="absolute -right-4 top-12 rounded-full p-2 shadow-md z-50 transition-colors border"
           style={{ backgroundColor: '#1e2a4a', borderColor: 'rgba(255,255,255,0.15)', color: '#93bbfc' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#60a5fa'; e.currentTarget.style.borderColor = '#60a5fa'; }}
           onMouseLeave={e => { e.currentTarget.style.color = '#93bbfc'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
         >
-          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
 
         {/* Logo area */}
@@ -74,8 +74,8 @@ function ViewerLayout({ onLogout, userEmail, userName, activeMenuItem, customerN
           <Link
             to="/end-user/dashboard"
             title={isCollapsed ? "Dashboard" : ""}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-dashboard' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'end-user-dashboard' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-dashboard' ? 'font-semibold' : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'}`}
+            style={activeMenuItem === 'end-user-dashboard' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : undefined}
           >
             <Home className="h-5 w-5 flex-shrink-0" />
             {!isCollapsed && <span className="ml-3">Dashboard</span>}
@@ -83,20 +83,20 @@ function ViewerLayout({ onLogout, userEmail, userName, activeMenuItem, customerN
           <Link
             to="/end-user/lg-records"
             title={isCollapsed ? "Manage LG Records" : ""}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-manage-lg-records' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'end-user-manage-lg-records' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-manage-lg-records' ? 'font-semibold' : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'}`}
+            style={activeMenuItem === 'end-user-manage-lg-records' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : undefined}
           >
             <FolderKanban className="h-5 w-5 flex-shrink-0" />
             {!isCollapsed && <span className="ml-3">Manage LG Records</span>}
           </Link>
           <Link
             to="/end-user/internal-owners"
-            title={isCollapsed ? "Manage Internal Owners" : ""}
-            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-internal-owners' ? 'font-semibold' : 'hover:bg-white/[0.07]'}`}
-            style={activeMenuItem === 'end-user-internal-owners' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : { color: '#cbd5e1' }}
+            title={isCollapsed ? "Manage Internal Data" : ""}
+            className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-internal-owners' ? 'font-semibold' : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'}`}
+            style={activeMenuItem === 'end-user-internal-owners' ? { backgroundColor: 'rgba(96,165,250,0.15)', color: '#60a5fa' } : undefined}
           >
             <Users className="h-5 w-5 flex-shrink-0" />
-            {!isCollapsed && <span className="ml-3">Manage Internal Owners</span>}
+            {!isCollapsed && <span className="ml-3">Manage Internal Data</span>}
           </Link>
         </nav>
 
@@ -132,15 +132,19 @@ function ViewerLayout({ onLogout, userEmail, userName, activeMenuItem, customerN
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 pb-24 overflow-y-auto relative z-10 flex flex-col min-w-0">
+      <main className="flex-1 pb-12 overflow-y-auto overflow-x-hidden relative z-10 flex flex-col min-w-0">
         {isGracePeriod && (
           <div className="sticky top-0 z-20">
             <SubscriptionBanner subscriptionEndDate={subscriptionEndDate} />
           </div>
         )}
 
-        <div className="p-3.5 sm:p-5 md:p-6 flex-1 min-w-0">
-          {isDashboard && <NotificationBanner notifications={systemNotifications} />}
+        <div className="p-3.5 sm:p-4 md:p-5 flex-1 min-w-0">
+          {isDashboard && (
+            <div className="mb-4">
+              <NotificationBanner notifications={systemNotifications} />
+            </div>
+          )}
           <div className="w-full min-w-0">
             <Outlet />
           </div>

@@ -1,10 +1,11 @@
 // frontend/src/pages/Auth/ForcePasswordChangePage.js
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { apiRequest, getAuthToken, setAuthToken } from 'services/apiService.js';
 import { jwtDecode } from 'jwt-decode';
 import { Lock, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import GrowLogo from '../../components/Common/GrowLogo';
 
 function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -14,7 +15,30 @@ function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [policy, setPolicy] = useState({
+    min_length: 8,
+    require_uppercase: true,
+    require_lowercase: true,
+    require_digit: true,
+  });
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let active = true;
+    apiRequest('/password-policy', 'GET')
+      .then((res) => {
+        if (active && res && typeof res === 'object') {
+          setPolicy({
+            min_length: Number(res.min_length) || 8,
+            require_uppercase: res.require_uppercase !== false,
+            require_lowercase: res.require_lowercase !== false,
+            require_digit: res.require_digit !== false,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const getRedirectPathFromToken = () => {
     const token = getAuthToken();
@@ -40,8 +64,12 @@ function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
     setError(null);
     setSuccessMessage(null);
 
+    if (newPassword === currentPassword) { setError('New password must be different from your current password.'); return; }
     if (newPassword !== confirmNewPassword) { setError('Passwords do not match.'); return; }
-    if (newPassword.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (newPassword.length < policy.min_length) { setError(`Password must be at least ${policy.min_length} characters.`); return; }
+    if (policy.require_uppercase && !/[A-Z]/.test(newPassword)) { setError('Password must contain at least one uppercase letter.'); return; }
+    if (policy.require_lowercase && !/[a-z]/.test(newPassword)) { setError('Password must contain at least one lowercase letter.'); return; }
+    if (policy.require_digit && !/\d/.test(newPassword)) { setError('Password must contain at least one digit.'); return; }
 
     setIsLoading(true);
     try {
@@ -68,7 +96,7 @@ function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
     }
   };
 
-  const inputCls = "block w-full px-4 py-3 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-gray-400";
+  const inputCls = "block w-full px-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder-slate-400";
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", backgroundColor: '#1e2a4a' }}>
@@ -83,10 +111,9 @@ function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-2 mb-6">
-            <span className="text-xl font-bold text-white tracking-tight">Grow</span>
-            <span className="text-xs text-blue-400 font-medium">Business Development</span>
-          </div>
+          <Link to="/" className="inline-flex items-center justify-center mb-6 hover:opacity-95 transition-opacity">
+            <GrowLogo size="md" />
+          </Link>
         </div>
 
         {/* Card */}
@@ -95,15 +122,15 @@ function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
             <div className="mx-auto w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center mb-4">
               <Lock className="w-5 h-5 text-amber-600" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Change Your Password</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="text-xl font-bold text-slate-900">Change Your Password</h2>
+            <p className="text-sm text-slate-500 mt-1">
               You must update your password before continuing.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="currentPassword" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <label htmlFor="currentPassword" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                 Current Password
               </label>
               <input
@@ -118,7 +145,7 @@ function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
               />
             </div>
             <div>
-              <label htmlFor="newPassword" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <label htmlFor="newPassword" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                 New Password
               </label>
               <input
@@ -130,11 +157,11 @@ function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 required
-                minLength="8"
+                minLength={policy.min_length}
               />
             </div>
             <div>
-              <label htmlFor="confirmNewPassword" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+              <label htmlFor="confirmNewPassword" className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                 Confirm New Password
               </label>
               <input
@@ -146,28 +173,30 @@ function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
                 required
-                minLength="8"
+                minLength={policy.min_length}
               />
             </div>
 
-            <div className="text-xs text-gray-400 space-y-0.5">
+            <div className="text-xs text-slate-400 space-y-0.5">
               <p>Password must contain:</p>
               <ul className="list-disc list-inside ml-1 space-y-0.5">
-                <li>At least 8 characters</li>
-                <li>One uppercase and one lowercase letter</li>
-                <li>At least one digit</li>
+                <li>At least {policy.min_length} characters</li>
+                {policy.require_uppercase && <li>At least one uppercase letter</li>}
+                {policy.require_lowercase && <li>At least one lowercase letter</li>}
+                {policy.require_digit && <li>At least one digit</li>}
+                <li>Different from your current password</li>
               </ul>
             </div>
 
             {error && (
-              <div className="flex items-start space-x-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div className="flex items-start space-x-2 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm">
                 <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             {successMessage && (
-              <div className="flex items-start space-x-2 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+              <div className="flex items-start space-x-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm">
                 <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                 <span>{successMessage}</span>
               </div>
@@ -175,7 +204,7 @@ function ForcePasswordChangePage({ onPasswordChangeSuccess }) {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
+              className="w-full flex items-center justify-center py-3 px-4 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
               disabled={isLoading}
             >
               {isLoading ? (

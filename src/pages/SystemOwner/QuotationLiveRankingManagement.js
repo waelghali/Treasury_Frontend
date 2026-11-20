@@ -228,7 +228,7 @@ export default function QuotationLiveRankingManagement() {
     }
 
     return (
-        <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-8 space-y-8">
+        <div className="w-full max-w-[1400px] mx-auto space-y-5">
             {/* Header */}
             <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>

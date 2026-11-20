@@ -16,9 +16,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
         return (
             <div className="relative group inline-block">
                 {children}
-                <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+                <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-xl py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
                     This action is disabled during your subscription's grace period.
-                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                    <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                         <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
                     </svg>
                 </div>
@@ -397,7 +397,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
 
     return (
         <Transition show={true} as={Fragment}>
-            <Dialog as="div" className="relative z-10" onClose={handleCancelClose}>
+            <Dialog as="div" className="relative z-[100]" onClose={handleCancelClose}>
                 <TransitionChild
                     as={Fragment}
                     enter="ease-out duration-300"
@@ -407,11 +407,11 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-4">
                         <TransitionChild
                             as={Fragment}
                             enter="ease-out duration-300"
@@ -421,21 +421,27 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className={`relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:w-full ${verificationResult ? 'p-4 sm:p-5 sm:my-3 sm:max-w-4xl' : 'p-6 sm:my-8 sm:max-w-lg'}`}>
-                                <div className={`flex items-start justify-between border-b ${verificationResult ? 'pb-2.5 mb-3' : 'pb-3 mb-4'}`}>
-                                    <div>
-                                        <DialogTitle as="h3" className="text-lg font-bold text-gray-900 tracking-tight">
-                                            Record Bank Reply for Instruction: <span className="text-blue-700 font-mono">{activeInstruction.serial_number}</span>
-                                        </DialogTitle>
-                                        {!verificationResult && (
-                                            <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-                                                Record the bank's formal response and attach advice or correspondence.
-                                            </p>
-                                        )}
+                            <DialogPanel className={`relative transform overflow-hidden rounded-2xl bg-white border border-slate-200/80 text-left shadow-2xl transition-all my-auto sm:w-full flex flex-col max-h-[90vh] ${verificationResult ? 'sm:max-w-4xl' : 'sm:max-w-lg'}`}>
+                                {/* Sticky Header */}
+                                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-start justify-between gap-3 shrink-0">
+                                    <div className="flex items-start gap-2.5 min-w-0">
+                                        <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shrink-0 mt-0.5">
+                                            <Building className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <DialogTitle as="h3" className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                                                Record Bank Reply for Instruction: <span className="text-blue-700 font-mono">{activeInstruction.serial_number}</span>
+                                            </DialogTitle>
+                                            {!verificationResult && (
+                                                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                                                    Record the bank's formal response and attach advice or correspondence.
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                     <button
                                         type="button"
-                                        className="rounded-md bg-white text-gray-400 hover:text-gray-600 focus:outline-none p-1"
+                                        className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300 shrink-0"
                                         onClick={handleCancelClose}
                                     >
                                         <span className="sr-only">Close</span>
@@ -449,462 +455,464 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                     onSubmit={handleSubmit}
                                 >
                                     {({ isSubmitting, errors, touched }) => (
-                                        <Form className={`${verificationResult ? 'space-y-2.5' : 'space-y-4'} ${isGracePeriod ? 'opacity-50' : ''}`}>
-                                            {/* Info Banner */}
-                                            <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 bg-blue-50 border border-blue-200 text-blue-900 px-3.5 rounded-lg text-xs sm:text-sm font-medium ${verificationResult ? 'py-1.5' : 'py-2'}`}>
-                                                <span><strong>LG:</strong> {activeInstruction.lg_record?.lg_number || activeInstruction.lg_number || 'N/A'}</span>
-                                                <span className="text-blue-300">•</span>
-                                                <span><strong>Type:</strong> {activeInstruction.instruction_type || activeInstruction.action_type?.replace(/_/g, ' ') || 'N/A'}</span>
-                                                <span className="text-blue-300">•</span>
-                                                <span><strong>Instruction Date:</strong> {formatDate(activeInstruction.instruction_date || activeInstruction.created_at)}</span>
-                                                {activeInstruction.delivery_date && (
-                                                    <>
-                                                        <span className="text-blue-300">•</span>
-                                                        <span><strong>Delivered:</strong> {formatDate(activeInstruction.delivery_date)}</span>
-                                                    </>
-                                                )}
-                                            </div>
-
-                                            {/* Bank Reply Inputs: Stacked normally, Side-by-Side when AI Verification is open */}
-                                            <div className={verificationResult ? 'grid grid-cols-1 sm:grid-cols-12 gap-3 items-start' : 'space-y-4'}>
-                                                <div className={verificationResult ? 'sm:col-span-3' : ''}>
-                                                    <label htmlFor="bankReplyDate" className="block text-sm font-medium text-gray-700 mb-1">
-                                                        Bank Reply Date <span className="text-red-500">*</span>
-                                                    </label>
-                                                    <Field
-                                                        component={FormattedDateInput}
-                                                        id="bankReplyDate"
-                                                        name="bankReplyDate"
-                                                        className={`block w-full px-3 ${verificationResult ? 'py-1.5' : 'py-2'} text-sm rounded-lg border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.bankReplyDate && touched.bankReplyDate ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                                                        max={moment().format('YYYY-MM-DD')}
-                                                        min={instructionIssueDate}
-                                                        disabled={isGracePeriod}
-                                                    />
-                                                    <ErrorMessage name="bankReplyDate" component="div" className="text-red-600 text-xs mt-1" />
-                                                </div>
-
-                                                <div className={verificationResult ? 'sm:col-span-5' : ''}>
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <label htmlFor="replyFile" className="block text-sm font-medium text-gray-700">
-                                                            Bank Reply Document {isDocMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
-                                                        </label>
-                                                        <span className="text-xs text-gray-500">Max 5MB</span>
-                                                    </div>
-                                                    <input
-                                                        ref={fileInputRef}
-                                                        id="replyFile"
-                                                        name="replyFile"
-                                                        type="file"
-                                                        accept="image/*,application/pdf"
-                                                        onChange={async (event) => {
-                                                            const rawFile = event.currentTarget.files?.[0];
-                                                            setVerificationResult(null);
-                                                            if (rawFile) {
-                                                                try {
-                                                                    const buf = await rawFile.arrayBuffer();
-                                                                    setReplyFile(new File([buf], rawFile.name, { type: rawFile.type || 'application/pdf' }));
-                                                                } catch (e) {
-                                                                    setReplyFile(rawFile);
-                                                                }
-                                                            } else {
-                                                                setReplyFile(null);
-                                                            }
-                                                        }}
-                                                        className={`block w-full text-sm text-gray-500
-                                                                   file:mr-4 ${verificationResult ? 'file:py-1.5' : 'file:py-2'} file:px-4
-                                                                   file:rounded-md file:border-0
-                                                                   file:text-sm file:font-semibold
-                                                                   file:bg-blue-50 file:text-blue-700
-                                                                   hover:file:bg-blue-100
-                                                                   border border-gray-300 rounded-lg bg-white cursor-pointer`}
-                                                        disabled={isGracePeriod}
-                                                    />
-                                                </div>
-
-                                                <div className={verificationResult ? 'sm:col-span-4' : ''}>
-                                                    <label htmlFor="replyDetails" className="block text-sm font-medium text-gray-700 mb-1">
-                                                        Reply Details / Notes (Optional)
-                                                    </label>
-                                                    <Field
-                                                        as={verificationResult ? 'input' : 'textarea'}
-                                                        rows={verificationResult ? undefined : '2'}
-                                                        type={verificationResult ? 'text' : undefined}
-                                                        id="replyDetails"
-                                                        name="replyDetails"
-                                                        placeholder="e.g. Bank accepted extension request, updated validity confirmed"
-                                                        className={`block w-full px-3 ${verificationResult ? 'py-1.5' : 'py-2'} text-sm rounded-lg border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                                                        disabled={isGracePeriod}
-                                                    />
-                                                    <ErrorMessage name="replyDetails" component="div" className="text-red-600 text-xs mt-1" />
-                                                </div>
-                                            </div>
-
-                                            {/* Cancel Liquidation Confirmation (if applicable) */}
-                                            {isCancelLiquidation && (
-                                                <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-2.5 mb-3">
-                                                    <input
-                                                        type="checkbox"
-                                                        id="confirmOriginalReturned"
-                                                        checked={confirmOriginalReturned}
-                                                        onChange={(e) => setConfirmOriginalReturned(e.target.checked)}
-                                                        className="mt-0.5 h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer shrink-0"
-                                                    />
-                                                    <div>
-                                                        <label htmlFor="confirmOriginalReturned" className="text-xs sm:text-sm font-bold text-amber-900 leading-snug cursor-pointer">
-                                                            I confirm that the original physical LG document has been retrieved / received back from the bank. <span className="text-red-500">*</span>
-                                                        </label>
-                                                        <p className="text-xs text-amber-700 font-medium mt-0.5">
-                                                            Required: Physical retrieval must be confirmed to complete liquidation cancellation.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {errors.general && (
-                                                <div className="text-red-600 text-sm mt-1 mb-2 flex items-center gap-1.5">
-                                                    <AlertCircle className="h-4 w-4 shrink-0" />
-                                                    {errors.general}
-                                                </div>
-                                            )}
-
-                                            {/* ─── ITEM 1: STREAMLINED DATE CONVENTION VARIANCE MODAL BOX (when only variance is <= 3 days) ─── */}
-                                            {isDateVarianceOnly && (
-                                                <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-xl space-y-3 shadow-sm">
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <Calendar className="h-5 w-5 text-blue-600 shrink-0" />
-                                                            <div>
-                                                                <h4 className="text-sm font-bold text-blue-950">
-                                                                    Bank Expiry Date Tolerance Alignment
-                                                                </h4>
-                                                                <span className="inline-block text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200 mt-0.5">
-                                                                    DATE_CONVENTION_VARIANCE (≤ {dateVariance.tolerance_days || 3} Calendar Days)
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <p className="text-xs sm:text-sm text-blue-900 leading-relaxed bg-white/80 p-3 rounded-lg border border-blue-200 font-medium">
-                                                        {dateVariance.prompt_message}
-                                                    </p>
-
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                                                        <div className="bg-white p-2.5 rounded-lg border border-blue-200 flex items-center justify-between">
-                                                            <span className="text-gray-600 font-medium">Requested Expiry:</span>
-                                                            <span className="font-mono font-bold text-gray-800">{formatDate(dateVariance.requested_expiry_date)}</span>
-                                                        </div>
-                                                        <div className="bg-blue-100/70 p-2.5 rounded-lg border border-blue-300 flex items-center justify-between">
-                                                            <span className="text-blue-900 font-semibold">Bank Confirmed Date:</span>
-                                                            <span className="font-mono font-bold text-blue-800">
-                                                                {formatDate(dateVariance.bank_confirmed_expiry_date)} ({dateVariance.variance_days > 0 ? `+${dateVariance.variance_days}` : dateVariance.variance_days}d)
-                                                            </span>
-                                                        </div>
-                                                    </div>
-
-                                                    {verificationResult.matches?.length > 0 && (
-                                                        <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg">
-                                                            <p className="text-xs font-bold text-emerald-800 mb-1">✓ Verified Checks:</p>
-                                                            <ul className="list-disc list-inside text-xs text-emerald-700 space-y-0.5 leading-snug">
-                                                                {verificationResult.matches.map((m, i) => (
-                                                                    <li key={i}>{m}</li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
+                                        <Form className={`flex flex-col flex-1 min-h-0 ${isGracePeriod ? 'opacity-50' : ''}`}>
+                                            <div className={`px-5 py-4 overflow-y-auto flex-1 ${verificationResult ? 'space-y-3' : 'space-y-4'}`}>
+                                                {/* Info Banner */}
+                                                <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 bg-blue-50/80 border border-blue-200/80 text-blue-900 px-3.5 rounded-xl text-xs sm:text-sm font-medium ${verificationResult ? 'py-2' : 'py-2.5'}`}>
+                                                    <span><strong>LG:</strong> {activeInstruction.lg_record?.lg_number || activeInstruction.lg_number || 'N/A'}</span>
+                                                    <span className="text-blue-300">•</span>
+                                                    <span><strong>Type:</strong> {activeInstruction.instruction_type || activeInstruction.action_type?.replace(/_/g, ' ') || 'N/A'}</span>
+                                                    <span className="text-blue-300">•</span>
+                                                    <span><strong>Instruction Date:</strong> {formatDate(activeInstruction.instruction_date || activeInstruction.created_at)}</span>
+                                                    {activeInstruction.delivery_date && (
+                                                        <>
+                                                            <span className="text-blue-300">•</span>
+                                                            <span><strong>Delivered:</strong> {formatDate(activeInstruction.delivery_date)}</span>
+                                                        </>
                                                     )}
+                                                </div>
 
-                                                    <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-blue-200">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setIsInspectorOpen(true)}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-700 rounded-lg text-xs font-semibold shadow-sm transition-colors"
-                                                        >
-                                                            <Eye className="h-3.5 w-3.5 text-cyan-400" />
-                                                            <span>🔍 Inspect Scan</span>
-                                                        </button>
+                                                {/* Bank Reply Inputs: Stacked normally, Side-by-Side when AI Verification is open */}
+                                                <div className={verificationResult ? 'grid grid-cols-1 sm:grid-cols-12 gap-3 items-start' : 'space-y-4'}>
+                                                    <div className={verificationResult ? 'sm:col-span-3' : ''}>
+                                                        <label htmlFor="bankReplyDate" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                            Bank Reply Date <span className="text-rose-500">*</span>
+                                                        </label>
+                                                        <Field
+                                                            component={FormattedDateInput}
+                                                            id="bankReplyDate"
+                                                            name="bankReplyDate"
+                                                            className={`block w-full px-3 ${verificationResult ? 'py-1.5' : 'py-2'} text-sm rounded-xl border shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${errors.bankReplyDate && touched.bankReplyDate ? 'border-rose-500 bg-rose-50' : 'border-slate-300'}`}
+                                                            max={moment().format('YYYY-MM-DD')}
+                                                            min={instructionIssueDate}
+                                                            disabled={isGracePeriod}
+                                                        />
+                                                        <ErrorMessage name="bankReplyDate" component="div" className="text-rose-600 text-xs mt-1" />
+                                                    </div>
 
-                                                        <div className="flex items-center gap-2 flex-wrap">
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleCancelClose}
-                                                                disabled={isActionLoading}
-                                                                className="px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 text-xs font-medium rounded-lg transition-colors"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleCancelReupload}
-                                                                disabled={isActionLoading}
-                                                                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors"
-                                                            >
-                                                                🔄 Re-upload
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleProceedAnyway}
-                                                                disabled={isActionLoading}
-                                                                className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-xs font-medium rounded-lg transition-colors"
-                                                            >
-                                                                Keep {formatDate(dateVariance.requested_expiry_date)}
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleAcceptDateAlignment(dateVariance.bank_confirmed_expiry_date)}
-                                                                disabled={isActionLoading}
-                                                                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-colors"
-                                                            >
-                                                                {isActionLoading ? (
-                                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                                ) : (
-                                                                    <CheckCircle2 className="h-4 w-4" />
-                                                                )}
-                                                                <span>Accept & Align to {formatDate(dateVariance.bank_confirmed_expiry_date)}</span>
-                                                            </button>
+                                                    <div className={verificationResult ? 'sm:col-span-5' : ''}>
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <label htmlFor="replyFile" className="block text-xs sm:text-sm font-medium text-slate-700">
+                                                                Bank Reply Document {isDocMandatory ? <span className="text-rose-500">*</span> : '(Optional)'}
+                                                            </label>
+                                                            <span className="text-xs text-slate-500">Max 5MB</span>
                                                         </div>
+                                                        <input
+                                                            ref={fileInputRef}
+                                                            id="replyFile"
+                                                            name="replyFile"
+                                                            type="file"
+                                                            accept="image/*,application/pdf"
+                                                            onChange={async (event) => {
+                                                                const rawFile = event.currentTarget.files?.[0];
+                                                                setVerificationResult(null);
+                                                                if (rawFile) {
+                                                                    try {
+                                                                        const buf = await rawFile.arrayBuffer();
+                                                                        setReplyFile(new File([buf], rawFile.name, { type: rawFile.type || 'application/pdf' }));
+                                                                    } catch (e) {
+                                                                        setReplyFile(rawFile);
+                                                                    }
+                                                                } else {
+                                                                    setReplyFile(null);
+                                                                }
+                                                            }}
+                                                            className={`block w-full text-xs sm:text-sm text-slate-500
+                                                                       file:mr-4 ${verificationResult ? 'file:py-1.5' : 'file:py-2'} file:px-3.5
+                                                                       file:rounded-lg file:border-0
+                                                                       file:text-xs file:font-semibold
+                                                                       file:bg-indigo-50 file:text-indigo-700
+                                                                       hover:file:bg-indigo-100
+                                                                       border border-slate-300 rounded-xl bg-white cursor-pointer`}
+                                                            disabled={isGracePeriod}
+                                                        />
+                                                    </div>
+
+                                                    <div className={verificationResult ? 'sm:col-span-4' : ''}>
+                                                        <label htmlFor="replyDetails" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                            Reply Details / Notes (Optional)
+                                                        </label>
+                                                        <Field
+                                                            as={verificationResult ? 'input' : 'textarea'}
+                                                            rows={verificationResult ? undefined : '2'}
+                                                            type={verificationResult ? 'text' : undefined}
+                                                            id="replyDetails"
+                                                            name="replyDetails"
+                                                            placeholder="e.g. Bank accepted extension request, updated validity confirmed"
+                                                            className={`block w-full px-3 ${verificationResult ? 'py-1.5' : 'py-2'} text-sm rounded-xl border border-slate-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                                                            disabled={isGracePeriod}
+                                                        />
+                                                        <ErrorMessage name="replyDetails" component="div" className="text-rose-600 text-xs mt-1" />
                                                     </div>
                                                 </div>
-                                            )}
 
-                                            {/* ─── AI Verification Discrepancy & Disambiguation Box (when status === 'mismatch' or 'verified' after switch/align) ─── */}
-                                            {verificationResult && !isDateVarianceOnly && (
-                                                <div className={`p-3 border rounded-xl space-y-2.5 ${(verificationResult.mismatches?.length || 0) === 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-amber-50 border-amber-300'}`}>
-                                                    <div className="flex items-center justify-between flex-wrap gap-2">
-                                                        <div className="flex items-center gap-2">
-                                                            {(verificationResult.mismatches?.length || 0) === 0 ? (
-                                                                <>
-                                                                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                                                                    <h4 className="text-sm font-bold text-emerald-900">AI Verification: All Checks Verified — Ready to Record</h4>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                                                                    <h4 className="text-sm font-bold text-amber-900">AI Verification: Review Detected Discrepancies</h4>
-                                                                </>
-                                                            )}
+                                                {/* Cancel Liquidation Confirmation (if applicable) */}
+                                                {isCancelLiquidation && (
+                                                    <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-2.5">
+                                                        <input
+                                                            type="checkbox"
+                                                            id="confirmOriginalReturned"
+                                                            checked={confirmOriginalReturned}
+                                                            onChange={(e) => setConfirmOriginalReturned(e.target.checked)}
+                                                            className="mt-0.5 h-4 w-4 text-amber-600 focus:ring-amber-500 border-slate-300 rounded cursor-pointer shrink-0"
+                                                        />
+                                                        <div>
+                                                            <label htmlFor="confirmOriginalReturned" className="text-xs sm:text-sm font-bold text-amber-900 leading-snug cursor-pointer">
+                                                                I confirm that the original physical LG document has been retrieved / received back from the bank. <span className="text-rose-500">*</span>
+                                                            </label>
+                                                            <p className="text-xs text-amber-700 font-medium mt-0.5">
+                                                                Required: Physical retrieval must be confirmed to complete liquidation cancellation.
+                                                            </p>
                                                         </div>
-                                                        <span className={`text-xs ${(verificationResult.mismatches?.length || 0) === 0 ? 'text-emerald-800' : 'text-amber-800'}`}>
-                                                            {(verificationResult.mismatches?.length || 0) === 0
-                                                                ? 'Click Confirm & Record Reply below to complete.'
-                                                                : termsModification && !disambiguation
-                                                                    ? 'Core LG terms were modified by the bank — submit for Corporate Admin approval or re-upload.'
-                                                                    : 'Review below and choose whether to switch instruction, proceed, or re-upload.'}
-                                                        </span>
                                                     </div>
+                                                )}
 
-                                                    {/* ─── ITEM 2: 2-STEP MULTI-INSTRUCTION DISAMBIGUATION BANNER ─── */}
-                                                    {disambiguation && (
-                                                        <div className="p-3 bg-purple-50 border-2 border-purple-300 rounded-xl space-y-2 shadow-sm">
-                                                            <div className="flex items-center justify-between flex-wrap gap-2">
-                                                                <div className="flex items-center gap-2">
-                                                                    <ArrowLeftRight className="h-4 w-4 text-purple-700 shrink-0" />
-                                                                    <span className="text-xs sm:text-sm font-bold text-purple-950">
-                                                                        Wrong Instruction Selected
+                                                {errors.general && (
+                                                    <div className="text-rose-600 text-sm bg-rose-50 border border-rose-200 rounded-xl p-2.5 flex items-center gap-1.5">
+                                                        <AlertCircle className="h-4 w-4 shrink-0" />
+                                                        {errors.general}
+                                                    </div>
+                                                )}
+
+                                                {/* ─── ITEM 1: STREAMLINED DATE CONVENTION VARIANCE MODAL BOX (when only variance is <= 3 days) ─── */}
+                                                {isDateVarianceOnly && (
+                                                    <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-xl space-y-3 shadow-sm">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <Calendar className="h-5 w-5 text-blue-600 shrink-0" />
+                                                                <div>
+                                                                    <h4 className="text-sm font-bold text-blue-950">
+                                                                        Bank Expiry Date Tolerance Alignment
+                                                                    </h4>
+                                                                    <span className="inline-block text-[11px] font-mono font-semibold px-2 py-0.5 rounded-lg bg-blue-100 text-blue-800 border border-blue-200 mt-0.5">
+                                                                        DATE_CONVENTION_VARIANCE (≤ {dateVariance.tolerance_days || 3} Calendar Days)
                                                                     </span>
                                                                 </div>
-                                                                <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
-                                                                    Target: {disambiguation.matched_serial} ({disambiguation.matched_type_label})
+                                                            </div>
+                                                        </div>
+
+                                                        <p className="text-xs sm:text-sm text-blue-900 leading-relaxed bg-white/80 p-3 rounded-xl border border-blue-200 font-medium">
+                                                            {dateVariance.prompt_message}
+                                                        </p>
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                                                            <div className="bg-white p-2.5 rounded-xl border border-blue-200 flex items-center justify-between">
+                                                                <span className="text-slate-600 font-medium">Requested Expiry:</span>
+                                                                <span className="font-mono font-bold text-slate-800">{formatDate(dateVariance.requested_expiry_date)}</span>
+                                                            </div>
+                                                            <div className="bg-blue-100/70 p-2.5 rounded-xl border border-blue-300 flex items-center justify-between">
+                                                                <span className="text-blue-900 font-semibold">Bank Confirmed Date:</span>
+                                                                <span className="font-mono font-bold text-blue-800">
+                                                                    {formatDate(dateVariance.bank_confirmed_expiry_date)} ({dateVariance.variance_days > 0 ? `+${dateVariance.variance_days}` : dateVariance.variance_days}d)
                                                                 </span>
                                                             </div>
-
-                                                            <p className="text-xs sm:text-sm text-purple-900 font-medium bg-white/90 p-2 rounded-lg border border-purple-200">
-                                                                {disambiguation.prompt_message}
-                                                            </p>
-
-                                                            <div className="flex items-center justify-end">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleSwitchAndRecord(disambiguation)}
-                                                                    disabled={isActionLoading}
-                                                                    className="w-full sm:w-auto px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-colors"
-                                                                >
-                                                                    <ArrowLeftRight className="h-3.5 w-3.5" />
-                                                                    <span>{disambiguation.action_label || `Switch to ${disambiguation.matched_type_label} (${disambiguation.matched_serial})`}</span>
-                                                                </button>
-                                                            </div>
                                                         </div>
-                                                    )}
 
-                                                    {/* Optional Date Convention Variance inside Mismatch Panel (only when not already covered by Favorable Extension card) */}
-                                                    {dateVariance && !termsModification?.is_favorable_extension && (
-                                                        <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg space-y-1">
-                                                            <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
-                                                                <Calendar className="h-3.5 w-3.5 text-blue-600" />
-                                                                <span>Calendar Convention Variance Detected ({dateVariance.variance_days > 0 ? `+${dateVariance.variance_days}` : dateVariance.variance_days}d):</span>
-                                                            </p>
-                                                            <p className="text-xs text-blue-800">{dateVariance.prompt_message}</p>
-                                                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-blue-900 cursor-pointer pt-1">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={alignDateOnOverride}
-                                                                    onChange={(e) => setAlignDateOnOverride(e.target.checked)}
-                                                                    className="h-3.5 w-3.5 rounded text-blue-600 border-gray-300"
-                                                                />
-                                                                <span>Align record expiry date to {formatDate(dateVariance.bank_confirmed_expiry_date)} when proceeding</span>
-                                                            </label>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Enhancement A: Bank-Modified Terms (>3 Days or Amount Change) */}
-                                                    {termsModification && (
-                                                        termsModification.is_favorable_extension ? (
-                                                            <div className="p-3 bg-emerald-50 border-2 border-emerald-300 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 shadow-sm">
-                                                                <div className="space-y-0.5">
-                                                                    <p className="text-xs sm:text-sm font-bold text-emerald-950 flex items-center gap-1.5">
-                                                                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                                                                        <span>Favorable Further Extension (+{termsModification.variance_days} Days Extra Coverage — Recommended to Accept)</span>
-                                                                    </p>
-                                                                    <p className="text-xs text-emerald-800 leading-snug">
-                                                                        {termsModification.prompt_message}
-                                                                    </p>
-                                                                </div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleAcceptDateAlignment(termsModification.bank_confirmed_expiry_date)}
-                                                                    disabled={isActionLoading}
-                                                                    className="shrink-0 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-colors"
-                                                                >
-                                                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                                                    <span>Accept Further Date ({formatDate(termsModification.bank_confirmed_expiry_date)})</span>
-                                                                </button>
+                                                        {verificationResult.matches?.length > 0 && (
+                                                            <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+                                                                <p className="text-xs font-bold text-emerald-800 mb-1">✓ Verified Checks:</p>
+                                                                <ul className="list-disc list-inside text-xs text-emerald-700 space-y-0.5 leading-snug">
+                                                                    {verificationResult.matches.map((m, i) => (
+                                                                        <li key={i}>{m}</li>
+                                                                    ))}
+                                                                </ul>
                                                             </div>
-                                                        ) : (
-                                                            <div className="p-2.5 bg-amber-100/90 border border-amber-300 rounded-lg space-y-0.5">
-                                                                <p className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                                                                    <ShieldCheck className="h-4 w-4 text-amber-700 shrink-0" />
-                                                                    <span>Bank-Modified Terms Require Corporate Admin Approval</span>
-                                                                </p>
-                                                                <p className="text-xs text-amber-900 leading-snug">
-                                                                    {termsModification.prompt_message}
-                                                                </p>
-                                                            </div>
-                                                        )
-                                                    )}
+                                                        )}
 
-                                                    {/* Enhancement B: Informational Bank Reply Letter Date */}
-                                                    {extractedLetterDate && (
-                                                        <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs text-slate-700">
-                                                            <span className="font-semibold flex items-center gap-1.5">
-                                                                <Calendar className="h-3.5 w-3.5 text-slate-500" />
-                                                                <span>Detected Bank Reply Letter Date:</span>
-                                                            </span>
-                                                            <span className="font-mono font-bold text-slate-900">{extractedLetterDate}</span>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Discrepancies and Matches */}
-                                                    {(() => {
-                                                        const displayedMismatches = (verificationResult.mismatches || []).filter(
-                                                            m => !disambiguation || m !== disambiguation.prompt_message
-                                                        );
-                                                        return (
-                                                            <div className={`gap-2.5 ${displayedMismatches.length > 0 && verificationResult.matches?.length > 0 ? 'grid grid-cols-1 sm:grid-cols-2' : 'space-y-2'}`}>
-                                                                {displayedMismatches.length > 0 && (
-                                                                    <div className="bg-red-50 border border-red-200 p-2.5 rounded-lg">
-                                                                        <p className="text-xs font-bold text-red-800 mb-1">⚠️ Discrepancies Detected:</p>
-                                                                        <ul className="list-disc list-inside text-xs text-red-700 space-y-0.5 leading-snug">
-                                                                            {displayedMismatches.map((m, i) => (
-                                                                                <li key={i}>{m}</li>
-                                                                            ))}
-                                                                        </ul>
-                                                                    </div>
-                                                                )}
-
-                                                                {verificationResult.matches?.length > 0 && (
-                                                                    <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg">
-                                                                        <p className="text-xs font-bold text-emerald-800 mb-1">✓ Verified Checks:</p>
-                                                                        <ul className="list-disc list-inside text-xs text-emerald-700 space-y-0.5 leading-snug">
-                                                                            {verificationResult.matches.map((m, i) => (
-                                                                                <li key={i}>{m}</li>
-                                                                            ))}
-                                                                        </ul>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })()}
-
-                                                    {/* Override Note (only shown when discrepancies remain and NOT a mandatory Admin Terms Approval case) */}
-                                                    {(verificationResult.mismatches?.length || 0) > 0 && !termsModification && (
-                                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                                            <label className="text-xs font-semibold text-amber-900 shrink-0">
-                                                                Override Note (Optional):
-                                                            </label>
-                                                            <input
-                                                                type="text"
-                                                                value={overrideReason}
-                                                                onChange={(e) => setOverrideReason(e.target.value)}
-                                                                placeholder="e.g. Bank advice confirmed by branch phone / Stamped on last page"
-                                                                className="w-full text-xs px-2.5 py-1.5 border border-amber-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                                            />
-                                                        </div>
-                                                    )}
-
-                                                    {/* Action Buttons */}
-                                                    <div className="flex items-center justify-between flex-wrap gap-2 pt-1.5 border-t border-amber-200/70">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setIsInspectorOpen(true)}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-700 rounded-lg text-xs font-semibold shadow-sm transition-colors"
-                                                        >
-                                                            <Eye className="h-3.5 w-3.5 text-cyan-400" />
-                                                            <span>🔍 Inspect Scan & AI Details</span>
-                                                        </button>
-                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                        <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-blue-200">
                                                             <button
                                                                 type="button"
-                                                                onClick={handleCancelClose}
-                                                                disabled={isActionLoading}
-                                                                className="px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 text-xs font-medium rounded-lg transition-colors"
+                                                                onClick={() => setIsInspectorOpen(true)}
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-700 rounded-xl text-xs font-semibold shadow-sm transition-colors"
                                                             >
-                                                                Cancel
+                                                                <Eye className="h-3.5 w-3.5 text-cyan-400" />
+                                                                <span>🔍 Inspect Scan</span>
                                                             </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleCancelReupload}
-                                                                disabled={isActionLoading}
-                                                                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors"
-                                                            >
-                                                                🔄 Re-upload
-                                                            </button>
-                                                            {termsModification && !disambiguation ? (
+
+                                                            <div className="flex items-center gap-2 flex-wrap">
                                                                 <button
                                                                     type="button"
-                                                                    onClick={handleRequestAdminTermsApproval}
+                                                                    onClick={handleCancelClose}
                                                                     disabled={isActionLoading}
-                                                                    className="px-3.5 py-1.5 bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                                                                    className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold rounded-xl shadow-sm transition-colors"
                                                                 >
-                                                                    {isActionLoading ? (
-                                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                                    ) : (
-                                                                        <ShieldCheck className="h-3.5 w-3.5" />
-                                                                    )}
-                                                                    <span>🛡️ Submit Terms for Admin Approval</span>
+                                                                    Cancel
                                                                 </button>
-                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleCancelReupload}
+                                                                    disabled={isActionLoading}
+                                                                    className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold rounded-xl shadow-sm transition-colors"
+                                                                >
+                                                                    🔄 Re-upload
+                                                                </button>
                                                                 <button
                                                                     type="button"
                                                                     onClick={handleProceedAnyway}
                                                                     disabled={isActionLoading}
-                                                                    className="px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
+                                                                    className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold rounded-xl shadow-sm transition-colors"
                                                                 >
-                                                                    {isActionLoading
-                                                                        ? 'Saving...'
-                                                                        : (verificationResult.mismatches?.length || 0) === 0
-                                                                            ? '✅ Confirm & Record Reply'
-                                                                            : '✅ Proceed Anyway'}
+                                                                    Keep {formatDate(dateVariance.requested_expiry_date)}
                                                                 </button>
-                                                            )}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleAcceptDateAlignment(dateVariance.bank_confirmed_expiry_date)}
+                                                                    disabled={isActionLoading}
+                                                                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm flex items-center gap-1.5 transition-colors"
+                                                                >
+                                                                    {isActionLoading ? (
+                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    ) : (
+                                                                        <CheckCircle2 className="h-4 w-4" />
+                                                                    )}
+                                                                    <span>Accept & Align to {formatDate(dateVariance.bank_confirmed_expiry_date)}</span>
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                )}
 
-                                            {/* Normal Action Buttons (when no verificationResult) */}
+                                                {/* ─── AI Verification Discrepancy & Disambiguation Box (when status === 'mismatch' or 'verified' after switch/align) ─── */}
+                                                {verificationResult && !isDateVarianceOnly && (
+                                                    <div className={`p-3.5 border rounded-xl space-y-2.5 ${(verificationResult.mismatches?.length || 0) === 0 ? 'bg-emerald-50 border-emerald-300' : 'bg-amber-50 border-amber-300'}`}>
+                                                        <div className="flex items-center justify-between flex-wrap gap-2">
+                                                            <div className="flex items-center gap-2">
+                                                                {(verificationResult.mismatches?.length || 0) === 0 ? (
+                                                                    <>
+                                                                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                                                        <h4 className="text-sm font-bold text-emerald-900">AI Verification: All Checks Verified — Ready to Record</h4>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                                                                        <h4 className="text-sm font-bold text-amber-900">AI Verification: Review Detected Discrepancies</h4>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                            <span className={`text-xs ${(verificationResult.mismatches?.length || 0) === 0 ? 'text-emerald-800' : 'text-amber-800'}`}>
+                                                                {(verificationResult.mismatches?.length || 0) === 0
+                                                                    ? 'Click Confirm & Record Reply below to complete.'
+                                                                    : termsModification && !disambiguation
+                                                                        ? 'Core LG terms were modified by the bank — submit for Corporate Admin approval or re-upload.'
+                                                                        : 'Review below and choose whether to switch instruction, proceed, or re-upload.'}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* ─── ITEM 2: 2-STEP MULTI-INSTRUCTION DISAMBIGUATION BANNER ─── */}
+                                                        {disambiguation && (
+                                                            <div className="p-3 bg-purple-50 border-2 border-purple-300 rounded-xl space-y-2 shadow-sm">
+                                                                <div className="flex items-center justify-between flex-wrap gap-2">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <ArrowLeftRight className="h-4 w-4 text-purple-700 shrink-0" />
+                                                                        <span className="text-xs sm:text-sm font-bold text-purple-950">
+                                                                            Wrong Instruction Selected
+                                                                        </span>
+                                                                    </div>
+                                                                    <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-lg bg-purple-100 text-purple-800 border border-purple-200">
+                                                                        Target: {disambiguation.matched_serial} ({disambiguation.matched_type_label})
+                                                                    </span>
+                                                                </div>
+
+                                                                <p className="text-xs sm:text-sm text-purple-900 font-medium bg-white/90 p-2.5 rounded-xl border border-purple-200">
+                                                                    {disambiguation.prompt_message}
+                                                                </p>
+
+                                                                <div className="flex items-center justify-end">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleSwitchAndRecord(disambiguation)}
+                                                                        disabled={isActionLoading}
+                                                                        className="w-full sm:w-auto px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold rounded-xl shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                                                                    >
+                                                                        <ArrowLeftRight className="h-3.5 w-3.5" />
+                                                                        <span>{disambiguation.action_label || `Switch to ${disambiguation.matched_type_label} (${disambiguation.matched_serial})`}</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Optional Date Convention Variance inside Mismatch Panel (only when not already covered by Favorable Extension card) */}
+                                                        {dateVariance && !termsModification?.is_favorable_extension && (
+                                                            <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl space-y-1">
+                                                                <p className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                                                                    <Calendar className="h-3.5 w-3.5 text-blue-600" />
+                                                                    <span>Calendar Convention Variance Detected ({dateVariance.variance_days > 0 ? `+${dateVariance.variance_days}` : dateVariance.variance_days}d):</span>
+                                                                </p>
+                                                                <p className="text-xs text-blue-800">{dateVariance.prompt_message}</p>
+                                                                <label className="inline-flex items-center gap-2 text-xs font-semibold text-blue-900 cursor-pointer pt-1">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={alignDateOnOverride}
+                                                                        onChange={(e) => setAlignDateOnOverride(e.target.checked)}
+                                                                        className="h-3.5 w-3.5 rounded text-blue-600 border-slate-300"
+                                                                    />
+                                                                    <span>Align record expiry date to {formatDate(dateVariance.bank_confirmed_expiry_date)} when proceeding</span>
+                                                                </label>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Enhancement A: Bank-Modified Terms (>3 Days or Amount Change) */}
+                                                        {termsModification && (
+                                                            termsModification.is_favorable_extension ? (
+                                                                <div className="p-3 bg-emerald-50 border-2 border-emerald-300 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 shadow-sm">
+                                                                    <div className="space-y-0.5">
+                                                                        <p className="text-xs sm:text-sm font-bold text-emerald-950 flex items-center gap-1.5">
+                                                                            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                                                            <span>Favorable Further Extension (+{termsModification.variance_days} Days Extra Coverage — Recommended to Accept)</span>
+                                                                        </p>
+                                                                        <p className="text-xs text-emerald-800 leading-snug">
+                                                                            {termsModification.prompt_message}
+                                                                        </p>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleAcceptDateAlignment(termsModification.bank_confirmed_expiry_date)}
+                                                                        disabled={isActionLoading}
+                                                                        className="shrink-0 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                                                                    >
+                                                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                                                        <span>Accept Further Date ({formatDate(termsModification.bank_confirmed_expiry_date)})</span>
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="p-2.5 bg-amber-100/90 border border-amber-300 rounded-xl space-y-0.5">
+                                                                    <p className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                                                                        <ShieldCheck className="h-4 w-4 text-amber-700 shrink-0" />
+                                                                        <span>Bank-Modified Terms Require Corporate Admin Approval</span>
+                                                                    </p>
+                                                                    <p className="text-xs text-amber-900 leading-snug">
+                                                                        {termsModification.prompt_message}
+                                                                    </p>
+                                                                </div>
+                                                            )
+                                                        )}
+
+                                                        {/* Enhancement B: Informational Bank Reply Letter Date */}
+                                                        {extractedLetterDate && (
+                                                            <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs text-slate-700">
+                                                                <span className="font-semibold flex items-center gap-1.5">
+                                                                    <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                                                                    <span>Detected Bank Reply Letter Date:</span>
+                                                                </span>
+                                                                <span className="font-mono font-bold text-slate-900">{extractedLetterDate}</span>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Discrepancies and Matches */}
+                                                        {(() => {
+                                                            const displayedMismatches = (verificationResult.mismatches || []).filter(
+                                                                m => !disambiguation || m !== disambiguation.prompt_message
+                                                            );
+                                                            return (
+                                                                <div className={`gap-2.5 ${displayedMismatches.length > 0 && verificationResult.matches?.length > 0 ? 'grid grid-cols-1 sm:grid-cols-2' : 'space-y-2'}`}>
+                                                                    {displayedMismatches.length > 0 && (
+                                                                        <div className="bg-rose-50 border border-rose-200 p-2.5 rounded-xl">
+                                                                            <p className="text-xs font-bold text-rose-800 mb-1">⚠️ Discrepancies Detected:</p>
+                                                                            <ul className="list-disc list-inside text-xs text-rose-700 space-y-0.5 leading-snug">
+                                                                                {displayedMismatches.map((m, i) => (
+                                                                                    <li key={i}>{m}</li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {verificationResult.matches?.length > 0 && (
+                                                                        <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
+                                                                            <p className="text-xs font-bold text-emerald-800 mb-1">✓ Verified Checks:</p>
+                                                                            <ul className="list-disc list-inside text-xs text-emerald-700 space-y-0.5 leading-snug">
+                                                                                {verificationResult.matches.map((m, i) => (
+                                                                                    <li key={i}>{m}</li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+
+                                                        {/* Override Note (only shown when discrepancies remain and NOT a mandatory Admin Terms Approval case) */}
+                                                        {(verificationResult.mismatches?.length || 0) > 0 && !termsModification && (
+                                                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                                                <label className="text-xs font-semibold text-amber-900 shrink-0">
+                                                                    Override Note (Optional):
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={overrideReason}
+                                                                    onChange={(e) => setOverrideReason(e.target.value)}
+                                                                    placeholder="e.g. Bank advice confirmed by branch phone / Stamped on last page"
+                                                                    className="w-full text-xs px-2.5 py-1.5 border border-amber-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        {/* Action Buttons */}
+                                                        <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-amber-200/70">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setIsInspectorOpen(true)}
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-700 rounded-xl text-xs font-semibold shadow-sm transition-colors"
+                                                            >
+                                                                <Eye className="h-3.5 w-3.5 text-cyan-400" />
+                                                                <span>🔍 Inspect Scan & AI Details</span>
+                                                            </button>
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleCancelClose}
+                                                                    disabled={isActionLoading}
+                                                                    className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold rounded-xl shadow-sm transition-colors"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleCancelReupload}
+                                                                    disabled={isActionLoading}
+                                                                    className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold rounded-xl shadow-sm transition-colors"
+                                                                >
+                                                                    🔄 Re-upload
+                                                                </button>
+                                                                {termsModification && !disambiguation ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={handleRequestAdminTermsApproval}
+                                                                        disabled={isActionLoading}
+                                                                        className="px-3.5 py-1.5 bg-amber-700 hover:bg-amber-800 text-white text-xs font-semibold rounded-xl shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                                                                    >
+                                                                        {isActionLoading ? (
+                                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                        ) : (
+                                                                            <ShieldCheck className="h-3.5 w-3.5" />
+                                                                        )}
+                                                                        <span>🛡️ Submit Terms for Admin Approval</span>
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={handleProceedAnyway}
+                                                                        disabled={isActionLoading}
+                                                                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors"
+                                                                    >
+                                                                        {isActionLoading
+                                                                            ? 'Saving...'
+                                                                            : (verificationResult.mismatches?.length || 0) === 0
+                                                                                ? '✅ Confirm & Record Reply'
+                                                                                : '✅ Proceed Anyway'}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Normal Sticky Footer (when no verificationResult) */}
                                             {!verificationResult && (
-                                                <div className="mt-5 pt-3 border-t border-gray-100 flex items-center justify-end gap-3">
+                                                <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 shrink-0">
                                                     <button
                                                         type="button"
-                                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                                        className="px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-xl shadow-sm transition-colors"
                                                         onClick={onClose}
                                                         disabled={isSubmitting}
                                                     >
@@ -913,7 +921,7 @@ const RecordBankReplyModal = ({ instruction, onClose, onSuccess, isGracePeriod, 
                                                     <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                         <button
                                                             type="submit"
-                                                            className={`px-4 py-2 text-sm font-semibold rounded-lg shadow-sm bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2 transition-colors ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                            className={`px-4 py-2 text-sm font-semibold rounded-xl shadow-sm bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 transition-colors ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                             disabled={isSubmitting || isGracePeriod}
                                                         >
                                                             {isSubmitting ? (

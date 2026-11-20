@@ -1,7 +1,7 @@
 // frontend/src/pages/EndUser/EndUserPendingApprovalsPage.js
 import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/apiService';
-import { Loader2, AlertCircle, Eye, XCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, XCircle, CheckCircle } from 'lucide-react';
 import moment from 'moment';
 import { toast } from 'react-toastify';
 import ApprovalRequestDetailsModal from '../../components/Modals/ApprovalRequestDetailsModal';
@@ -13,9 +13,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
         return (
             <div className="relative group inline-block">
                 {children}
-                <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+                <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
                     This action is disabled during your subscription's grace period.
-                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                    <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                         <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
                     </svg>
                 </div>
@@ -105,92 +105,93 @@ function EndUserPendingApprovalsPage({ isGracePeriod }) { // NEW: Accept isGrace
     };
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-6">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5">
+            <div className="flex justify-between items-center mb-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">My Pending Approval Requests</h2>
-                    <p className="text-sm text-gray-500 mt-1">Track the status of your submitted approval requests.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">My Pending Approval Requests</h2>
+                    <p className="text-sm text-slate-500 mt-0.5">Track the status of your submitted approval requests.</p>
                 </div>
             </div>
 
             {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-                    <AlertCircle className="h-5 w-5 mr-2" />
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative mb-4 flex items-center text-sm" role="alert">
+                    <AlertCircle className="h-5 w-5 mr-2 shrink-0" />
                     <span className="block sm:inline">{error}</span>
                 </div>
             )}
 
             {isLoading ? (
-                <div className="text-center py-8">
+                <div className="text-center py-10">
                     <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" />
-                    <p className="text-gray-600 mt-2">Loading approval requests...</p>
+                    <p className="text-slate-500 text-sm mt-2">Loading approval requests...</p>
                 </div>
             ) : approvalRequests.length === 0 ? (
-                <div className="bg-green-50 p-6 rounded-xl text-center border border-dashed border-green-200">
-                    <p className="text-green-700">No pending approval requests submitted by you at this time. All clear!</p>
+                <div className="bg-emerald-50/60 p-6 rounded-2xl text-center border border-dashed border-emerald-200">
+                    <CheckCircle className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
+                    <p className="text-emerald-800 text-sm font-medium">No pending approval requests submitted by you at this time. All clear!</p>
                 </div>
             ) : (
-                <div className="overflow-x-auto rounded-xl border border-gray-100">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                <div className="overflow-x-auto rounded-2xl border border-slate-200/90">
+                    <table className="min-w-full divide-y divide-slate-200">
+                        <thead className="bg-slate-50">
                             <tr>
-                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LG Number</th>
-                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action Type</th>
-                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested By</th>
-                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested On</th>
-                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th scope="col" className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">LG Number</th>
+                                <th scope="col" className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action Type</th>
+                                <th scope="col" className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Requested By</th>
+                                <th scope="col" className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Requested On</th>
+                                <th scope="col" className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                                <th scope="col" className="px-3.5 py-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-slate-100">
                             {approvalRequests.map((request) => (
                                 <tr
                                     key={request.id}
                                     onClick={() => handleViewDetails(request)}
-                                    className="hover:bg-yellow-50/40 cursor-pointer transition-colors"
+                                    className="hover:bg-slate-50/80 cursor-pointer transition-colors"
                                 >
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-xs sm:text-sm font-semibold text-slate-900">
                                         {request.action_type === 'LG_CHANGE_BULK_LG_OWNER'
                                             ? `Bulk Handover (${request.request_details?.affected_lgs?.length ?? request.request_details?.affected_lg_numbers?.length ?? 0} LGs)`
                                             : (request.lg_record?.lg_number || 'N/A')}
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{formatActionType(request.action_type)}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-xs sm:text-sm text-slate-600">{formatActionType(request.action_type)}</td>
+                                    <td className="px-3.5 py-2.5 max-w-[200px] truncate text-xs sm:text-sm text-slate-600" title={request.maker_user?.email || 'N/A'}>
                                         {request.maker_user?.email || 'N/A'}
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{moment(request.created_at).format('DD-MMM-YYYY HH:mm')}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                            request.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                            request.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                                            request.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                                            request.status === 'WITHDRAWN' ? 'bg-gray-100 text-gray-800' :
-                                            'bg-gray-100 text-gray-800'
+                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-xs sm:text-sm text-slate-500 tabular-nums">{moment(request.created_at).format('DD-MMM-YYYY HH:mm')}</td>
+                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-xs">
+                                        <span className={`px-2 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full ${
+                                            request.status === 'PENDING' ? 'bg-amber-50 text-amber-800 border border-amber-200' :
+                                            request.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                            request.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                                            request.status === 'WITHDRAWN' ? 'bg-slate-100 text-slate-700 border border-slate-200' :
+                                            'bg-slate-100 text-slate-700 border border-slate-200'
                                         }`}>
                                             {request.status}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                         <button
                                             onClick={() => handleViewDetails(request)}
-                                            className="text-blue-600 hover:text-blue-900 mr-2 p-1 rounded-md hover:bg-gray-100"
+                                            className="text-blue-600 hover:text-blue-800 mr-1.5 p-1.5 rounded-lg hover:bg-blue-50 transition-colors"
                                             title="View Details"
                                         >
-                                            <Eye className="h-5 w-5" />
+                                            <Eye className="h-4 w-4" />
                                         </button>
                                         {canWithdraw(request) ? (
                                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                 <button
                                                     onClick={() => handleWithdraw(request.id)}
-                                                    className={`text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className={`text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition-colors ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                     title="Withdraw Request"
                                                     disabled={isGracePeriod} // NEW: Disable the button
                                                 >
-                                                    <XCircle className="h-5 w-5" />
+                                                    <XCircle className="h-4 w-4" />
                                                 </button>
                                             </GracePeriodTooltip>
                                         ) : (
-                                            <span className="text-gray-400 text-xs italic">No actions</span>
+                                            <span className="text-slate-400 text-xs italic">No actions</span>
                                         )}
                                     </td>
                                 </tr>

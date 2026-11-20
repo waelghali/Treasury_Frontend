@@ -2578,7 +2578,16 @@ export default function QuotationBankOfferPage() {
         );
     }
 
-    if (!rfq) return <div className="p-8 text-center text-gray-500 animate-pulse mt-20">Loading Secure Quotation Link...</div>;
+    if (!rfq) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-8 py-7 text-center">
+                    <RefreshCw className="w-7 h-7 animate-spin text-blue-600 mx-auto mb-3" />
+                    <p className="text-sm font-semibold text-slate-600">Loading Secure Quotation Link...</p>
+                </div>
+            </div>
+        );
+    }
 
     const legBases = Array.from(new Set((rfq?.legs || []).map(l => (l.quotation_base || rfq.quotation_base || 'Execution').toLowerCase())));
     const isMixed = rfq?.is_mixed || (legBases.length > 1 && legBases.includes('execution') && legBases.includes('indicative'));
@@ -5947,7 +5956,7 @@ export default function QuotationBankOfferPage() {
 
                 {/* PHASE 7.2: COMPACT DEALER FEEDBACK MODAL */}
                 {isFeedbackModalOpen && rfq?.allow_dealer_feedback !== false && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-955/60 backdrop-blur-xs animate-fadeIn">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
                         <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col animate-scaleUp">
                             {/* Modal Header */}
                             <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-slate-50/70">

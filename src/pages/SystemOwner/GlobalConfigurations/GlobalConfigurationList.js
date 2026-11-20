@@ -4,9 +4,27 @@ import { apiRequest } from 'services/apiService.js';
 import { toast } from 'react-toastify';
 import { 
   PlusCircle, Edit, RotateCcw, Search, Filter, Settings, Save, Loader2,
-  ChevronUp, ChevronDown, Lock, Clock, MessageSquare, FileCheck, Layers, Calendar, Shield 
+  ChevronUp, ChevronDown, Lock, Clock, MessageSquare, FileCheck, Layers, Calendar, Shield,
+  AlertTriangle, KeyRound, X
 } from 'lucide-react';
 import RangeBarController from 'components/RangeBarController.js';
+
+const SCOPE_META = {
+  CUSTOMER_CONFIGURABLE: {
+    label: 'Customer Configurable',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  },
+  SYSTEM_CUSTOMER_OVERRIDE: {
+    label: 'SO Only (Per-Customer)',
+    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  },
+  PLATFORM_GLOBAL: {
+    label: 'Platform Global',
+    badgeClass: 'bg-slate-100 text-slate-700 border-slate-300',
+  },
+};
+
+const getScopeMeta = (scope) => SCOPE_META[scope || 'CUSTOMER_CONFIGURABLE'] || SCOPE_META.CUSTOMER_CONFIGURABLE;
 
 // --- Configuration Groupings Mapping ---
 const settingGroups = {
@@ -22,7 +40,7 @@ const settingGroups = {
 const getGroupKey = (configKey) => {
     const key = configKey ? configKey.toUpperCase() : '';
     
-    if (key.includes('PASSWORD') || key.includes('AUTH') || key.includes('LOCKOUT') || key.includes('LOGIN') || key.includes('ENFORCE') || key.includes('ACCOUNT_LOCKOUT') || key.includes('SESSION')) {
+    if (key.includes('PASSWORD') || key.includes('AUTH') || key.includes('LOCKOUT') || key.includes('LOGIN') || key.includes('ENFORCE') || key.includes('ACCOUNT_LOCKOUT') || key.includes('SESSION') || key.includes('OTP')) {
         return 'Security & Authentication';
     }
     if (key.includes('TIMEOUT') || key.includes('IDLE') || key.includes('EXPIRY') || key.includes('DURATION') || key.includes('FREQUENCY') || key.includes('RETENTION') || key.includes('MAX') || key.includes('LIMIT') || key.includes('COUNT')) {
@@ -40,9 +58,6 @@ const getGroupKey = (configKey) => {
     return 'General';
 };
 
-// Common styling classes
-const inputClassNames = "mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200";
-
 function GlobalConfigurationList({ onLogout }) {
   const [configs, setConfigs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,6 +70,29 @@ function GlobalConfigurationList({ onLogout }) {
   const [sortDirection, setSortDirection] = useState('asc');
   const [filterText, setFilterText] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('All Groups');
+  const [selectedScope, setSelectedScope] = useState('ALL');
+
+  // --- Emergency Force Password Change (Global) State ---
+  const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [emergencyReason, setEmergencyReason] = useState('');
+  const [isForcingPasswordReset, setIsForcingPasswordReset] = useState(false);
+
+  const handleGlobalForcePasswordChange = async () => {
+    setIsForcingPasswordReset(true);
+    try {
+      const res = await apiRequest('/system-owner/security/force-password-change', 'POST', {
+        customer_id: null,
+        reason: emergencyReason.trim() || null,
+      });
+      toast.success(res?.message || 'Forced password change applied across all customers.');
+      setShowEmergencyModal(false);
+      setEmergencyReason('');
+    } catch (err) {
+      toast.error(`Failed to enforce password change: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsForcingPasswordReset(false);
+    }
+  };
 
   // Function to fetch global configurations from the backend
   const fetchGlobalConfigurations = async () => {
@@ -164,7 +202,8 @@ function GlobalConfigurationList({ onLogout }) {
   const groupedAndSortedConfigurations = useMemo(() => {
     let filtered = [...configs]
         .filter(config => 
-            (selectedGroup === 'All Groups' || config.group === selectedGroup) && 
+            (selectedGroup === 'All Groups' || config.group === selectedGroup) &&
+            (selectedScope === 'ALL' || (config.config_scope || 'CUSTOMER_CONFIGURABLE') === selectedScope) &&
             (
              (config.key && config.key.toLowerCase().includes(filterText.toLowerCase())) ||
              (config.description && config.description.toLowerCase().includes(filterText.toLowerCase())) ||
@@ -206,54 +245,57 @@ function GlobalConfigurationList({ onLogout }) {
     }
 
     return grouped;
-  }, [configs, filterText, sortKey, sortDirection, selectedGroup]);
+  }, [configs, filterText, sortKey, sortDirection, selectedGroup, selectedScope]);
 
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800">Global Ranges Configurations</h2>
-        <div className="flex items-center gap-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap justify-between items-center gap-3 bg-white px-5 py-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">Global Ranges Configurations</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Manage platform-wide security, limit, compliance, and issuance defaults.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => navigate('/system-owner/global-configurations/holidays')}
-            className="inline-flex items-center px-4 py-2 border border-slate-200 text-sm font-medium rounded-md shadow-sm text-slate-700 bg-white hover:bg-slate-50 focus:outline-none transition-colors duration-200"
+            className="inline-flex items-center px-3.5 py-2 border border-slate-200 text-sm font-semibold rounded-xl shadow-xs text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
           >
-            <Calendar className="h-4 w-4 mr-2 text-indigo-600" /> Banking Calendar & Holidays
+            <Calendar className="h-4 w-4 mr-2 text-indigo-600" /> Banking Calendar &amp; Holidays
           </button>
           <button
             onClick={() => navigate('/system-owner/global-configurations/new')}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-xl shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
           >
-            <PlusCircle className="h-5 w-5 mr-2" /> Add New Configuration
+            <PlusCircle className="h-4 w-4 mr-2" /> Add New Configuration
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-xs font-medium" role="alert">
           <span className="block sm:inline">{error}</span>
         </div>
       )}
 
       {/* --- Filter & Group Controls --- */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:space-x-4 space-y-3 sm:space-y-0 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-        <div className="flex items-center space-x-2 w-full sm:w-auto flex-1">
-            <Search className="h-5 w-5 text-gray-500" />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white p-3 rounded-2xl shadow-sm border border-slate-200/80">
+        <div className="relative w-full flex-1">
+            <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Filter by key, description, or value..."
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
-              className={inputClassNames}
+              className="w-full !pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
             />
         </div>
-        
-        <div className="flex items-center space-x-2 w-full sm:w-auto">
-            <Filter className="h-5 w-5 text-gray-500" />
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Filter className="h-4 w-4 text-slate-400 shrink-0" />
             <select
             value={selectedGroup}
             onChange={(e) => setSelectedGroup(e.target.value)}
-            className={`${inputClassNames} min-w-[200px]`}
+            className="w-full sm:min-w-[200px] px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
             >
             <option value="All Groups">All Groups</option>
             {Object.keys(settingGroups).map(groupName => (
@@ -261,112 +303,148 @@ function GlobalConfigurationList({ onLogout }) {
             ))}
             </select>
         </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Shield className="h-4 w-4 text-slate-400 shrink-0" />
+            <select
+            value={selectedScope}
+            onChange={(e) => setSelectedScope(e.target.value)}
+            className="w-full sm:min-w-[220px] px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+            >
+            <option value="ALL">All Ownership Scopes</option>
+            <option value="CUSTOMER_CONFIGURABLE">Customer Configurable</option>
+            <option value="SYSTEM_CUSTOMER_OVERRIDE">SO Only (Per-Customer)</option>
+            <option value="PLATFORM_GLOBAL">Platform Global Only</option>
+            </select>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8">
-          <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p className="text-gray-600 mt-2">Loading global configurations...</p>
+        <div className="flex flex-col items-center justify-center py-16">
+          <Loader2 className="animate-spin h-8 w-8 text-indigo-600" />
+          <p className="text-sm text-slate-500 mt-3">Loading global configurations...</p>
         </div>
       ) : Object.keys(groupedAndSortedConfigurations).length === 0 ? (
-        <div className="bg-white p-6 rounded-lg shadow-md text-center">
-          <p className="text-gray-500">No global configurations found matching your criteria.</p>
+        <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm text-center">
+          <p className="text-sm text-slate-500">No global configurations found matching your criteria.</p>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-4">
             {Object.keys(groupedAndSortedConfigurations).map(groupName => {
                 const configsInGroup = groupedAndSortedConfigurations[groupName];
                 const GroupIcon = settingGroups[groupName]?.icon || Settings;
 
                 return (
-                    <div key={groupName} className="border border-gray-200 rounded-lg shadow-sm bg-white overflow-hidden">
+                    <div key={groupName} className="border border-slate-200/80 rounded-2xl shadow-sm bg-white overflow-hidden">
                         {/* Group Header */}
-                        <div className="bg-gray-100 px-4 py-3 border-b border-gray-200 flex items-center">
-                            <GroupIcon className="h-5 w-5 mr-2 text-gray-600" />
-                            <h3 className="text-lg font-semibold text-gray-800">{groupName} ({configsInGroup.length})</h3>
+                        <div className="bg-slate-50/80 px-4 py-2.5 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center">
+                                <GroupIcon className="h-4 w-4 mr-2 text-indigo-600" />
+                                <h3 className="text-sm font-bold text-slate-800">{groupName} ({configsInGroup.length})</h3>
+                            </div>
+                            {groupName === 'Security & Authentication' && (
+                              <button
+                                type="button"
+                                onClick={() => setShowEmergencyModal(true)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl shadow-xs text-white bg-rose-600 hover:bg-rose-700 transition-colors"
+                                title="Require all active customer users across the platform to change their password on next login/action"
+                              >
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                                <span>Emergency: Force Password Change (All Customers)</span>
+                              </button>
+                            )}
                         </div>
 
                         {/* Group Table */}
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                            <table className="min-w-full divide-y divide-slate-200">
+                                <thead className="bg-slate-50/60">
                                 <tr>
-                                    <th 
-                                        scope="col" 
-                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap"
+                                    <th
+                                        scope="col"
+                                        className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 whitespace-nowrap"
                                         onClick={() => handleSort('key')}
                                     >
                                         <div className="flex items-center">
                                             Key {getSortIcon('key')}
                                         </div>
                                     </th>
-                                    <th 
-                                        scope="col" 
-                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                    <th scope="col" className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                                        Scope
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100"
                                         onClick={() => handleSort('description')}
                                     >
                                         <div className="flex items-center">
                                             Description {getSortIcon('description')}
                                         </div>
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                    <th scope="col" className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                                         Min
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                    <th scope="col" className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                                         Max
                                     </th>
-                                    <th 
-                                        scope="col" 
-                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 whitespace-nowrap"
+                                    <th
+                                        scope="col"
+                                        className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 whitespace-nowrap"
                                         onClick={() => handleSort('value_default')}
                                     >
                                         <div className="flex items-center">
                                             Default {getSortIcon('value_default')}
                                         </div>
                                     </th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                    <th scope="col" className="px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                                         Unit
                                     </th>
-                                    {/* Status Column Removed */}
-                                    <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                    <th scope="col" className="px-3 py-2.5 text-center text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                                         Actions
                                     </th>
                                 </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-white divide-y divide-slate-100">
                                 {configsInGroup.filter(c => !c.key?.startsWith('FACILITY_SCORE_WEIGHT_') && c.key !== 'ISSUED_LG_VERIFICATION_POLICY').map((config) => {
                                     const isBool = isBooleanConfig(config);
                                     const valStr = String(config.value_default).toLowerCase();
                                     const isOn = valStr === 'true';
 
-                                    let valueTextColor = "text-gray-900";
+                                    let valueTextColor = "text-slate-900";
                                     if (isBool) {
-                                        valueTextColor = isOn ? "text-green-600" : "text-red-600";
+                                        valueTextColor = isOn ? "text-emerald-600" : "text-rose-600";
                                     }
 
                                     return (
-                                    <tr key={config.id} className={`hover:bg-gray-50 transition-colors ${config.is_deleted ? 'bg-gray-50 opacity-60' : ''}`}>
-                                        <td className="px-6 py-4 text-sm font-semibold font-mono text-gray-900 whitespace-nowrap">
+                                    <tr key={config.id} className={`hover:bg-slate-50/70 transition-colors ${config.is_deleted ? 'bg-slate-50 opacity-60' : ''}`}>
+                                        <td className="px-3 py-2.5 text-xs font-semibold font-mono text-slate-900 whitespace-nowrap">
                                             {config.key}
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 max-w-sm">{config.description || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.value_min || '-'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.value_max || '-'}</td>
-                                        <td className="px-6 py-4 text-sm">
+                                        <td className="px-3 py-2.5 whitespace-nowrap text-xs">
+                                            {(() => {
+                                                const meta = getScopeMeta(config.config_scope);
+                                                return (
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-semibold border ${meta.badgeClass}`}>
+                                                        {meta.label}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </td>
+                                        <td className="px-3 py-2.5 text-xs text-slate-600 max-w-xs">{config.description || 'N/A'}</td>
+                                        <td className="px-3 py-2.5 whitespace-nowrap text-xs text-slate-500">{config.value_min || '-'}</td>
+                                        <td className="px-3 py-2.5 whitespace-nowrap text-xs text-slate-500">{config.value_max || '-'}</td>
+                                        <td className="px-3 py-2.5 text-sm">
                                             {isBool ? (
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${isOn ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${isOn ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
                                                     {isOn ? 'True' : 'False'}
                                                 </span>
                                             ) : (config.unit === 'json' || (typeof config.value_default === 'string' && config.value_default.startsWith('{'))) ? (
-                                                <div className="max-w-[240px] truncate font-mono text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200" title={config.value_default}>
+                                                <div className="max-w-[200px] truncate font-mono text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg border border-slate-200" title={config.value_default}>
                                                     {config.value_default}
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                                                    <span className={`whitespace-nowrap font-semibold ${valueTextColor}`}>
+                                                    <span className={`whitespace-nowrap text-xs font-semibold ${valueTextColor}`}>
                                                         {config.value_default || 'N/A'}
                                                     </span>
                                                     {config.value_min !== null && config.value_max !== null && !isNaN(parseFloat(config.value_min)) && !isNaN(parseFloat(config.value_max)) && (
@@ -383,37 +461,46 @@ function GlobalConfigurationList({ onLogout }) {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{config.unit || 'N/A'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                        <td className="px-3 py-2.5 whitespace-nowrap text-xs text-slate-500">{config.unit || 'N/A'}</td>
+                                        <td className="px-3 py-2.5 whitespace-nowrap text-center text-sm font-medium">
                                             {config.is_deleted ? (
                                                 <button
                                                     onClick={() => handleRestore(config.id, config.key)}
-                                                    className="text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-gray-200"
+                                                    className="text-emerald-600 hover:text-emerald-900 p-1.5 rounded-lg hover:bg-emerald-50 transition-colors"
                                                     title="Restore Configuration"
                                                 >
-                                                    <RotateCcw className="h-5 w-5" />
+                                                    <RotateCcw className="h-4 w-4" />
                                                 </button>
                                             ) : (
                                                 <>
                                                     {isBool ? (
-                                                        <button 
-                                                            onClick={() => handleToggleUpdate(config)}
-                                                            disabled={updatingId === config.id}
-                                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isOn ? 'bg-blue-600' : 'bg-gray-300'} ${updatingId === config.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                            title="Toggle On/Off"
-                                                        >
-                                                            <span className="sr-only">Toggle setting</span>
-                                                            <span
-                                                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${isOn ? 'translate-x-6' : 'translate-x-1'}`}
-                                                            />
-                                                        </button>
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <button
+                                                                onClick={() => handleToggleUpdate(config)}
+                                                                disabled={updatingId === config.id}
+                                                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${isOn ? 'bg-indigo-600' : 'bg-slate-300'} ${updatingId === config.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                title="Toggle On/Off"
+                                                            >
+                                                                <span className="sr-only">Toggle setting</span>
+                                                                <span
+                                                                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition duration-200 ease-in-out ${isOn ? 'translate-x-4.5' : 'translate-x-1'}`}
+                                                                />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleEdit(config.id)}
+                                                                className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+                                                                title="Edit Scope / Description"
+                                                            >
+                                                                <Edit className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
                                                     ) : (
                                                         <button
                                                             onClick={() => handleEdit(config.id)}
-                                                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-gray-200"
+                                                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
                                                             title="Edit Configuration"
                                                         >
-                                                            <Edit className="h-5 w-5" />
+                                                            <Edit className="h-4 w-4" />
                                                         </button>
                                                     )}
                                                 </>
@@ -559,33 +646,33 @@ function GlobalConfigurationList({ onLogout }) {
                             };
 
                             const totalColor = isBalanced
-                              ? 'bg-green-100 text-green-700 border-green-300'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : defaultTotal > 90 && defaultTotal < 110
-                              ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
-                              : 'bg-red-100 text-red-700 border-red-300';
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200';
 
                             return (
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="text-sm font-semibold text-gray-700">{title}</span>
+                                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">{title}</span>
                                   {!editing ? (
-                                    <button onClick={handleStartEdit} className="text-xs px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium">
+                                    <button onClick={handleStartEdit} className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-semibold shadow-xs transition-colors">
                                       <Edit className="h-3 w-3 inline mr-1" />Edit Ranges
                                     </button>
                                   ) : (
-                                    <div className="flex gap-2 items-center">
-                                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${totalColor}`}>
+                                    <div className="flex gap-1.5 items-center flex-wrap">
+                                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${totalColor}`}>
                                         Defaults: {defaultTotal}%
                                       </span>
                                       {!isBalanced && (
-                                        <button onClick={handleBalance} className="text-xs px-2 py-1 bg-amber-500 text-white rounded-md hover:bg-amber-600 font-medium">
+                                        <button onClick={handleBalance} className="text-xs px-2.5 py-1 bg-amber-500 text-white rounded-xl hover:bg-amber-600 font-semibold transition-colors">
                                           Balance to 100%
                                         </button>
                                       )}
-                                      <button onClick={handleSave} disabled={saving || !isBalanced} className="text-xs px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 font-medium">
+                                      <button onClick={handleSave} disabled={saving || !isBalanced} className="text-xs px-3 py-1 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50 font-semibold transition-colors">
                                         {saving ? <Loader2 className="h-3 w-3 inline animate-spin mr-1" /> : <Save className="h-3 w-3 inline mr-1" />}Save
                                       </button>
-                                      <button onClick={handleCancel} disabled={saving} className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 font-medium">
+                                      <button onClick={handleCancel} disabled={saving} className="text-xs px-2.5 py-1 bg-white border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 font-semibold transition-colors">
                                         Cancel
                                       </button>
                                     </div>
@@ -593,7 +680,7 @@ function GlobalConfigurationList({ onLogout }) {
                                 </div>
 
                                 {/* Color bar */}
-                                <div className="flex h-6 rounded-lg overflow-hidden bg-gray-100 shadow-inner mb-2">
+                                <div className="flex h-6 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/80 mb-2">
                                   {rows.map((seg, i) => {
                                     const pct = defaultTotal > 0 ? (seg.def / defaultTotal) * 100 : 20;
                                     return (
@@ -609,34 +696,34 @@ function GlobalConfigurationList({ onLogout }) {
                                     {/* Header row */}
                                     <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-2 mb-1">
                                       <div className="w-20" />
-                                      <span className="text-[10px] font-semibold text-gray-500 text-center uppercase">Min</span>
-                                      <span className="text-[10px] font-semibold text-gray-500 text-center uppercase">Default</span>
-                                      <span className="text-[10px] font-semibold text-gray-500 text-center uppercase">Max</span>
+                                      <span className="text-[10px] font-semibold text-slate-500 text-center uppercase">Min</span>
+                                      <span className="text-[10px] font-semibold text-slate-500 text-center uppercase">Default</span>
+                                      <span className="text-[10px] font-semibold text-slate-500 text-center uppercase">Max</span>
                                     </div>
                                     {rows.map((w, i) => (
                                       <div key={i} className="grid grid-cols-[auto_1fr_1fr_1fr] gap-2 items-center mb-1">
                                         <div className="flex items-center gap-1 w-20">
                                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: w.color }} />
-                                          <span className="text-[11px] font-semibold text-gray-700">{w.label}</span>
+                                          <span className="text-[11px] font-semibold text-slate-700">{w.label}</span>
                                         </div>
                                         <input type="number" min="0" max="100" step="5" value={w.min}
                                           onChange={e => handleFieldChange(i, 'min', parseInt(e.target.value, 10))}
-                                          className="w-full text-xs text-center border border-gray-300 rounded px-1 py-1 focus:ring-1 focus:ring-blue-500" />
+                                          className="w-full text-xs text-center border border-slate-300 rounded-lg px-1 py-1 focus:ring-1 focus:ring-indigo-500" />
                                         <input type="number" min="0" max="100" step="5" value={w.def}
                                           onChange={e => handleFieldChange(i, 'def', parseInt(e.target.value, 10))}
-                                          className="w-full text-xs text-center border border-blue-300 rounded px-1 py-1 font-bold bg-blue-50 focus:ring-1 focus:ring-blue-500" />
+                                          className="w-full text-xs text-center border border-indigo-300 rounded-lg px-1 py-1 font-bold bg-indigo-50 focus:ring-1 focus:ring-indigo-500" />
                                         <input type="number" min="0" max="100" step="5" value={w.max}
                                           onChange={e => handleFieldChange(i, 'max', parseInt(e.target.value, 10))}
-                                          className="w-full text-xs text-center border border-gray-300 rounded px-1 py-1 focus:ring-1 focus:ring-blue-500" />
+                                          className="w-full text-xs text-center border border-slate-300 rounded-lg px-1 py-1 focus:ring-1 focus:ring-indigo-500" />
                                       </div>
                                     ))}
                                   </div>
                                 ) : (
-                                  <div className="flex gap-3">
+                                  <div className="flex flex-wrap gap-3">
                                     {rows.map((seg, i) => (
                                       <div key={i} className="flex items-center gap-1">
                                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: seg.color }} />
-                                        <span className="text-[10px] text-gray-500">{seg.label}: {seg.min}-{seg.def}-{seg.max}</span>
+                                        <span className="text-[10px] text-slate-500">{seg.label}: {seg.min}-{seg.def}-{seg.max}</span>
                                       </div>
                                     ))}
                                   </div>
@@ -646,8 +733,8 @@ function GlobalConfigurationList({ onLogout }) {
                           };
 
                           return (
-                            <div className="px-4 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
-                              <div className="flex gap-8">
+                            <div className="px-4 py-4 bg-slate-50/70 border-t border-slate-200">
+                              <div className="flex flex-col lg:flex-row gap-6">
                                 <SysWeightPanel title="⚖️ Normal Requests" keyProp="key" />
                                 <SysWeightPanel title="🚨 Urgent Requests" keyProp="urgentKey" />
                               </div>
@@ -1179,6 +1266,66 @@ function GlobalConfigurationList({ onLogout }) {
                     </div>
                 );
             })}
+        </div>
+      )}
+
+      {showEmergencyModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 bg-rose-50/90 border-b border-rose-200">
+              <div className="flex items-center gap-2 text-rose-800">
+                <AlertTriangle className="h-5 w-5 text-rose-600" />
+                <h3 className="text-base font-bold">Emergency: Force Password Change</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isForcingPasswordReset && setShowEmergencyModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-rose-100/70 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-slate-700 leading-relaxed">
+                Normal policy updates apply only when users create or reset passwords. Triggering this emergency action will flag <strong>all active customer users across the entire platform</strong> to change their password immediately on their next action or login.
+              </p>
+              <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                System Owner accounts are excluded so you will not be locked out.
+              </p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Reason / Audit Note (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={emergencyReason}
+                  onChange={(e) => setEmergencyReason(e.target.value)}
+                  placeholder="e.g., Enforcing upgraded 12-character policy or security incident rotation"
+                  className="w-full text-sm px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                  disabled={isForcingPasswordReset}
+                />
+              </div>
+            </div>
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowEmergencyModal(false)}
+                disabled={isForcingPasswordReset}
+                className="px-4 py-2 text-sm font-semibold rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGlobalForcePasswordChange}
+                disabled={isForcingPasswordReset}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 shadow-sm transition-colors"
+              >
+                {isForcingPasswordReset ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                <span>Force Change for All Customers</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

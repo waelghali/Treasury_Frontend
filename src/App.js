@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { Loader2 } from 'lucide-react';
 
 import LoginPage from './pages/Auth/LoginPage';
 import ForcePasswordChangePage from './pages/Auth/ForcePasswordChangePage';
@@ -469,7 +470,14 @@ function AppContent({ showSessionModal, onShowSessionWarning, onHideSessionModal
   };
 
   const renderAppRoutes = () => {
-    if (isLoading) return <div className="flex justify-center items-center min-h-screen bg-gray-100"><p>Loading application...</p></div>;
+    if (isLoading) {
+      return (
+        <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-sm font-medium text-slate-500">Loading application...</p>
+        </div>
+      );
+    }
     return (
       <>
         {showLegalModal && <LegalArtifactModal onAcceptSuccess={handleAcceptSuccess} onLogout={handleLogout} />}

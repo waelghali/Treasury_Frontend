@@ -23,22 +23,22 @@ import FormattedDateInput from 'components/FormattedDateInput';
 // --- UI HELPERS & ATOMS ---
 
 const Button = ({ children, className, variant = 'default', size = 'default', ...props }) => {
-  const baseClass = "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 disabled:pointer-events-none disabled:opacity-50";
-  const sizeClass = size === 'sm' ? "h-8 px-2.5 text-xs" : size === 'lg' ? "h-10 px-8" : "h-9 px-4 py-2";
+  const baseClass = "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:pointer-events-none disabled:opacity-50";
+  const sizeClass = size === 'sm' ? "h-8 px-2.5 text-xs" : size === 'lg' ? "h-10 px-6" : "h-9 px-4 py-2";
 
   const variantClass = clsx({
-    "bg-blue-600 text-white shadow hover:bg-blue-700": variant === 'default',
-    "bg-red-600 text-white shadow-sm hover:bg-red-700": variant === 'destructive',
-    "border border-gray-300 bg-white text-slate-700 shadow-sm hover:bg-gray-50": variant === 'outline',
-    "bg-gray-200 text-gray-900 shadow-sm hover:bg-gray-300": variant === 'secondary',
-    "p-1 rounded-md text-gray-600 hover:bg-gray-100": variant === 'icon-default',
-    "p-1 rounded-md text-blue-600 hover:bg-blue-100": variant === 'icon-blue',
-    "p-1 rounded-md text-purple-600 hover:bg-purple-100": variant === 'icon-purple',
-    "p-1 rounded-md text-red-600 hover:bg-red-100": variant === 'icon-red',
-    "p-1 rounded-md text-green-600 hover:bg-green-100": variant === 'icon-green',
-    "p-1 rounded-md text-yellow-600 hover:bg-yellow-100": variant === 'icon-yellow',
-    "hover:bg-gray-100": variant === 'ghost',
-    "text-blue-600 underline-offset-4 hover:underline": variant === 'link',
+    "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700": variant === 'default',
+    "bg-rose-600 text-white shadow-sm hover:bg-rose-700": variant === 'destructive',
+    "border border-slate-200 bg-white text-slate-700 shadow-xs hover:bg-slate-50": variant === 'outline',
+    "bg-slate-100 text-slate-800 shadow-xs hover:bg-slate-200": variant === 'secondary',
+    "p-1.5 rounded-lg text-slate-600 hover:bg-slate-100": variant === 'icon-default',
+    "p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50": variant === 'icon-blue',
+    "p-1.5 rounded-lg text-purple-600 hover:bg-purple-50": variant === 'icon-purple',
+    "p-1.5 rounded-lg text-rose-600 hover:bg-rose-50": variant === 'icon-red',
+    "p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50": variant === 'icon-green',
+    "p-1.5 rounded-lg text-amber-600 hover:bg-amber-50": variant === 'icon-yellow',
+    "hover:bg-slate-100": variant === 'ghost',
+    "text-indigo-600 underline-offset-4 hover:underline": variant === 'link',
   });
 
   return (
@@ -49,61 +49,61 @@ const Button = ({ children, className, variant = 'default', size = 'default', ..
 };
 
 const Table = ({ children, className, ...props }) => (
-  <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
-    <table className={clsx("min-w-full divide-y divide-gray-200", className)} {...props}>
+  <div className="overflow-x-auto bg-white rounded-2xl shadow-sm border border-slate-200/80">
+    <table className={clsx("min-w-full divide-y divide-slate-200", className)} {...props}>
       {children}
     </table>
   </div>
 );
 
 const TableHeader = ({ children, className, ...props }) => (
-  <thead className={clsx("bg-slate-50 border-b border-gray-200", className)} {...props}>
+  <thead className={clsx("bg-slate-50/80 border-b border-slate-200", className)} {...props}>
     {children}
   </thead>
 );
 
 const TableBody = ({ children, className, ...props }) => (
-  <tbody className={clsx("bg-white divide-y divide-gray-200", className)} {...props}>
+  <tbody className={clsx("bg-white divide-y divide-slate-100", className)} {...props}>
     {children}
   </tbody>
 );
 
 const TableRow = ({ children, className, isDeleted, ...props }) => (
-  <tr 
+  <tr
     className={clsx(
-      "cursor-pointer hover:bg-blue-50/40 transition-colors",
-      isDeleted && "opacity-60 bg-gray-50",
+      "cursor-pointer hover:bg-indigo-50/30 transition-colors",
+      isDeleted && "opacity-60 bg-slate-50",
       className
-    )} 
+    )}
     {...props}>
     {children}
   </tr>
 );
 
 const TableHead = ({ children, className, ...props }) => (
-  <th scope="col" className={clsx("px-5 py-3.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider", className)} {...props}>
+  <th scope="col" className={clsx("px-3 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider", className)} {...props}>
     {children}
   </th>
 );
 
 const TableCell = ({ children, className, ...props }) => (
-  <td className={clsx("px-5 py-4 text-sm text-slate-600", className)} {...props}>
+  <td className={clsx("px-3 py-2.5 text-sm text-slate-600", className)} {...props}>
     {children}
   </td>
 );
 
 const Badge = ({ children, className, variant = 'default', ...props }) => {
   const variantClass = clsx({
-    "bg-blue-100 text-blue-800 border-blue-200": variant === 'default',
-    "bg-red-100 text-red-800 border-red-200": variant === 'destructive',
-    "bg-gray-100 text-gray-700 border-gray-200": variant === 'secondary',
-    "border border-gray-300 text-gray-700": variant === 'outline',
-    "bg-emerald-100 text-emerald-800 border-emerald-200": variant === 'success',
-    "bg-amber-100 text-amber-800 border-amber-200": variant === 'warning',
-    "bg-purple-100 text-purple-800 border-purple-200": variant === 'purple',
+    "bg-blue-50 text-blue-700 border-blue-200": variant === 'default',
+    "bg-rose-50 text-rose-700 border-rose-200": variant === 'destructive',
+    "bg-slate-100 text-slate-700 border-slate-200": variant === 'secondary',
+    "border border-slate-300 text-slate-700": variant === 'outline',
+    "bg-emerald-50 text-emerald-700 border-emerald-200": variant === 'success',
+    "bg-amber-50 text-amber-800 border-amber-200": variant === 'warning',
+    "bg-purple-50 text-purple-700 border-purple-200": variant === 'purple',
   });
   return (
-    <span className={clsx("px-2.5 py-0.5 inline-flex items-center text-xs font-medium rounded-full border", variantClass, className)} {...props}>
+    <span className={clsx("px-2.5 py-0.5 inline-flex items-center text-xs font-semibold rounded-full border", variantClass, className)} {...props}>
       {children}
     </span>
   );
@@ -111,11 +111,11 @@ const Badge = ({ children, className, variant = 'default', ...props }) => {
 
 const AlertDialog = ({ title, description, onConfirm, onCancel, confirmText = 'Continue' }) => {
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 flex items-center justify-center backdrop-blur-sm">
-      <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm mx-4 animate-in fade-in zoom-in-95">
-        <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-        <p className="mt-2 text-sm text-gray-600">{description}</p>
-        <div className="mt-6 flex justify-end space-x-3">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xl w-full max-w-sm animate-in fade-in zoom-in-95">
+        <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+        <p className="mt-2 text-sm text-slate-600">{description}</p>
+        <div className="mt-6 flex justify-end space-x-2.5">
           <Button variant="outline" onClick={onCancel}>Cancel</Button>
           <Button variant="destructive" onClick={onConfirm}>{confirmText}</Button>
         </div>
@@ -358,33 +358,33 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
   const isAutomated = !manualTypes.includes(notification.notification_type?.toLowerCase());
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-auto overflow-hidden border border-gray-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-auto overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-slate-50/60">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
           <div className="flex items-center gap-2.5">
             {isAutomated ? (
               <span className="p-2 rounded-xl bg-purple-100 text-purple-700">
                 <Bot className="w-5 h-5" />
               </span>
             ) : (
-              <span className="p-2 rounded-xl bg-blue-100 text-blue-700">
+              <span className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
                 <Megaphone className="w-5 h-5" />
               </span>
             )}
             <div>
-              <h3 className="text-lg font-bold text-slate-800">Notification Overview</h3>
+              <h3 className="text-lg font-bold text-slate-900">Notification Overview</h3>
               <p className="text-xs text-slate-500">ID #{notification.id} · Type: {notification.notification_type || 'system_info'}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-gray-100 transition">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div className="p-5 space-y-5 overflow-y-auto flex-1">
           
           {/* Content Box */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2">
@@ -393,7 +393,7 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
               {notification.content}
             </p>
             {notification.link && (
-              <div className="pt-2 border-t border-slate-200/60 flex items-center gap-1.5 text-xs text-blue-600 font-medium">
+              <div className="pt-2 border-t border-slate-200/60 flex items-center gap-1.5 text-xs text-indigo-600 font-medium">
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>Action Link: {notification.link}</span>
               </div>
@@ -401,11 +401,11 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
           </div>
 
           {/* Metadata Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
-            <div className="bg-white p-3 rounded-lg border border-gray-200">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
               <span className="text-slate-400 uppercase font-semibold">Origin</span>
               <p className="text-slate-800 font-bold mt-1 flex items-center gap-1">
-                {isAutomated ? <Bot className="w-3.5 h-3.5 text-purple-600" /> : <Megaphone className="w-3.5 h-3.5 text-blue-600" />}
+                {isAutomated ? <Bot className="w-3.5 h-3.5 text-purple-600" /> : <Megaphone className="w-3.5 h-3.5 text-indigo-600" />}
                 {notification.created_by_user_name || 'System'}
               </p>
               {notification.created_by_user_email && (
@@ -413,21 +413,21 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
               )}
             </div>
 
-            <div className="bg-white p-3 rounded-lg border border-gray-200">
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
               <span className="text-slate-400 uppercase font-semibold">Created At</span>
               <p className="text-slate-800 font-bold mt-1">
                 {format(new Date(notification.created_at), 'dd-MMM-yyyy HH:mm')}
               </p>
             </div>
 
-            <div className="bg-white p-3 rounded-lg border border-gray-200">
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
               <span className="text-slate-400 uppercase font-semibold">Status</span>
               <p className="text-slate-800 font-bold mt-1">
                 {notification.is_deleted ? 'Soft-Deleted' : notification.is_active ? 'Active' : 'Inactive'}
               </p>
             </div>
 
-            <div className="bg-white p-3 rounded-lg border border-gray-200">
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
               <span className="text-slate-400 uppercase font-semibold">Active Window</span>
               <p className="text-slate-800 font-medium mt-1">
                 {format(new Date(notification.start_date), 'dd-MMM-yyyy')}
@@ -435,14 +435,14 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
               <p className="text-[11px] text-slate-400">until {format(new Date(notification.end_date), 'dd-MMM-yyyy')}</p>
             </div>
 
-            <div className="bg-white p-3 rounded-lg border border-gray-200">
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
               <span className="text-slate-400 uppercase font-semibold">Display Frequency</span>
               <p className="text-slate-800 font-bold mt-1 uppercase">
                 {notification.display_frequency || 'once'}
               </p>
             </div>
 
-            <div className="bg-white p-3 rounded-lg border border-gray-200">
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
               <span className="text-slate-400 uppercase font-semibold">Popup Modal</span>
               <p className="text-slate-800 font-bold mt-1">
                 {notification.is_popup ? 'Yes (Blocking)' : 'No (Banner)'}
@@ -453,11 +453,11 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
           {/* Delivery & Targeting Breakdown */}
           <div className="space-y-3">
             <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-600" /> Delivery Target Breakdown
+              <Users className="w-4 h-4 text-indigo-600" /> Delivery Target Breakdown
             </h4>
 
             {/* Targeted Customers */}
-            <div className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-200 space-y-1.5">
+            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 space-y-1.5">
               <span className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-slate-500" />
                 Target Customer Tenants:
@@ -465,7 +465,7 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
               {notification.target_customer_names && notification.target_customer_names.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {notification.target_customer_names.map((name, i) => (
-                    <span key={i} className="px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium">
+                    <span key={i} className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-medium">
                       🏢 {name}
                     </span>
                   ))}
@@ -476,7 +476,7 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
             </div>
 
             {/* Targeted Users */}
-            <div className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-200 space-y-1.5">
+            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 space-y-1.5">
               <span className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5 text-slate-500" />
                 Target Specific Users:
@@ -484,7 +484,7 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
               {notification.target_user_emails && notification.target_user_emails.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {notification.target_user_emails.map((email, i) => (
-                    <span key={i} className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium">
+                    <span key={i} className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium">
                       👤 {email}
                     </span>
                   ))}
@@ -496,11 +496,11 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
 
             {/* Target Roles */}
             {notification.target_roles && notification.target_roles.length > 0 && (
-              <div className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-200 space-y-1.5">
+              <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 space-y-1.5">
                 <span className="text-xs font-semibold text-slate-600">Target Roles:</span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
                   {notification.target_roles.map((role, i) => (
-                    <span key={i} className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 text-xs font-medium">
+                    <span key={i} className="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium">
                       {role}
                     </span>
                   ))}
@@ -511,9 +511,9 @@ const NotificationDetailsModal = ({ isOpen, onClose, notification, onOpenAnalyti
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-gray-200 flex items-center justify-between">
-          <Button 
-            variant="outline" 
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+          <Button
+            variant="outline"
             onClick={() => { onClose(); onOpenAnalytics(notification); }}
             className="flex items-center gap-1.5 text-purple-700 border-purple-200 hover:bg-purple-50"
           >
@@ -532,96 +532,96 @@ const AnalyticsDialog = ({ isOpen, onClose, data, isLoading, notificationTitle }
   const maxViews = data?.logs?.reduce((max, log) => Math.max(max, log.view_count), 0) || 1;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 transition-opacity backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-auto flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 border border-gray-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 flex items-center justify-center p-4 transition-opacity backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-auto flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 border border-slate-200 overflow-hidden">
         
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-100">
+        <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/70 shrink-0">
           <div>
-            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-              <BarChart2 className="h-6 w-6 text-blue-600" />
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <BarChart2 className="h-5 w-5 text-indigo-600" />
               Analytics Report
             </h3>
-            <p className="text-sm text-gray-500 mt-1 max-w-md truncate">
+            <p className="text-xs text-slate-500 mt-0.5 max-w-md truncate">
               {notificationTitle || "System Notification"}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
-            <X className="h-6 w-6" />
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
+        <div className="flex-1 overflow-y-auto p-5 bg-slate-50/40">
           {isLoading ? (
-             <div className="flex flex-col justify-center items-center h-64 space-y-4">
-               <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
-               <p className="text-sm text-gray-500">Gathering insights...</p>
+             <div className="flex flex-col justify-center items-center h-64 space-y-3">
+               <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+               <p className="text-sm text-slate-500">Gathering insights...</p>
              </div>
           ) : !data ? (
             <div className="text-center py-12">
-              <BarChart2 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No analytics data available.</p>
+              <BarChart2 className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500 text-sm">No analytics data available.</p>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-5">
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Views</p>
-                    <p className="text-4xl font-extrabold text-blue-600 mt-2">{data.total_views}</p>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Views</p>
+                    <p className="text-3xl font-extrabold text-indigo-600 mt-1.5">{data.total_views}</p>
                   </div>
-                  <div className="p-3 bg-blue-50 rounded-full">
-                    <Eye className="h-6 w-6 text-blue-600" />
+                  <div className="p-3 bg-indigo-50 rounded-xl">
+                    <Eye className="h-6 w-6 text-indigo-600" />
                   </div>
                 </div>
                 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">Unique Viewers</p>
-                    <p className="text-4xl font-extrabold text-purple-600 mt-2">{data.unique_viewers}</p>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Unique Viewers</p>
+                    <p className="text-3xl font-extrabold text-purple-600 mt-1.5">{data.unique_viewers}</p>
                   </div>
-                  <div className="p-3 bg-purple-50 rounded-full">
+                  <div className="p-3 bg-purple-50 rounded-xl">
                     <BarChart2 className="h-6 w-6 text-purple-600" />
                   </div>
                 </div>
               </div>
 
               {/* View Logs Table */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100">
-                  <h4 className="text-base font-semibold text-gray-800">Viewer Engagement</h4>
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/70">
+                  <h4 className="text-sm font-bold text-slate-800">Viewer Engagement</h4>
                 </div>
                 
                 {data.logs && data.logs.length > 0 ? (
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-100">
-                      <thead className="bg-gray-50/50">
+                    <table className="min-w-full divide-y divide-slate-100">
+                      <thead className="bg-slate-50/60">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">User</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase w-1/3">Engagement (Views)</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Last Interaction</th>
+                          <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase">User</th>
+                          <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase w-1/3">Engagement (Views)</th>
+                          <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-slate-500 uppercase">Last Interaction</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-100">
+                      <tbody className="bg-white divide-y divide-slate-100">
                         {data.logs.map((log) => (
-                          <tr key={log.id} className="hover:bg-blue-50/30 transition-colors">
-                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                          <tr key={log.id} className="hover:bg-indigo-50/30 transition-colors">
+                            <td className="px-4 py-2.5 text-sm font-medium text-slate-900">
                               {log.user_email || `User ID: ${log.user_id}`}
                             </td>
-                            <td className="px-6 py-4">
+                            <td className="px-4 py-2.5">
                               <div className="flex items-center gap-3">
-                                <span className="text-sm font-bold text-gray-700 w-6">{log.view_count}</span>
-                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden max-w-[150px]">
+                                <span className="text-sm font-bold text-slate-700 w-6">{log.view_count}</span>
+                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden max-w-[150px]">
                                   <div 
-                                    className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
+                                    className="h-full bg-indigo-500 rounded-full transition-all duration-500 ease-out"
                                     style={{ width: `${(log.view_count / maxViews) * 100}%` }}
                                   />
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-500">
+                            <td className="px-4 py-2.5 text-sm text-slate-500">
                               {format(new Date(log.last_viewed_at), 'dd-MMM-yyyy, HH:mm')}
                             </td>
                           </tr>
@@ -630,7 +630,7 @@ const AnalyticsDialog = ({ isOpen, onClose, data, isLoading, notificationTitle }
                     </table>
                   </div>
                 ) : (
-                  <div className="p-8 text-center text-gray-500 italic">No views recorded yet.</div>
+                  <div className="p-8 text-center text-slate-500 italic text-sm">No views recorded yet.</div>
                 )}
               </div>
             </div>
@@ -638,7 +638,7 @@ const AnalyticsDialog = ({ isOpen, onClose, data, isLoading, notificationTitle }
         </div>
         
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end rounded-b-xl">
+        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end shrink-0">
           <Button variant="outline" onClick={onClose}>Close Report</Button>
         </div>
       </div>

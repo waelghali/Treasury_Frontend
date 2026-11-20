@@ -17,9 +17,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
         return (
             <div className="relative group inline-block">
                 {children}
-                <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+                <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-lg py-1.5 px-2.5 shadow-lg absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
                     This action is disabled during your subscription's grace period.
-                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                    <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                         <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
                     </svg>
                 </div>
@@ -29,7 +29,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-const buttonBaseClassNames = "inline-flex items-center px-3 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+const buttonBaseClassNames = "inline-flex items-center px-3.5 py-2 text-sm font-medium rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
 function PendingApprovalsPage({ isGracePeriod }) { 
     const [approvalRequests, setApprovalRequests] = useState([]);
@@ -705,27 +705,27 @@ function PendingApprovalsPage({ isGracePeriod }) {
     };
 
     return (
-        <div className="card">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
                 <div>
-                    <h2 className="text-2xl font-semibold text-gray-800">Approval Center</h2>
-                    <p className="text-sm text-gray-500 mt-1">All items requiring your approval</p>
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Approval Center</h2>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">All items requiring your approval</p>
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
                     {(searchTerm || selectedStatuses.length > 0 || dateFrom || dateTo) && (
                          <button
                          onClick={handleClearFilters}
-                         className={`${buttonBaseClassNames} bg-gray-600 text-white hover:bg-gray-700`}
+                         className={`${buttonBaseClassNames} bg-white border border-slate-300 text-slate-700 hover:bg-slate-50`}
                      >
-                         <XCircle className="h-4 w-4 mr-2" />
+                         <XCircle className="h-4 w-4 mr-1.5 text-slate-500" />
                          Clear Filters
                      </button>
                     )}
 
                     <Menu as="div" className="relative inline-block text-left">
-                        <Menu.Button className={`${buttonBaseClassNames} bg-teal-600 text-white hover:bg-teal-700`}>
-                            <Download className="h-4 w-4 mr-2" />
+                        <Menu.Button className={`${buttonBaseClassNames} bg-white border border-slate-300 text-slate-700 hover:bg-slate-50`}>
+                            <Download className="h-4 w-4 mr-1.5 text-teal-600" />
                             Export
                         </Menu.Button>
                         <Transition
@@ -738,18 +738,18 @@ function PendingApprovalsPage({ isGracePeriod }) {
                             leaveTo="transform opacity-0 scale-95"
                         >
                             {/* FIX: Added z-50 to ensure dropdown appears above sticky table headers */}
-                            <Menu.Items className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <Menu.Items className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-xl bg-white shadow-lg border border-slate-200 focus:outline-none">
                                 <div className="py-1">
                                     <Menu.Item>
                                         {({ active }) => (
-                                            <button onClick={() => handleExportToExcel(filteredAndSortedRequests)} className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} block w-full text-left px-4 py-2 text-sm`}>
+                                            <button onClick={() => handleExportToExcel(filteredAndSortedRequests)} className={`${active ? 'bg-slate-50 text-slate-900' : 'text-slate-700'} block w-full text-left px-4 py-2 text-sm`}>
                                                 Export Filtered ({filteredAndSortedRequests.length})
                                             </button>
                                         )}
                                     </Menu.Item>
                                     <Menu.Item>
                                         {({ active }) => (
-                                            <button onClick={() => handleExportToExcel(approvalRequests)} className={`${active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'} block w-full text-left px-4 py-2 text-sm`}>
+                                            <button onClick={() => handleExportToExcel(approvalRequests)} className={`${active ? 'bg-slate-50 text-slate-900' : 'text-slate-700'} block w-full text-left px-4 py-2 text-sm`}>
                                                 Export All ({approvalRequests.length})
                                             </button>
                                         )}
@@ -762,18 +762,18 @@ function PendingApprovalsPage({ isGracePeriod }) {
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-gray-200 mb-4">
+            <div className="flex flex-wrap border-b border-slate-200 mb-4">
                 <button
                     onClick={() => setActiveTab('lg-actions')}
-                    className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
+                    className={`relative px-4 py-2.5 text-sm font-semibold transition-colors ${
                         activeTab === 'lg-actions'
                             ? 'text-blue-600 border-b-2 border-blue-600'
-                            : 'text-gray-500 hover:text-gray-700'
+                            : 'text-slate-500 hover:text-slate-700'
                     }`}
                 >
                     LG Actions
                     {(pendingCustodyCount + (hasIssuanceModule ? pendingMaintenanceCount + pendingCancelCount : 0)) > 0 && (
-                        <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-blue-100 text-blue-700 rounded-full">
+                        <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
                             {pendingCustodyCount + (hasIssuanceModule ? pendingMaintenanceCount + pendingCancelCount : 0)}
                         </span>
                     )}
@@ -782,30 +782,30 @@ function PendingApprovalsPage({ isGracePeriod }) {
                     <>
                         <button
                             onClick={() => setActiveTab('issuance')}
-                            className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
+                            className={`relative px-4 py-2.5 text-sm font-semibold transition-colors ${
                                 activeTab === 'issuance'
                                     ? 'text-indigo-600 border-b-2 border-indigo-600'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                    : 'text-slate-500 hover:text-slate-700'
                             }`}
                         >
                             Issuance Requests
                             {pendingIssuanceCount > 0 && (
-                                <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-indigo-100 text-indigo-700 rounded-full">
+                                <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full">
                                     {pendingIssuanceCount}
                                 </span>
                             )}
                         </button>
                         <button
                             onClick={() => setActiveTab('discrepancies')}
-                            className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
+                            className={`relative px-4 py-2.5 text-sm font-semibold transition-colors ${
                                 activeTab === 'discrepancies'
                                     ? 'text-amber-600 border-b-2 border-amber-600'
-                                    : 'text-gray-500 hover:text-gray-700'
+                                    : 'text-slate-500 hover:text-slate-700'
                             }`}
                         >
                             LG Discrepancy Reviews
                             {pendingDiscrepancyCount > 0 && (
-                                <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-amber-100 text-amber-700 rounded-full animate-pulse">
+                                <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
                                     {pendingDiscrepancyCount}
                                 </span>
                             )}
@@ -815,16 +815,16 @@ function PendingApprovalsPage({ isGracePeriod }) {
                 {hasIssuanceModule && userRole !== 'checker' && (
                     <button
                         onClick={() => setActiveTab('admin-changes')}
-                        className={`relative px-5 py-3 text-sm font-semibold transition-colors ${
+                        className={`relative px-4 py-2.5 text-sm font-semibold transition-colors ${
                             activeTab === 'admin-changes'
                                 ? 'text-purple-600 border-b-2 border-purple-600'
-                                : 'text-gray-500 hover:text-gray-700'
+                                : 'text-slate-500 hover:text-slate-700'
                         }`}
                     >
                         <Settings className="inline h-4 w-4 mr-1 -mt-0.5" />
                         Admin Changes
                         {pendingAdminChangeCount > 0 && (
-                            <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-purple-100 text-purple-700 rounded-full animate-pulse">
+                            <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 rounded-full">
                                 {pendingAdminChangeCount}
                             </span>
                         )}
@@ -833,8 +833,8 @@ function PendingApprovalsPage({ isGracePeriod }) {
             </div>
 
             {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-                    <AlertCircle className="h-5 w-5 mr-2" />
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative mb-4 flex items-center text-sm" role="alert">
+                    <AlertCircle className="h-4 w-4 mr-2 text-rose-500 shrink-0" />
                     <span className="block sm:inline">{error}</span>
                 </div>
             )}
@@ -907,7 +907,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                             _id: `cancel-${lg.id}`,
                             _raw: lg,
                             lgNumber: lg.lg_ref_number || lg.internal_serial || `LG #${lg.id}`,
-                            actionType: '🚫 LG Cancellation',
+                            actionType: 'LG Cancellation',
                             requestedBy: cancelMeta.requested_at ? `User #${cancelMeta.requested_by_user_id}` : 'N/A',
                             createdAt: cancelMeta.requested_at || lg.updated_at,
                             status: 'PENDING',
@@ -1099,20 +1099,20 @@ function PendingApprovalsPage({ isGracePeriod }) {
                     <p className="text-gray-700">No LG actions match your criteria.</p>
                 </div>
             ) : (
-                <div className="overflow-x-auto rounded-lg shadow relative">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                <div className="overflow-x-auto rounded-2xl border border-slate-200/80 shadow-sm relative">
+                    <table className="min-w-full divide-y divide-slate-200">
+                        <thead className="bg-slate-50/80">
                             <tr>
-                                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                                <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Source</th>
                                 {['lg_number', 'action_type', 'maker', 'created_at', 'status'].map((col) => (
                                     <th
                                         key={col}
                                         scope="col"
-                                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100"
+                                        className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none hover:bg-slate-100"
                                         onClick={() => handleSort(col)}
                                     >
                                         <div className="flex items-center">
-                                            {col === 'lg_number' && 'LG Number'}
+                                            {col === 'lg_number' && 'LG No.'}
                                             {col === 'action_type' && 'Action Type'}
                                             {col === 'maker' && 'Requested By'}
                                             {col === 'created_at' && 'Requested On'}
@@ -1121,66 +1121,66 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                         </div>
                                     </th>
                                 ))}
-                                <th scope="col" className="sticky right-0 z-10 bg-gray-50 border-l border-gray-200 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider shadow-sm">
+                                <th scope="col" className="sticky right-0 z-10 bg-slate-50 border-l border-slate-200 px-3 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                     Actions
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-slate-100">
                             {filtered.map((row) => (
                                 <tr
                                     key={row._id}
-                                    className={`group transition-colors cursor-pointer ${row._displaySource === 'lg_cancel' ? 'hover:bg-red-50' : row._displaySource === 'maintenance' ? 'hover:bg-teal-50' : row._displaySource === 'issuance' ? 'hover:bg-indigo-50' : 'hover:bg-blue-50'}`}
+                                    className={`group transition-colors cursor-pointer ${row._displaySource === 'lg_cancel' ? 'hover:bg-rose-50/50' : row._displaySource === 'maintenance' ? 'hover:bg-teal-50/50' : row._displaySource === 'issuance' ? 'hover:bg-indigo-50/50' : 'hover:bg-blue-50/40'}`}
                                     onClick={() => {
                                         if (row._source === 'custody') { handleViewDetails(row._raw); }
                                         else if (row._source === 'maintenance') { setSelectedMaintenanceAction(row._raw); }
                                         // lg_cancel rows: no click-through modal, actions in-row
                                     }}
                                 >
-                                    <td className="px-4 py-4 whitespace-nowrap">
+                                    <td className="px-3 py-2.5 whitespace-nowrap">
                                         <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full ${
                                             row._displaySource === 'custody'
-                                                ? 'bg-blue-50 text-blue-600 ring-1 ring-blue-200'
+                                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                                 : row._displaySource === 'lg_cancel'
-                                                    ? 'bg-red-50 text-red-600 ring-1 ring-red-200 animate-pulse'
+                                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
                                                     : row._displaySource === 'issuance'
-                                                        ? 'bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200'
-                                                        : 'bg-teal-50 text-teal-600 ring-1 ring-teal-200'
+                                                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                                        : 'bg-teal-50 text-teal-700 border border-teal-200'
                                         }`}>
                                             {row._displaySource === 'custody' ? 'Custody' : row._displaySource === 'lg_cancel' ? 'Cancel' : row._displaySource === 'issuance' ? 'Issuance' : 'Maint.'}
                                         </span>
                                     </td>
-                                    <td className={`px-4 py-4 whitespace-nowrap text-sm font-medium ${row._displaySource === 'lg_cancel' ? 'text-red-700' : row._displaySource === 'maintenance' ? 'text-teal-700' : row._displaySource === 'issuance' ? 'text-indigo-700' : 'text-blue-600'}`}>
+                                    <td className={`px-3 py-2.5 whitespace-nowrap text-sm font-medium ${row._displaySource === 'lg_cancel' ? 'text-rose-700' : row._displaySource === 'maintenance' ? 'text-teal-700' : row._displaySource === 'issuance' ? 'text-indigo-700' : 'text-blue-600'}`}>
                                         <div>{row.lgNumber}</div>
                                         {row.bulkLgSubtitle && (
-                                            <div className="text-xs font-mono text-gray-500 mt-0.5">{row.bulkLgSubtitle}</div>
+                                            <div className="text-xs font-mono text-slate-500 mt-0.5">{row.bulkLgSubtitle}</div>
                                         )}
                                     </td>
-                                    <td className="px-4 py-4 text-sm text-gray-500 min-w-[160px]">
-                                        <div>{row.actionType}</div>
+                                    <td className="px-3 py-2.5 text-sm text-slate-600 max-w-[200px]">
+                                        <div className="truncate" title={row.actionType}>{row.actionType}</div>
                                         {row.ownerTransferSubtitle && (
-                                            <div className="text-xs text-gray-500 truncate max-w-[260px] mt-0.5" title={row.ownerTransferSubtitle}>
+                                            <div className="text-xs text-slate-500 truncate max-w-[200px] mt-0.5" title={row.ownerTransferSubtitle}>
                                                 {row.ownerTransferSubtitle}
                                             </div>
                                         )}
                                         {row._displaySource === 'lg_cancel' && row.cancelReason && (
                                             <div className="cell-truncate mt-0.5">
-                                                <div className="text-xs text-red-500 truncate" title={row.cancelReason}>
+                                                <div className="text-xs text-rose-600 truncate" title={row.cancelReason}>
                                                     Reason: {row.cancelReason}
                                                 </div>
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{row.requestedBy}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{row.createdAt ? moment(row.createdAt).format('DD-MMM-YYYY HH:mm') : ''}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                    <td className="px-3 py-2.5 text-xs text-slate-600 max-w-[160px] truncate" title={row.requestedBy}>{row.requestedBy}</td>
+                                    <td className="px-3 py-2.5 whitespace-nowrap text-xs text-slate-500">{row.createdAt ? moment(row.createdAt).format('DD-MMM-YYYY HH:mm') : ''}</td>
+                                    <td className="px-3 py-2.5 whitespace-nowrap text-xs">
                                         <span
-                                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                row.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                row.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                                                row.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                                                row.status === 'AUTO_REJECTED_EXPIRED' ? 'bg-orange-100 text-orange-800' :
-                                                'bg-gray-100 text-gray-800'
+                                            className={`px-2 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full border ${
+                                                row.status === 'PENDING' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                                                row.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                row.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                row.status === 'AUTO_REJECTED_EXPIRED' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                                'bg-slate-100 text-slate-700 border-slate-200'
                                             }`}
                                             title={row.status === 'AUTO_REJECTED_EXPIRED' ? 'Automatically rejected — exceeded maximum pending approval window' : undefined}
                                         >
@@ -1189,7 +1189,7 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                     </td>
 
                                     {/* STICKY ACTION COLUMN */}
-                                    <td className={`sticky right-0 z-10 bg-white border-l border-gray-200 px-4 py-4 whitespace-nowrap text-center text-sm font-medium transition-colors shadow-sm ${row._displaySource === 'lg_cancel' ? 'group-hover:bg-red-50' : row._displaySource === 'maintenance' ? 'group-hover:bg-teal-50' : row._displaySource === 'issuance' ? 'group-hover:bg-indigo-50' : 'group-hover:bg-blue-50'}`}>
+                                    <td className={`sticky right-0 z-10 bg-white border-l border-slate-200 px-3 py-2.5 whitespace-nowrap text-center text-sm font-medium transition-colors ${row._displaySource === 'lg_cancel' ? 'group-hover:bg-rose-50/50' : row._displaySource === 'maintenance' ? 'group-hover:bg-teal-50/50' : row._displaySource === 'issuance' ? 'group-hover:bg-indigo-50/50' : 'group-hover:bg-blue-50/40'}`}>
                                         <div className="flex justify-center space-x-2">
                                             <button
                                                 onClick={(e) => {
@@ -1434,26 +1434,26 @@ function PendingApprovalsPage({ isGracePeriod }) {
                             </div>
 
                             {/* Dense compact table */}
-                            <div className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200">
-                                <table className="w-full table-fixed divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                            <div className="bg-white shadow-sm rounded-2xl overflow-hidden border border-slate-200/80">
+                                <table className="w-full table-fixed divide-y divide-slate-200">
+                                    <thead className="bg-slate-50/80">
                                         <tr>
-                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-[22%]">Serial</th>
-                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-[22%]">Beneficiary</th>
-                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-[14%]">Amount</th>
-                                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-[12%]">Dept</th>
-                                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase w-[12%]">Status</th>
-                                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase w-[18%]">Actions</th>
+                                            <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-[22%]">Serial</th>
+                                            <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-[22%]">Beneficiary</th>
+                                            <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-[14%]">Amount</th>
+                                            <th className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-[12%]">Dept</th>
+                                            <th className="px-3 py-2.5 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-[12%]">Status</th>
+                                            <th className="px-3 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider w-[18%]">Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-100">
+                                    <tbody className="divide-y divide-slate-100">
                                         {filteredIssuance.length === 0 ? (
-                                            <tr><td colSpan={6} className="text-center py-6 text-gray-400 text-sm">No matching requests</td></tr>
+                                            <tr><td colSpan={6} className="text-center py-6 text-slate-400 text-sm">No matching requests</td></tr>
                                         ) : filteredIssuance.map(req => (
-                                            <tr key={req.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => setSelectedIssuanceRequest(req)}>
+                                            <tr key={req.id} className="hover:bg-blue-50/40 transition-colors cursor-pointer" onClick={() => setSelectedIssuanceRequest(req)}>
                                                 <td className="px-3 py-2">
-                                                    <div className="text-sm font-semibold text-gray-900 truncate">{req.serial_number || `#${req.id}`}</div>
-                                                    <div className="text-[11px] text-gray-400 truncate">by {req.requestor_name || req.requestor_email || 'Treasury'} · {moment(req.created_at).fromNow()}</div>
+                                                    <div className="text-sm font-semibold text-slate-900 truncate">{req.serial_number || `#${req.id}`}</div>
+                                                    <div className="text-[11px] text-slate-400 truncate">by {req.requestor_name || req.requestor_email || 'Treasury'} · {moment(req.created_at).fromNow()}</div>
                                                     {req.status === 'EDIT_REQUESTED' && req.metadata_json?.pending_edit?.change_reason && (
                                                         <div className="text-[10px] text-amber-900 bg-amber-50 rounded px-1.5 py-0.5 mt-1 border border-amber-200 truncate" title={req.metadata_json.pending_edit.change_reason}>
                                                             <span className="font-bold text-amber-950">Reason:</span> "{req.metadata_json.pending_edit.change_reason}"
@@ -1461,33 +1461,33 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                     )}
                                                 </td>
                                                 <td className="px-3 py-2">
-                                                    <div className="text-sm text-gray-900 truncate">{req.beneficiary_name}</div>
-                                                    <div className="text-[11px] text-gray-400 truncate">{req.beneficiary_country || ''}</div>
+                                                    <div className="text-sm text-slate-900 truncate" title={req.beneficiary_name}>{req.beneficiary_name}</div>
+                                                    <div className="text-[11px] text-slate-400 truncate">{req.beneficiary_country || ''}</div>
                                                 </td>
-                                                <td className="px-3 py-2 text-sm font-semibold text-gray-900 whitespace-nowrap">
+                                                <td className="px-3 py-2 text-sm font-semibold text-slate-900 whitespace-nowrap tabular-nums">
                                                     {formatCurrency(req.amount, req.currency)}
                                                 </td>
-                                                <td className="px-3 py-2 text-xs text-gray-600 truncate">
+                                                <td className="px-3 py-2 text-xs text-slate-600 truncate">
                                                     {req.department || '—'}
                                                 </td>
                                                 <td className="px-3 py-2 text-center">
-                                                    <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full whitespace-nowrap ${
-                                                        req.status === 'PENDING_APPROVAL' ? 'bg-yellow-100 text-yellow-800' :
-                                                        req.status === 'EDIT_REQUESTED' ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300' :
-                                                        req.status === 'APPROVED_INTERNAL' ? 'bg-green-100 text-green-800' :
-                                                        req.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
-                                                        req.status === 'REVISION_REQUIRED' ? 'bg-orange-100 text-orange-800' :
-                                                        req.status === 'INTERNAL_PROCESSING' ? 'bg-blue-100 text-blue-800' :
-                                                        req.status === 'CANCELLATION_REQUESTED' ? 'bg-red-100 text-red-800 ring-1 ring-red-300 animate-pulse' :
-                                                        req.status === 'CANCELLED' ? 'bg-gray-200 text-gray-600' :
-                                                        'bg-gray-100 text-gray-800'
+                                                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border whitespace-nowrap ${
+                                                        req.status === 'PENDING_APPROVAL' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                                                        req.status === 'EDIT_REQUESTED' ? 'bg-amber-50 text-amber-900 border-amber-300' :
+                                                        req.status === 'APPROVED_INTERNAL' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                        req.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                        req.status === 'REVISION_REQUIRED' ? 'bg-orange-50 text-orange-800 border-orange-200' :
+                                                        req.status === 'INTERNAL_PROCESSING' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                        req.status === 'CANCELLATION_REQUESTED' ? 'bg-rose-50 text-rose-800 border-rose-300' :
+                                                        req.status === 'CANCELLED' ? 'bg-slate-100 text-slate-600 border-slate-200' :
+                                                        'bg-slate-100 text-slate-800 border-slate-200'
                                                     }`}>
                                                         {req.status === 'PENDING_APPROVAL' ? 'Pending' : 
-                                                         req.status === 'EDIT_REQUESTED' ? '✏️ Edit Pending' :
+                                                         req.status === 'EDIT_REQUESTED' ? 'Edit Pending' :
                                                          req.status === 'APPROVED_INTERNAL' ? 'Approved' : 
                                                          req.status === 'REVISION_REQUIRED' ? 'Revision' :
                                                          req.status === 'INTERNAL_PROCESSING' ? 'Processing' :
-                                                         req.status === 'CANCELLATION_REQUESTED' ? '🚫 Cancel Pending' :
+                                                         req.status === 'CANCELLATION_REQUESTED' ? 'Cancel Pending' :
                                                          req.status === 'CANCELLED' ? 'Cancelled' :
                                                          req.status}
                                                     </span>
@@ -2101,10 +2101,12 @@ function PendingApprovalsPage({ isGracePeriod }) {
 
                                         if (ct === 'EMAIL_SETTINGS_DELETE') {
                                             return (
-                                                <div className="mt-3 bg-white rounded-lg border border-red-200 p-3 space-y-2">
-                                                    <h4 className="text-xs font-bold text-red-500 uppercase tracking-wider">⚠️ Delete Email Settings</h4>
-                                                    <p className="text-sm text-gray-700">This will remove custom email settings and revert to <strong>global/system email delivery</strong>.</p>
-                                                    {payload.sender_email && <p className="text-xs text-gray-500">Current sender: <span className="font-medium">{payload.sender_email}</span></p>}
+                                                <div className="mt-3 bg-white rounded-xl border border-rose-200 p-3 space-y-2">
+                                                    <h4 className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1.5">
+                                                        <AlertTriangle className="h-3.5 w-3.5" /> Delete Email Settings
+                                                    </h4>
+                                                    <p className="text-sm text-slate-700">This will remove custom email settings and revert to <strong>global/system email delivery</strong>.</p>
+                                                    {payload.sender_email && <p className="text-xs text-slate-500">Current sender: <span className="font-medium">{payload.sender_email}</span></p>}
                                                 </div>
                                             );
                                         }
@@ -2114,26 +2116,26 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                         const fields = Object.keys(nv);
 
                                         return (
-                                            <div className="mt-3 bg-white rounded-lg border border-gray-200 p-3 space-y-2">
-                                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                                    {ct === 'EMAIL_SETTINGS_CREATE' ? '📧 New Email Settings' : '📧 Email Settings Update'}
+                                            <div className="mt-3 bg-white rounded-xl border border-slate-200 p-3 space-y-2">
+                                                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                    {ct === 'EMAIL_SETTINGS_CREATE' ? 'New Email Settings' : 'Email Settings Update'}
                                                 </h4>
                                                 <div className="space-y-1.5">
                                                     {fields.map((field) => (
                                                         <div key={field} className="grid grid-cols-3 text-sm items-center gap-2">
-                                                            <span className="text-gray-500 text-xs font-medium">{humanFieldName(field)}</span>
+                                                            <span className="text-slate-500 text-xs font-medium">{humanFieldName(field)}</span>
                                                             {ct === 'EMAIL_SETTINGS_UPDATE' && ov[field] !== undefined ? (
                                                                 <>
-                                                                    <span className="text-red-600 text-xs line-through break-all">{String(ov[field])}</span>
-                                                                    <span className="text-green-700 text-xs font-semibold break-all">{String(nv[field])}</span>
+                                                                    <span className="text-rose-600 text-xs line-through break-all">{String(ov[field])}</span>
+                                                                    <span className="text-emerald-700 text-xs font-semibold break-all">{String(nv[field])}</span>
                                                                 </>
                                                             ) : (
-                                                                <span className="col-span-2 text-green-700 text-xs font-semibold break-all">{String(nv[field])}</span>
+                                                                <span className="col-span-2 text-emerald-700 text-xs font-semibold break-all">{String(nv[field])}</span>
                                                             )}
                                                         </div>
                                                     ))}
                                                 </div>
-                                                <p className="text-[10px] text-gray-400 italic mt-1">🔒 Password changes are applied immediately and are never shown here.</p>
+                                                <p className="text-[10px] text-slate-400 italic mt-1">Password changes are applied immediately and are never shown here.</p>
                                             </div>
                                         );
                                     }
@@ -2169,31 +2171,31 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                     });
                                                     
                                                     if (changes.length === 0) {
-                                                        return <p className="text-xs text-gray-400 italic">No visible changes detected</p>;
+                                                        return <p className="text-xs text-slate-400 italic">No visible changes detected</p>;
                                                     }
                                                     
                                                     return (
                                                         <div className="space-y-2">
-                                                            <p className="text-xs text-gray-500">
-                                                                <span className="font-semibold text-gray-700">{changes.length}</span> field(s) modified out of {allKeys.size} total
+                                                            <p className="text-xs text-slate-500">
+                                                                <span className="font-semibold text-slate-700">{changes.length}</span> field(s) modified out of {allKeys.size} total
                                                             </p>
                                                             <div className="grid gap-1 max-h-48 overflow-y-auto">
                                                                 {changes.map(c => (
-                                                                    <div key={c.field} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-1.5 border border-gray-100">
-                                                                        <span className="font-medium text-gray-700 capitalize">{c.field}</span>
+                                                                    <div key={c.field} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-1.5 border border-slate-100">
+                                                                        <span className="font-medium text-slate-700 capitalize">{c.field}</span>
                                                                         <div className="flex items-center gap-2">
-                                                                            {c.isNew && <span className="text-green-600 font-semibold">+ Added</span>}
-                                                                            {c.isRemoved && <span className="text-red-600 font-semibold">- Removed</span>}
+                                                                            {c.isNew && <span className="text-emerald-600 font-semibold">+ Added</span>}
+                                                                            {c.isRemoved && <span className="text-rose-600 font-semibold">- Removed</span>}
                                                                             {!c.isNew && !c.isRemoved && (
                                                                                 <>
                                                                                     {c.newVisible !== c.oldVisible && (
-                                                                                        <span className={c.newVisible ? 'text-green-600' : 'text-red-500'}>
-                                                                                            {c.newVisible ? '👁 Visible' : '🙈 Hidden'}
+                                                                                        <span className={`inline-flex items-center gap-1 ${c.newVisible ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                                                                            {c.newVisible ? <><Eye className="h-3 w-3" /> Visible</> : 'Hidden'}
                                                                                         </span>
                                                                                     )}
                                                                                     {c.newMandatory !== c.oldMandatory && (
-                                                                                        <span className={c.newMandatory ? 'text-amber-600' : 'text-gray-400'}>
-                                                                                            {c.newMandatory ? '⚠ Required' : 'Optional'}
+                                                                                        <span className={`inline-flex items-center gap-1 ${c.newMandatory ? 'text-amber-600' : 'text-slate-400'}`}>
+                                                                                            {c.newMandatory ? <><AlertTriangle className="h-3 w-3" /> Required</> : 'Optional'}
                                                                                         </span>
                                                                                     )}
                                                                                     {c.newVisible === c.oldVisible && c.newMandatory === c.oldMandatory && (
@@ -2224,22 +2226,22 @@ function PendingApprovalsPage({ isGracePeriod }) {
                                                     };
                                                     return (
                                                         <div className="space-y-1.5">
-                                                            <p className="text-xs text-gray-500">
-                                                                <span className="font-semibold text-gray-700">{steps.length}</span> approval step(s) defined
+                                                            <p className="text-xs text-slate-500">
+                                                                <span className="font-semibold text-slate-700">{steps.length}</span> approval step(s) defined
                                                             </p>
                                                             {steps.map((step, idx) => (
-                                                                <div key={idx} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2 border border-gray-100">
+                                                                <div key={idx} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
                                                                     <div className="flex items-center gap-2">
                                                                         <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-bold text-[10px]">
                                                                             Step {step.step_sequence || idx + 1}
                                                                         </span>
-                                                                        <span className="text-gray-700 font-medium">
+                                                                        <span className="text-slate-700 font-medium">
                                                                             {conditionLabels[step.condition_type] || step.condition_type || '—'}
                                                                             {step.condition_value ? ` (${step.condition_value})` : ''}
                                                                         </span>
                                                                     </div>
-                                                                    <div className="flex items-center gap-2 text-gray-500 text-right min-w-0">
-                                                                        <span className="shrink-0">{step.approver_type === 'GROUP' ? '👥 Group' : step.approver_type === 'ROLE' ? '🔑 Role' : step.approver_type || '—'}</span>
+                                                                    <div className="flex items-center gap-2 text-slate-500 text-right min-w-0">
+                                                                        <span className="shrink-0">{step.approver_type === 'GROUP' ? 'Group' : step.approver_type === 'ROLE' ? 'Role' : step.approver_type || '—'}</span>
                                                                         {step.approver_values && step.approver_values.length > 0 && (
                                                                             <span className="text-gray-700 font-medium truncate" title={step.approver_values.join(', ')}>
                                                                                 {step.approver_values.join(', ')}

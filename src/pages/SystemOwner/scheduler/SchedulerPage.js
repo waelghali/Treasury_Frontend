@@ -1258,8 +1258,8 @@ function SchedulerPage({ onLogout }) {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="space-y-3">
-        <div className="flex gap-3 flex-wrap items-center">
+      <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="flex gap-2.5 flex-wrap items-center">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[240px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -1268,7 +1268,7 @@ function SchedulerPage({ onLogout }) {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search job name, ID, trigger, function..."
-              className="w-full !pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full !pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -1276,13 +1276,13 @@ function SchedulerPage({ onLogout }) {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">📦 All Categories</option>
             <option value="Smart Inbox">📬 Smart Inbox</option>
-            <option value="LG & Reminders">🔔 LG & Reminders</option>
+            <option value="LG & Reminders">🔔 LG &amp; Reminders</option>
             <option value="System Maintenance">⚡ System Maintenance</option>
-            <option value="Market & External Sync">📈 Market & External Sync</option>
+            <option value="Market & External Sync">📈 Market &amp; External Sync</option>
             <option value="General Automation">🕒 General Automation</option>
           </select>
 
@@ -1290,7 +1290,7 @@ function SchedulerPage({ onLogout }) {
           <select
             value={triggerFilter}
             onChange={(e) => setTriggerFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">⏱️ All Trigger Types</option>
             <option value="cron">Recurring Cron</option>
@@ -1302,7 +1302,7 @@ function SchedulerPage({ onLogout }) {
           {(activeFilterCount > 0 || searchTerm) && (
             <button
               onClick={handleClearAllFilters}
-              className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium"
+              className="flex items-center gap-1 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 rounded-xl transition-colors font-medium"
             >
               <X className="w-3.5 h-3.5" /> Clear Filters
             </button>

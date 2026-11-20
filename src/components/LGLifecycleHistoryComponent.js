@@ -38,6 +38,7 @@ const ACTION_CATEGORIES = {
         'LG_RENEWAL_REMINDER_SECOND_SENT', 'LG_OWNER_RENEWAL_REMINDER_SENT', 
         'LG_OWNER_RENEWAL_REMINDER_SKIPPED_RECENTLY_SENT', 'LG_OWNER_DETAILS_UPDATED', 
         'LG_SINGLE_OWNER_CHANGED', 'LG_BULK_OWNER_CHANGED', 'LG_TOGGLE_AUTO_RENEWAL',
+        'LG_SINGLE_CATEGORY_CHANGED', 'LG_BULK_CATEGORY_CHANGED',
         'CREATE', 'UPDATE', 'SOFT_DELETE', 'RESTORE', 'DOCUMENT_VIEWED_SECURELY' 
     ]
 };
@@ -52,24 +53,24 @@ const ALL_MAPPED_TYPES = new Set(Object.values(ACTION_CATEGORIES).flat());
 
 // Helper: Visual Styles for differentiation (Fixing point 4)
 const getCardStyle = (actionType) => {
-    // System Logs -> Subtle Gray background
+    // System Logs -> Subtle Slate background
     if (ACTION_CATEGORIES['System Logs'].includes(actionType)) {
         return {
-            cardClass: 'bg-gray-100 border-gray-200', 
-            iconClass: 'text-gray-500', // Use gray for system icons
+            cardClass: 'bg-slate-50/80 border-slate-200/80',
+            iconClass: 'text-slate-500',
             isSystem: true
         };
     }
     if (ACTION_CATEGORIES['Core Milestones'].includes(actionType)) {
         return {
-            cardClass: 'bg-white border-gray-500', 
-            iconClass: 'text-gray-500',
+            cardClass: 'bg-white border-slate-200/90 shadow-sm',
+            iconClass: 'text-slate-700',
             isSystem: true
         };
-    }    // Default/Core Events -> Original White background
+    }    // Default/Core Events -> Crisp White card
     return {
-        cardClass: 'bg-white shadow-md border-gray-200',
-        iconClass: 'text-indigo-600', // Default color for event icon
+        cardClass: 'bg-white shadow-sm border-slate-200/90',
+        iconClass: 'text-indigo-600',
         isSystem: false
     };
 };
@@ -80,9 +81,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
         return (
             <div className="relative group inline-block">
                 {children}
-                <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+                <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-xl py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
                     This action is disabled during your subscription's grace period.
-                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                    <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                         <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
                     </svg>
                 </div>
@@ -96,13 +97,13 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 const QuickFilterButton = ({ label, icon: Icon, isActive, onClick }) => (
     <button
         onClick={onClick}
-        className={`flex items-center text-sm font-medium px-4 py-2 rounded-full border transition-all duration-200 ${
+        className={`flex items-center text-xs sm:text-sm font-medium px-3.5 py-1.5 rounded-full border transition-all duration-200 ${
             isActive 
-            ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
-            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
         }`}
     >
-        {Icon && <Icon className={`h-4 w-4 mr-2 ${isActive ? 'text-white' : 'text-gray-500'}`} />}
+        {Icon && <Icon className={`h-3.5 w-3.5 mr-1.5 ${isActive ? 'text-white' : 'text-slate-500'}`} />}
         {label}
     </button>
 );
@@ -650,8 +651,8 @@ const LGLifecycleHistoryComponent = ({
 
     if (error) {
         return (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md flex items-center">
-                <AlertCircle className="mr-2" size={20} />
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl flex items-center text-sm">
+                <AlertCircle className="mr-2 shrink-0" size={18} />
                 {error}
             </div>
         );
@@ -659,14 +660,14 @@ const LGLifecycleHistoryComponent = ({
 
     if (filteredEvents.length === 0) {
         return (
-            <div className="bg-gray-50 border border-gray-200 text-gray-500 px-4 py-8 rounded-md text-center">
+            <div className="bg-slate-50 border border-slate-200 text-slate-500 px-4 py-8 rounded-xl text-center text-sm">
                 <p>No lifecycle events found matching your filters.</p>
             </div>
         );
     }
 
     return (
-        <div className="relative border-l-2 border-gray-200 pl-6 py-4">
+        <div className="relative border-l-2 border-slate-200 pl-6 py-4">
             <input
                 type="file"
                 ref={eventDocInputRef}
@@ -677,12 +678,12 @@ const LGLifecycleHistoryComponent = ({
             />
             
             {/* --- FILTER BAR --- */}
-            <div className="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="mb-5 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/80 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     
                     {/* Quick Filters (Flex wrap for responsive design) */}
                     <div className="flex flex-wrap gap-2">
-                        <span className="text-sm font-semibold text-gray-500 uppercase tracking-wide mr-2 self-center hidden sm:inline">Quick Views:</span>
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1.5 self-center hidden sm:inline">Quick Views:</span>
                         
                         <QuickFilterButton 
                             label="Core Milestones" 
@@ -714,32 +715,32 @@ const LGLifecycleHistoryComponent = ({
                     <div className="relative" ref={filterRef}>
                         <button
                             onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-full border shadow-sm transition-colors ${
+                            className={`flex items-center px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-full border shadow-sm transition-colors ${
                                 activeFilterCount > 0 
-                                    ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700' 
-                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                    ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700' 
+                                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                             }`}
                         >
-                            <Filter className="h-4 w-4 mr-2" />
+                            <Filter className="h-3.5 w-3.5 mr-1.5" />
                             Detailed Filter
                             {activeFilterCount > 0 && (
-                                <span className="ml-2 bg-white text-blue-600 text-xs font-bold px-1.5 py-0.5 rounded-full">
+                                <span className="ml-2 bg-white text-indigo-600 text-xs font-bold px-1.5 py-0.5 rounded-full">
                                     {activeFilterCount}
                                 </span>
                             )}
-                            <ChevronDown className="h-4 w-4 ml-2" />
+                            <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
                         </button>
 
                         {/* DROPDOWN CONTENT (Multi-Select & Date Range) */}
                         {isFilterMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                                 {/* Date Range */}
-                                <div className="p-4 border-b border-gray-100 bg-gray-50">
-                                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center"><Calendar className="h-3 w-3 mr-1" />Date Range</h4>
+                                <div className="p-4 border-b border-slate-100 bg-slate-50/80">
+                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center"><Calendar className="h-3.5 w-3.5 mr-1.5" />Date Range</h4>
                                     <div className="flex gap-2">
-                                        <div className="flex-1"><FormattedDateInput className="w-full text-xs px-2.5 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white" value={dateRange.from} onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))} /></div>
-                                        <span className="text-gray-400 self-center">-</span>
-                                        <div className="flex-1"><FormattedDateInput className="w-full text-xs px-2.5 py-1.5 border border-gray-300 rounded-md shadow-sm bg-white" value={dateRange.to} onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))} /></div>
+                                        <div className="flex-1"><FormattedDateInput className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-xl shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" value={dateRange.from} onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))} /></div>
+                                        <span className="text-slate-400 self-center">-</span>
+                                        <div className="flex-1"><FormattedDateInput className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-xl shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500" value={dateRange.to} onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))} /></div>
                                     </div>
                                 </div>
 
@@ -753,15 +754,15 @@ const LGLifecycleHistoryComponent = ({
 
                                         return (
                                             <div key={category} className="mb-2">
-                                                <div className="flex items-center px-2 py-2 hover:bg-gray-100 rounded cursor-pointer transition-colors" onClick={() => toggleCategory(category)}>
-                                                    {allSelected ? <CheckSquare className="h-5 w-5 text-blue-600 mr-2" /> : someSelected ? <div className="h-5 w-5 bg-blue-600 mr-2 rounded flex items-center justify-center"><div className="h-0.5 w-3 bg-white" /></div> : <Square className="h-5 w-5 text-gray-400 mr-2" />}
-                                                    <span className="text-sm font-semibold text-gray-800">{category}</span>
+                                                <div className="flex items-center px-2 py-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors" onClick={() => toggleCategory(category)}>
+                                                    {allSelected ? <CheckSquare className="h-5 w-5 text-indigo-600 mr-2" /> : someSelected ? <div className="h-5 w-5 bg-indigo-600 mr-2 rounded flex items-center justify-center"><div className="h-0.5 w-3 bg-white" /></div> : <Square className="h-5 w-5 text-slate-400 mr-2" />}
+                                                    <span className="text-sm font-semibold text-slate-800">{category}</span>
                                                 </div>
-                                                <div className="ml-9 mt-1 space-y-1 border-l-2 border-gray-100 pl-2">
+                                                <div className="ml-9 mt-1 space-y-1 border-l-2 border-slate-100 pl-2">
                                                     {availableInCat.map(type => (
-                                                        <div key={type} className="flex items-center cursor-pointer hover:text-blue-600 py-1" onClick={() => toggleFilter(type)}>
-                                                            <div className={`w-4 h-4 rounded border mr-2 flex items-center justify-center ${selectedFilters.has(type) ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}>{selectedFilters.has(type) && <Check className="h-3 w-3 text-white" />}</div>
-                                                            <span className="text-sm text-gray-600 truncate">{formatActionTypeLabel(type)}</span>
+                                                        <div key={type} className="flex items-center cursor-pointer hover:text-indigo-600 py-1" onClick={() => toggleFilter(type)}>
+                                                            <div className={`w-4 h-4 rounded border mr-2 flex items-center justify-center ${selectedFilters.has(type) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>{selectedFilters.has(type) && <Check className="h-3 w-3 text-white" />}</div>
+                                                            <span className="text-sm text-slate-600 truncate">{formatActionTypeLabel(type)}</span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -772,15 +773,15 @@ const LGLifecycleHistoryComponent = ({
                                     {/* --- NEW: Other Category (for unmapped events) --- */}
                                     {unmappedTypes.length > 0 && (
                                         <div className="mb-2">
-                                            <div className="flex items-center px-2 py-2 hover:bg-gray-100 rounded cursor-pointer transition-colors" onClick={() => toggleFilter('Other_Unmapped')}>
-                                                {selectedFilters.has('Other_Unmapped') ? <CheckSquare className="h-5 w-5 text-blue-600 mr-2" /> : <Square className="h-5 w-5 text-gray-400 mr-2" />}
-                                                <span className="text-sm font-semibold text-gray-800">Other ({unmappedTypes.length})</span>
+                                            <div className="flex items-center px-2 py-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors" onClick={() => toggleFilter('Other_Unmapped')}>
+                                                {selectedFilters.has('Other_Unmapped') ? <CheckSquare className="h-5 w-5 text-indigo-600 mr-2" /> : <Square className="h-5 w-5 text-slate-400 mr-2" />}
+                                                <span className="text-sm font-semibold text-slate-800">Other ({unmappedTypes.length})</span>
                                             </div>
-                                            <div className="ml-9 mt-1 space-y-1 border-l-2 border-gray-100 pl-2">
+                                            <div className="ml-9 mt-1 space-y-1 border-l-2 border-slate-100 pl-2">
                                                 {unmappedTypes.map(type => (
-                                                    <div key={type} className="flex items-center cursor-pointer hover:text-blue-600 py-1" onClick={() => toggleFilter('Other_Unmapped')}>
-                                                        <div className={`w-4 h-4 rounded border mr-2 flex items-center justify-center ${selectedFilters.has('Other_Unmapped') ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}>{selectedFilters.has('Other_Unmapped') && <Check className="h-3 w-3 text-white" />}</div>
-                                                        <span className="text-sm text-gray-600 truncate">{formatActionTypeLabel(type)}</span>
+                                                    <div key={type} className="flex items-center cursor-pointer hover:text-indigo-600 py-1" onClick={() => toggleFilter('Other_Unmapped')}>
+                                                        <div className={`w-4 h-4 rounded border mr-2 flex items-center justify-center ${selectedFilters.has('Other_Unmapped') ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>{selectedFilters.has('Other_Unmapped') && <Check className="h-3 w-3 text-white" />}</div>
+                                                        <span className="text-sm text-slate-600 truncate">{formatActionTypeLabel(type)}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -790,9 +791,9 @@ const LGLifecycleHistoryComponent = ({
                                 </div>
                                 
                                 {/* Footer Actions */}
-                                <div className="p-3 border-t border-gray-100 bg-gray-50 flex justify-between">
-                                    <button className="text-sm text-blue-600 font-medium hover:underline" onClick={() => setSelectedFilters(new Set(availableTypes))}>Select All</button>
-                                    <button className="text-sm text-gray-500 font-medium hover:underline" onClick={() => setSelectedFilters(new Set())}>Clear</button>
+                                <div className="p-3 border-t border-slate-200 bg-slate-50 flex justify-between">
+                                    <button className="text-xs font-semibold text-indigo-600 hover:underline" onClick={() => setSelectedFilters(new Set(availableTypes))}>Select All</button>
+                                    <button className="text-xs font-semibold text-slate-500 hover:underline" onClick={() => setSelectedFilters(new Set())}>Clear</button>
                                 </div>
                             </div>
                         )}
@@ -856,20 +857,20 @@ const LGLifecycleHistoryComponent = ({
                 const showAllActionButtons = Boolean(!isInstructionCanceled && isCoreInstructionEvent && instruction && (instruction.generated_content_path || instruction.template_id || instruction.id));
 
                 return (
-                    <div key={eventItem.id || `event-${index}`} className="mb-8 relative">
+                    <div key={eventItem.id || `event-${index}`} className="mb-4 relative">
                         {/* ORIGINAL ICON STYLE */}
-                        <div className={`absolute -left-3.5 top-0 flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 border-gray-200 shadow-sm ${styles.iconClass}`}>
+                        <div className={`absolute -left-3.5 top-0 flex items-center justify-center w-7 h-7 rounded-full bg-white border-2 border-slate-200 shadow-sm ${styles.iconClass}`}>
                             {getEventIcon(eventItem.action_type)}
                         </div>
                         
                         {/* CARD STYLE (Fixed to apply system log background) */}
                         <div
                             id={isCoreInstructionEvent && instruction ? `lifecycle-instruction-${instruction.id}` : undefined}
-                            className={`${isInstructionCanceled ? 'bg-gray-50/80 border-gray-300 opacity-85' : styles.cardClass} rounded-lg p-4 ml-4 border transition-all duration-300`}
+                            className={`${isInstructionCanceled ? 'bg-slate-50/80 border-slate-300 opacity-85' : styles.cardClass} rounded-xl p-4 ml-4 border transition-all duration-300`}
                         >
-                            <div className="flex justify-between items-center mb-2">
+                            <div className="flex justify-between items-center mb-1.5 gap-2">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className={`font-semibold text-lg ${isInstructionCanceled ? 'text-gray-500 line-through' : (styles.isSystem ? 'text-gray-700' : 'text-gray-800')}`}>
+                                    <h3 className={`font-bold text-base ${isInstructionCanceled ? 'text-slate-500 line-through' : (styles.isSystem ? 'text-slate-700' : 'text-slate-900')}`}>
                                         {formatActionTypeLabel(eventItem.action_type)}
                                     </h3>
                                     {isInstructionCanceled && (
@@ -878,16 +879,16 @@ const LGLifecycleHistoryComponent = ({
                                         </span>
                                     )}
                                 </div>
-                                <span className="text-sm text-gray-500">
+                                <span className="text-xs sm:text-sm text-slate-500 tabular-nums shrink-0">
                                     {format(new Date(eventItem.timestamp), 'dd-MMM-yyyy HH:mm')}
                                 </span>
                             </div>
-                            <p className="text-gray-700 mb-1">
-                                <span className="font-medium">User:</span> {eventItem.user_email || 'System'}
+                            <p className="text-sm text-slate-700 mb-1">
+                                <span className="font-medium text-slate-900">User:</span> {eventItem.user_email || 'System'}
                             </p>
                             
                             {/* DETAILS (NOW CLEAN) */}
-                            <p className={`text-sm ${isInstructionCanceled ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
+                            <p className={`text-sm ${isInstructionCanceled ? 'text-slate-400 line-through' : 'text-slate-600'}`}>
                                 {formatEventDetails(eventItem.action_type, eventItem.details, eventItem.user_email)}
                             </p>
 
@@ -896,7 +897,7 @@ const LGLifecycleHistoryComponent = ({
                                     {eventAssociatedDoc && onViewInstructionDocument && (
                                         <button
                                             onClick={() => onViewInstructionDocument(eventAssociatedDoc.id)}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
                                             title={`View ${eventAssociatedDoc.file_name}`}
                                         >
                                             <Eye className="h-4 w-4 text-blue-600 shrink-0" />
@@ -908,7 +909,7 @@ const LGLifecycleHistoryComponent = ({
                                             type="button"
                                             onClick={() => handleTriggerEventDocUpload(eventItem)}
                                             disabled={uploadingEventId === eventItem.id}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-teal-200 text-sm font-medium rounded-md shadow-sm text-teal-700 bg-teal-50 hover:bg-teal-100 disabled:opacity-50"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-teal-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm text-teal-700 bg-teal-50 hover:bg-teal-100 disabled:opacity-50 transition-colors"
                                             title="Upload supporting PDF/image document (e.g. Original LG copy, Amendment Letter, or Bank Advice) and link it to this record"
                                         >
                                             {uploadingEventId === eventItem.id ? (
@@ -934,20 +935,20 @@ const LGLifecycleHistoryComponent = ({
                                         <>
                                             <button
                                                 onClick={() => onViewInstructionLetter(instruction.id)}
-                                                className="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded-md text-gray-600 bg-white hover:bg-gray-100"
+                                                className="inline-flex items-center px-3 py-1.5 border border-slate-300 text-xs font-medium rounded-lg text-slate-600 bg-white hover:bg-slate-50 shadow-sm transition-colors"
                                                 title="View Canceled Instruction Letter"
                                             >
-                                                <FileText className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                                                <FileText className="h-3.5 w-3.5 mr-1.5 text-slate-500" />
                                                 View Letter (Canceled)
                                             </button>
-                                            <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-md bg-rose-50 text-rose-700 border border-rose-200">
+                                            <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-rose-50 text-rose-700 border border-rose-200">
                                                 Instruction Canceled — LG State Rolled Back{instruction.details?.old_expiry_date ? ` to ${formatDateSimple(instruction.details.old_expiry_date)}` : ''}
                                             </span>
                                         </>
                                     )}
                                     {!isCorporateAdminView && !isGracePeriod && isLatestInstruction && isCancellableStatus && isCancellableType && (
                                         hasPendingCancelRequest ? (
-                                            <span className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                                            <span className="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
                                                 <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
                                                 Cancellation Pending Approval
                                             </span>
@@ -955,11 +956,11 @@ const LGLifecycleHistoryComponent = ({
                                             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                 <button
                                                     onClick={() => handleCancelInstruction(instruction)}
-                                                    className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md shadow-sm bg-red-100 text-red-700 hover:bg-red-200"
+                                                    className="inline-flex items-center px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg shadow-sm bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors"
                                                     title="Cancel Last Instruction"
                                                     disabled={isGracePeriod}
                                                 >
-                                                    <RotateCcw className="h-4 w-4 mr-2" />
+                                                    <RotateCcw className="h-4 w-4 mr-1.5" />
                                                     Cancel
                                                 </button>
                                             </GracePeriodTooltip>
@@ -976,7 +977,7 @@ const LGLifecycleHistoryComponent = ({
                                                 instruction: instruction,
                                                 docType: 'delivery',
                                             })}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm text-slate-700 bg-slate-100 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors"
                                             title={`Inspect Delivery Evidence (${formatDateSimple(instruction.delivery_date)})`}
                                         >
                                             <Eye className="h-4 w-4 text-cyan-600 shrink-0" />
@@ -1009,7 +1010,7 @@ const LGLifecycleHistoryComponent = ({
                                                 instruction: instruction,
                                                 docType: 'bank_reply',
                                             })}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm text-slate-700 bg-slate-100 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors"
                                             title={`Inspect Bank Reply (${formatDateSimple(instruction.bank_reply_date)})`}
                                         >
                                             <Eye className="h-4 w-4 text-teal-600 shrink-0" />
@@ -1052,10 +1053,10 @@ const LGLifecycleHistoryComponent = ({
                                         <>
                                             <button
                                                 onClick={() => onViewInstructionLetter(instruction.id)}
-                                                className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs sm:text-sm font-semibold rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
                                                 title="View Instruction Letter"
                                             >
-                                                <FileText className="h-4 w-4 mr-2" />
+                                                <FileText className="h-4 w-4 mr-1.5" />
                                                 View Letter
                                             </button>
 
@@ -1065,11 +1066,11 @@ const LGLifecycleHistoryComponent = ({
                                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                     <button
                                                         onClick={() => onRecordDelivery(instruction)}
-                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                        className="inline-flex items-center px-3 py-1.5 border border-blue-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                                                         title="Record Delivery"
                                                         disabled={isGracePeriod}
                                                     >
-                                                        <Truck className="h-4 w-4 mr-2" />
+                                                        <Truck className="h-4 w-4 mr-1.5" />
                                                         Record Delivery
                                                     </button>
                                                 </GracePeriodTooltip>
@@ -1084,7 +1085,7 @@ const LGLifecycleHistoryComponent = ({
                                                                 instruction: instruction,
                                                                 docType: 'delivery',
                                                             })}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm text-slate-700 bg-slate-100 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors"
                                                             title={`Inspect Delivery Evidence (${formatDateSimple(instruction.delivery_date)})`}
                                                         >
                                                             <Eye className="h-4 w-4 text-cyan-600 shrink-0" />
@@ -1106,14 +1107,14 @@ const LGLifecycleHistoryComponent = ({
                                                             ) : null}
                                                         </button>
                                                     ) : (
-                                                        <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
+                                                        <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 border border-slate-200 rounded-lg">
                                                             Delivered {formatDateSimple(instruction.delivery_date)} (No Doc)
                                                         </span>
                                                     )}
                                                 </>
                                             ) : (
                                                 isCorporateAdminView && (
-                                                    <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
+                                                    <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 border border-slate-200 rounded-lg">
                                                         Delivery Not Recorded
                                                     </span>
                                                 )
@@ -1131,7 +1132,7 @@ const LGLifecycleHistoryComponent = ({
                                                                     const url = `${baseUrl}/end-user/lg-records/instructions/${instruction.id}/view-discrepancy-letter${authToken ? `?token=${authToken}&print=true` : '?print=true'}`;
                                                                     window.open(url, '_blank');
                                                                 }}
-                                                                className="inline-flex items-center gap-1.5 px-3 py-1 border border-rose-300 text-sm font-medium rounded-md shadow-sm text-rose-800 bg-rose-50 hover:bg-rose-100 focus:outline-none"
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-rose-300 text-xs sm:text-sm font-medium rounded-lg shadow-sm text-rose-800 bg-rose-50 hover:bg-rose-100 focus:outline-none transition-colors"
                                                                 title={`Corporate Admin rejected bank-modified terms (${instruction?.details?.bank_terms_admin_approval?.rejection_reason || 'Discrepancy'}). Click to print Discrepancy Notice Letter for the bank.`}
                                                             >
                                                                 <FileText className="h-4 w-4 text-rose-600" />
@@ -1147,7 +1148,7 @@ const LGLifecycleHistoryComponent = ({
                                                                         instruction: instruction,
                                                                         docType: 'bank_reply',
                                                                     })}
-                                                                    className="inline-flex items-center gap-1 px-2.5 py-1 border border-gray-200 text-xs font-medium rounded-md text-gray-600 bg-gray-50 hover:bg-gray-100"
+                                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-slate-200 text-xs font-medium rounded-lg text-slate-600 bg-slate-50 hover:bg-slate-100 transition-colors"
                                                                     title="Inspect previously rejected Bank Reply advice"
                                                                 >
                                                                     <Eye className="h-3.5 w-3.5 text-rose-500" />
@@ -1159,11 +1160,11 @@ const LGLifecycleHistoryComponent = ({
                                                     <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                         <button
                                                             onClick={() => onRecordBankReply(instruction)}
-                                                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md shadow-sm text-teal-600 bg-teal-100 hover:bg-teal-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                                                            className="inline-flex items-center px-3 py-1.5 border border-teal-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm text-teal-700 bg-teal-50 hover:bg-teal-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-colors"
                                                             title="Record Bank Reply"
                                                             disabled={isGracePeriod}
                                                         >
-                                                            <Building className="h-4 w-4 mr-2" />
+                                                            <Building className="h-4 w-4 mr-1.5" />
                                                             {isTermsRejectedByAdmin ? 'Record Corrected Reply' : 'Record Reply'}
                                                         </button>
                                                     </GracePeriodTooltip>
@@ -1179,7 +1180,7 @@ const LGLifecycleHistoryComponent = ({
                                                                 instruction: instruction,
                                                                 docType: 'bank_reply',
                                                             })}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1 border border-gray-200 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm text-slate-700 bg-slate-100 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors"
                                                             title={`Inspect Bank Reply (${formatDateSimple(instruction.bank_reply_date)})`}
                                                         >
                                                             <Eye className="h-4 w-4 text-teal-600 shrink-0" />
@@ -1217,14 +1218,14 @@ const LGLifecycleHistoryComponent = ({
                                                             )}
                                                         </button>
                                                     ) : (
-                                                        <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
+                                                        <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 border border-slate-200 rounded-lg">
                                                             Replied {formatDateSimple(instruction.bank_reply_date)} (No Doc)
                                                         </span>
                                                     )}
                                                 </>
                                             ) : (
                                                 isCorporateAdminView && (
-                                                    <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
+                                                    <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 border border-slate-200 rounded-lg">
                                                         Bank Reply Not Recorded
                                                     </span>
                                                 )
@@ -1234,24 +1235,24 @@ const LGLifecycleHistoryComponent = ({
                                                 <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                                     <button
                                                         onClick={() => handleSendReminderLocal(instruction.id, instruction.serial_number)}
-                                                        className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md shadow-sm bg-orange-100 text-orange-700 hover:bg-orange-200"
+                                                        className="inline-flex items-center px-3 py-1.5 border border-orange-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm bg-orange-50 text-orange-700 hover:bg-orange-100 transition-colors"
                                                         title="Send Reminder to Bank"
                                                         disabled={isGracePeriod}
                                                     >
-                                                        <Mail className="h-4 w-4 mr-1" /> Send Reminder
+                                                        <Mail className="h-4 w-4 mr-1.5" /> Send Reminder
                                                     </button>
                                                 </GracePeriodTooltip>
                                             ) : showViewIssuedReminderButton ? (
                                                 <button
                                                     onClick={() => onViewInstructionLetter(instruction.id)}
-                                                    className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-md shadow-sm bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                                                    className="inline-flex items-center px-3 py-1.5 border border-amber-200 text-xs sm:text-sm font-medium rounded-lg shadow-sm bg-amber-50 text-amber-800 hover:bg-amber-100 transition-colors"
                                                     title="View Issued Reminder"
                                                 >
-                                                    <Eye className="h-4 w-4 mr-1" /> View Issued Reminder
+                                                    <Eye className="h-4 w-4 mr-1.5" /> View Issued Reminder
                                                 </button>
                                             ) : (
                                                 showAllActionButtons && (
-                                                    <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50 rounded-md">
+                                                    <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-slate-500 bg-slate-50 border border-slate-200 rounded-lg">
                                                         No Reminder Needed
                                                     </span>
                                                 )

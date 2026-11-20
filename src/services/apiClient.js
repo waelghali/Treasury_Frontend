@@ -37,6 +37,18 @@ apiClient.interceptors.response.use(
     const status = error?.response?.status;
     const originalConfig = error?.config;
 
+    if (status === 403) {
+      const detailStr = typeof error?.response?.data?.detail === 'string' ? error.response.data.detail : '';
+      if (
+        detailStr.toLowerCase().includes('must change your password') &&
+        typeof window !== 'undefined' &&
+        window.location.pathname !== '/force-password-change'
+      ) {
+        await silentRefreshToken().catch(() => false);
+        window.location.href = '/force-password-change';
+      }
+    }
+
     if (status === 401 && originalConfig) {
       const url = (originalConfig.url || '').toLowerCase();
       const isPublicOrSpecialAuth =

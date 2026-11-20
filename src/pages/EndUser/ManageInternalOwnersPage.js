@@ -1,13 +1,13 @@
 // frontend/src/pages/EndUser/ManageInternalOwnersPage.js
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '../../services/apiService';
-import { Loader2, AlertCircle, PlusCircle, Edit, Users, Eye, Trash2, ChevronUp, ChevronDown, Filter as FilterIcon } from 'lucide-react';
+import { Loader2, AlertCircle, PlusCircle, Edit, Users, Eye, Trash2, ChevronUp, ChevronDown, Tag, Star, Globe, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
-import moment from 'moment';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import InternalOwnerFormModal from '../../components/Modals/InternalOwnerFormModal';
 import BulkChangeLGOwnerModal from '../../components/Modals/BulkChangeLGOwnerModal';
+import ChangeLGCategoryModal from '../../components/Modals/ChangeLGCategoryModal';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -15,9 +15,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
         return (
             <div className="relative group inline-block">
                 {children}
-                <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+                <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
                     This action is disabled during your subscription's grace period.
-                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                    <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                         <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
                     </svg>
                 </div>
@@ -27,10 +27,15 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-semibold rounded-xl shadow-sm transition-all duration-200";
 
 function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePeriod prop
     const navigate = useNavigate();
+    const location = useLocation();
+    const [activeSection, setActiveSection] = useState(() =>
+        new URLSearchParams(location.search).get('tab') === 'categories' ? 'categories' : 'owners'
+    );
+
     const [owners, setOwners] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -39,6 +44,19 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
 
     const [showBulkChangeLGOwnerModal, setShowBulkChangeLGOwnerModal] = useState(false);
     const [selectedOwnerForBulkChange, setSelectedOwnerForBulkChange] = useState(null);
+
+    // Categories state
+    const [categories, setCategories] = useState([]);
+    const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+    const [categoryError, setCategoryError] = useState('');
+    const [categorySearchTerm, setCategorySearchTerm] = useState('');
+    const [catSortColumn, setCatSortColumn] = useState('name');
+    const [catSortDirection, setCatSortDirection] = useState('asc');
+    const [categoryModalConfig, setCategoryModalConfig] = useState({
+        isOpen: false,
+        preselectedSourceCategoryId: '',
+        preselectSourceRecords: false,
+    });
 
     // NEW: State for sorting and filtering
     const [searchTerm, setSearchTerm] = useState('');
@@ -60,8 +78,23 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
         }
     };
 
+    const fetchCategories = async () => {
+        setIsLoadingCategories(true);
+        setCategoryError('');
+        try {
+            const response = await apiRequest('/end-user/lg-categories/', 'GET');
+            setCategories(Array.isArray(response) ? response : []);
+        } catch (err) {
+            console.error("Failed to fetch LG categories:", err);
+            setCategoryError(`Failed to load LG categories. ${err.message || 'An unexpected error occurred.'}`);
+        } finally {
+            setIsLoadingCategories(false);
+        }
+    };
+
     useEffect(() => {
         fetchInternalOwners();
+        fetchCategories();
     }, []);
 
     const handleCreateNew = () => {
@@ -176,72 +209,183 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
     
         return filteredOwners;
     }, [owners, searchTerm, sortColumn, sortDirection]);
-    
+
+    const handleOpenCategoryMigration = (category = null) => {
+        if (isGracePeriod) {
+            toast.warn("This action is disabled during your subscription's grace period.");
+            return;
+        }
+        if (category) {
+            if (Number(category.lg_count || 0) <= 0) {
+                toast.warn(`Category '${category.name}' currently has 0 LG records to migrate.`);
+                return;
+            }
+            setCategoryModalConfig({
+                isOpen: true,
+                preselectedSourceCategoryId: String(category.id),
+                preselectSourceRecords: true,
+            });
+            return;
+        }
+        setCategoryModalConfig({
+            isOpen: true,
+            preselectedSourceCategoryId: '',
+            preselectSourceRecords: false,
+        });
+    };
+
+    const handleViewCategoryLGs = (categoryName) => {
+        navigate(`/end-user/lg-records?category=${encodeURIComponent(categoryName)}`);
+    };
+
+    const handleCatSort = (column) => {
+        if (catSortColumn === column) {
+            setCatSortDirection(catSortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setCatSortColumn(column);
+            setCatSortDirection('asc');
+        }
+    };
+
+    const renderCatSortIcon = (column) => {
+        if (catSortColumn === column) {
+            return catSortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />;
+        }
+        return null;
+    };
+
+    const filteredAndSortedCategories = useMemo(() => {
+        if (!categories || categories.length === 0) return [];
+        const term = categorySearchTerm.trim().toLowerCase();
+        const filtered = categories.filter((cat) => {
+            if (!term) return true;
+            return (
+                (cat.name || '').toLowerCase().includes(term) ||
+                (cat.code || '').toLowerCase().includes(term) ||
+                (cat.extra_field_name || '').toLowerCase().includes(term)
+            );
+        });
+        return [...filtered].sort((a, b) => {
+            if (catSortColumn === 'lg_count') {
+                const aNum = Number(a.lg_count || 0);
+                const bNum = Number(b.lg_count || 0);
+                return catSortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+            }
+            const aVal = String(a[catSortColumn] || '');
+            const bVal = String(b[catSortColumn] || '');
+            return catSortDirection === 'asc'
+                ? aVal.localeCompare(bVal)
+                : bVal.localeCompare(aVal);
+        });
+    }, [categories, categorySearchTerm, catSortColumn, catSortDirection]);
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-6">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Manage Internal Owners</h2>
-                    <p className="text-sm text-gray-500 mt-1">Add, edit, and manage internal LG owner contacts.</p>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Manage Internal Data</h2>
+                    <p className="text-sm text-slate-500 mt-0.5">Manage internal owner contacts, LG categories, and bulk reassignments.</p>
                 </div>
                 <div className="flex space-x-3">
-                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                        <button
-                            onClick={handleCreateNew}
-                            className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            disabled={isGracePeriod} // NEW: Disable button
-                        >
-                            <PlusCircle className="h-5 w-5 mr-2" />
-                            Add New Owner
-                        </button>
-                    </GracePeriodTooltip>
+                    {activeSection === 'owners' ? (
+                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                            <button
+                                onClick={handleCreateNew}
+                                className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={isGracePeriod}
+                            >
+                                <PlusCircle className="h-4 w-4 mr-2" />
+                                Add New Owner
+                            </button>
+                        </GracePeriodTooltip>
+                    ) : (
+                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                            <button
+                                onClick={() => handleOpenCategoryMigration(null)}
+                                className={`${buttonBaseClassNames} bg-indigo-600 text-white hover:bg-indigo-700 ${isGracePeriod || categories.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={isGracePeriod || categories.length === 0}
+                            >
+                                <Tag className="h-4 w-4 mr-2" />
+                                Change / Migrate Category
+                            </button>
+                        </GracePeriodTooltip>
+                    )}
                 </div>
             </div>
 
-            {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-                    <AlertCircle className="h-5 w-5 mr-2" />
-                    <span className="block sm:inline">{error}</span>
-                </div>
-            )}
+            <div className="mb-4 inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200 gap-1">
+                <button
+                    type="button"
+                    onClick={() => setActiveSection('owners')}
+                    className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                        activeSection === 'owners'
+                            ? 'bg-white text-blue-700 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                >
+                    <Users className="h-4 w-4" />
+                    <span>Internal Owners ({owners.length})</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveSection('categories')}
+                    className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                        activeSection === 'categories'
+                            ? 'bg-white text-indigo-700 shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                >
+                    <Tag className="h-4 w-4" />
+                    <span>LG Categories ({categories.length})</span>
+                </button>
+            </div>
 
-            {isLoading ? (
-                <div className="text-center py-8">
-                    <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" />
-                    <p className="text-gray-600 mt-2">Loading internal owners...</p>
-                </div>
-            ) : owners.length === 0 ? (
-                <div className="bg-gray-50 p-6 rounded-xl text-center border border-dashed border-gray-200">
-                    <p className="text-gray-500">No internal owner contacts found for your customer.</p>
-                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                        <button
-                            onClick={handleCreateNew}
-                            className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 mt-4 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            disabled={isGracePeriod} // NEW: Disable button
-                        >
-                            Add First Owner
-                        </button>
-                    </GracePeriodTooltip>
-                </div>
-            ) : (
+            {activeSection === 'owners' ? (
                 <>
-                <div className="mb-4">
+                    {error && (
+                        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative mb-4 flex items-center text-sm" role="alert">
+                            <AlertCircle className="h-5 w-5 mr-2 shrink-0" />
+                            <span className="block sm:inline">{error}</span>
+                        </div>
+                    )}
+
+                    {isLoading ? (
+                        <div className="text-center py-8">
+                            <Loader2 className="animate-spin h-8 w-8 text-blue-600 mx-auto" />
+                            <p className="text-slate-500 text-sm mt-2">Loading internal owners...</p>
+                        </div>
+                    ) : owners.length === 0 ? (
+                        <div className="bg-slate-50 p-6 rounded-2xl text-center border border-dashed border-slate-200">
+                            <p className="text-slate-500 text-sm">No internal owner contacts found for your customer.</p>
+                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                <button
+                                    onClick={handleCreateNew}
+                                    className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 mt-4 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    disabled={isGracePeriod}
+                                >
+                                    Add First Owner
+                                </button>
+                            </GracePeriodTooltip>
+                        </div>
+                    ) : (
+                        <>
+                <div className="relative mb-3">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                     <input
                         type="text"
                         placeholder="Search by email, phone, or ID..."
-                        className="mt-1 block w-full border border-gray-300 pl-3 pr-10 py-2 text-base rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-md"
+                        className="block w-full border border-slate-200 pl-10 pr-4 py-2 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="overflow-x-auto rounded-xl border border-gray-100">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                <div className="overflow-x-auto rounded-2xl border border-slate-200/90">
+                    <table className="min-w-full divide-y divide-slate-200">
+                        <thead className="bg-slate-50">
                             <tr>
                                 <th
                                     scope="col"
-                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
                                     onClick={() => handleSort('email')}
                                 >
                                     <div className="flex items-center">
@@ -250,7 +394,7 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                                 </th>
                                 <th
                                     scope="col"
-                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
                                     onClick={() => handleSort('phone_number')}
                                 >
                                     <div className="flex items-center">
@@ -259,7 +403,7 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                                 </th>
                                 <th
                                     scope="col"
-                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
                                     onClick={() => handleSort('internal_id')}
                                 >
                                     <div className="flex items-center">
@@ -268,26 +412,26 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                                 </th>
                                 <th
                                     scope="col"
-                                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+                                    className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
                                     onClick={() => handleSort('manager_email')}
                                 >
                                     <div className="flex items-center">
                                         Manager Email {renderSortIcon('manager_email')}
                                     </div>
                                 </th>
-                                <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">View LGs</th>
-                                <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th scope="col" className="px-3.5 py-2.5 text-center text-[11px] font-bold text-slate-500 uppercase tracking-wider">View LGs</th>
+                                <th scope="col" className="px-3.5 py-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white divide-y divide-slate-100">
                             {filteredAndSortedOwners.map((owner) => (
                                 <tr
                                     key={owner.id}
                                     onClick={() => handleEdit(owner)}
-                                    className="hover:bg-indigo-50/40 cursor-pointer transition-colors"
+                                    className="hover:bg-slate-50/80 cursor-pointer transition-colors"
                                 >
                                     {/* UPDATED: Email Column with mailto: link */}
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                                    <td className="px-3.5 py-2.5 max-w-[200px] truncate text-xs sm:text-sm font-medium" title={owner.email}>
                                         <a 
                                             href={`mailto:${owner.email}`} 
                                             onClick={(e) => e.stopPropagation()}
@@ -298,7 +442,7 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                                         </a>
                                     </td>
                                     {/* UPDATED: Phone Column with tel: link */}
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-xs sm:text-sm text-slate-600">
                                         {owner.phone_number ? (
                                             <a 
                                                 href={`tel:${owner.phone_number}`} 
@@ -310,13 +454,13 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                                             </a>
                                         ) : 'N/A'}
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{owner.internal_id || 'N/A'}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{owner.manager_email || 'N/A'}</td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-500" onClick={(e) => e.stopPropagation()}>
+                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-xs sm:text-sm text-slate-600">{owner.internal_id || 'N/A'}</td>
+                                    <td className="px-3.5 py-2.5 max-w-[200px] truncate text-xs sm:text-sm text-slate-600" title={owner.manager_email || 'N/A'}>{owner.manager_email || 'N/A'}</td>
+                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-center text-xs sm:text-sm text-slate-600" onClick={(e) => e.stopPropagation()}>
                                         <button
                                             onClick={() => handleViewOwnedLGs(owner.id)}
-                                            className={`inline-flex items-center space-x-1 font-semibold
-                                                        ${owner.owned_lgs_total_count > 0 ? 'text-blue-600 hover:text-blue-900' : 'text-gray-400 cursor-not-allowed'}`}
+                                            className={`inline-flex items-center space-x-1 font-semibold tabular-nums
+                                                        ${owner.owned_lgs_total_count > 0 ? 'text-blue-600 hover:text-blue-800' : 'text-slate-400 cursor-not-allowed'}`}
                                             title={owner.owned_lgs_total_count > 0 ? "Click to view all LGs for this owner" : "No LGs to display"}
                                             disabled={owner.owned_lgs_total_count === 0}
                                         >
@@ -327,35 +471,35 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                                             <Eye className="h-4 w-4" />
                                         </button>
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                             <button
                                                 onClick={() => handleEdit(owner)}
-                                                className={`text-indigo-600 hover:text-indigo-900 mr-2 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className={`text-indigo-600 hover:text-indigo-900 mr-1.5 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 title="Edit Owner Details"
                                                 disabled={isGracePeriod} // NEW: Disable button
                                             >
-                                                <Edit className="h-5 w-5" />
+                                                <Edit className="h-4 w-4" />
                                             </button>
                                         </GracePeriodTooltip>
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                             <button
                                                 onClick={() => handleBulkChangeOwner(owner)}
-                                                className={`text-purple-600 hover:text-purple-900 mr-2 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod || Number(owner.owned_lgs_total_count || 0) <= 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                                className={`text-purple-600 hover:text-purple-900 mr-1.5 p-1.5 rounded-lg hover:bg-purple-50 transition-colors ${isGracePeriod || Number(owner.owned_lgs_total_count || 0) <= 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
                                                 title={Number(owner.owned_lgs_total_count || 0) <= 0 ? 'Cannot reassign — this owner currently has 0 LG records' : 'Reassign all LGs for this owner'}
                                                 disabled={isGracePeriod || Number(owner.owned_lgs_total_count || 0) <= 0}
                                             >
-                                                <Users className="h-5 w-5" />
+                                                <Users className="h-4 w-4" />
                                             </button>
                                         </GracePeriodTooltip>
                                         <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                             <button
                                                 onClick={() => handleDelete(owner.id)}
-                                                className={`text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className={`text-rose-600 hover:text-rose-900 p-1.5 rounded-lg hover:bg-rose-50 transition-colors ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 title="Delete Owner"
                                                 disabled={isGracePeriod} // NEW: Disable button
                                             >
-                                                <Trash2 className="h-5 w-5" />
+                                                <Trash2 className="h-4 w-4" />
                                             </button>
                                         </GracePeriodTooltip>
                                     </td>
@@ -364,20 +508,196 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                         </tbody>
                     </table>
                     {filteredAndSortedOwners.length === 0 && (
-                        <div className="bg-gray-50 p-6 text-center border-t border-gray-200">
-                            <p className="text-gray-500">No owners match your search criteria.</p>
+                        <div className="bg-slate-50 p-6 text-center border-t border-slate-200">
+                            <p className="text-slate-500 text-sm">No owners match your search criteria.</p>
                         </div>
                     )}
                 </div>
                 </>
+                    )}
+                </>
+            ) : (
+                <>
+                    <div className="mb-3 p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 text-xs sm:text-sm text-indigo-900">
+                        Category definitions and default category settings are managed by your Corporate Administrator. Use <strong>Migrate LGs</strong> to reclassify single, selected, or all LGs across categories.
+                    </div>
+
+                    {categoryError && (
+                        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative mb-4 flex items-center text-sm" role="alert">
+                            <AlertCircle className="h-5 w-5 mr-2 shrink-0" />
+                            <span className="block sm:inline">{categoryError}</span>
+                        </div>
+                    )}
+
+                    {isLoadingCategories ? (
+                        <div className="text-center py-8">
+                            <Loader2 className="animate-spin h-8 w-8 text-indigo-600 mx-auto" />
+                            <p className="text-slate-500 text-sm mt-2">Loading LG categories...</p>
+                        </div>
+                    ) : categories.length === 0 ? (
+                        <div className="bg-slate-50 p-6 rounded-2xl text-center border border-dashed border-slate-200">
+                            <p className="text-slate-500 text-sm">No LG categories available for your account.</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="relative mb-3">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by category name, code, or custom field..."
+                                    className="block w-full border border-slate-200 pl-10 pr-4 py-2 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                    value={categorySearchTerm}
+                                    onChange={(e) => setCategorySearchTerm(e.target.value)}
+                                />
+                            </div>
+                            <div className="overflow-x-auto rounded-2xl border border-slate-200/90">
+                                <table className="min-w-full divide-y divide-slate-200">
+                                    <thead className="bg-slate-50">
+                                        <tr>
+                                            <th
+                                                scope="col"
+                                                className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
+                                                onClick={() => handleCatSort('name')}
+                                            >
+                                                <div className="flex items-center">
+                                                    Category Name {renderCatSortIcon('name')}
+                                                </div>
+                                            </th>
+                                            <th
+                                                scope="col"
+                                                className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
+                                                onClick={() => handleCatSort('code')}
+                                            >
+                                                <div className="flex items-center">
+                                                    Code {renderCatSortIcon('code')}
+                                                </div>
+                                            </th>
+                                            <th
+                                                scope="col"
+                                                className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
+                                                onClick={() => handleCatSort('extra_field_name')}
+                                            >
+                                                <div className="flex items-center">
+                                                    Custom Extra Field {renderCatSortIcon('extra_field_name')}
+                                                </div>
+                                            </th>
+                                            <th scope="col" className="px-3.5 py-2.5 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                                Entity Scope
+                                            </th>
+                                            <th
+                                                scope="col"
+                                                className="px-3.5 py-2.5 text-center text-[11px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none"
+                                                onClick={() => handleCatSort('lg_count')}
+                                            >
+                                                <div className="flex items-center justify-center">
+                                                    View LGs {renderCatSortIcon('lg_count')}
+                                                </div>
+                                            </th>
+                                            <th scope="col" className="px-3.5 py-2.5 text-right text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                                Actions
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-slate-100">
+                                        {filteredAndSortedCategories.map((cat) => {
+                                            const lgCount = Number(cat.lg_count || 0);
+                                            const entityScopeText =
+                                                cat.customer_id === null || cat.has_all_entity_access
+                                                    ? 'All Entities'
+                                                    : (cat.entities_with_access || []).map((e) => e.entity_name).join(', ') || 'Restricted';
+                                            return (
+                                                <tr key={`cat-${cat.id}`} className="hover:bg-slate-50/80 transition-colors">
+                                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-xs sm:text-sm font-medium text-slate-900">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span>{cat.name}</span>
+                                                            {cat.is_default && (
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                    <Star className="h-3 w-3 mr-1 fill-emerald-600 text-emerald-600" />
+                                                                    Default
+                                                                </span>
+                                                            )}
+                                                            {cat.customer_id === null && (
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                                                    <Globe className="h-3 w-3 mr-1" />
+                                                                    Universal
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-xs sm:text-sm text-slate-600 font-mono">
+                                                        {cat.code || '—'}
+                                                    </td>
+                                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-xs sm:text-sm text-slate-600">
+                                                        {cat.extra_field_name ? (
+                                                            <div className="inline-flex items-center gap-1.5">
+                                                                <span className="font-medium text-slate-800">{cat.extra_field_name}</span>
+                                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                                                    cat.is_mandatory
+                                                                        ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                                                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                                }`}>
+                                                                    {cat.is_mandatory ? 'Mandatory' : 'Optional'}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-400">None</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3.5 py-2.5 text-xs sm:text-sm text-slate-600 max-w-[180px] truncate" title={entityScopeText}>
+                                                        {entityScopeText}
+                                                    </td>
+                                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-center text-xs sm:text-sm text-slate-500">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleViewCategoryLGs(cat.name)}
+                                                            className={`inline-flex items-center space-x-1 font-semibold tabular-nums ${
+                                                                lgCount > 0 ? 'text-blue-600 hover:text-blue-800' : 'text-slate-400 cursor-not-allowed'
+                                                            }`}
+                                                            title={lgCount > 0 ? `Click to view all LGs in ${cat.name}` : 'No LGs to display'}
+                                                            disabled={lgCount === 0}
+                                                        >
+                                                            <span>{lgCount}</span>
+                                                            <Eye className="h-4 w-4" />
+                                                        </button>
+                                                    </td>
+                                                    <td className="px-3.5 py-2.5 whitespace-nowrap text-right text-sm font-medium">
+                                                        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenCategoryMigration(cat)}
+                                                                disabled={isGracePeriod || lgCount <= 0}
+                                                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 ${
+                                                                    isGracePeriod || lgCount <= 0 ? 'opacity-40 cursor-not-allowed' : ''
+                                                                }`}
+                                                                title={lgCount <= 0 ? 'No LGs assigned to migrate' : `Migrate LGs from ${cat.name}`}
+                                                            >
+                                                                <Tag className="h-3.5 w-3.5" />
+                                                                Migrate LGs
+                                                            </button>
+                                                        </GracePeriodTooltip>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                                {filteredAndSortedCategories.length === 0 && (
+                                    <div className="bg-slate-50 p-6 text-center border-t border-slate-200">
+                                        <p className="text-slate-500 text-sm">No categories match your search criteria.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </>
             )}
-            
+
             {showFormModal && (
                 <InternalOwnerFormModal
                     owner={selectedOwner}
                     onClose={() => setShowFormModal(false)}
                     onSuccess={handleFormSuccess}
-                    isGracePeriod={isGracePeriod} // NEW: Pass prop to modal
+                    isGracePeriod={isGracePeriod}
                 />
             )}
 
@@ -386,7 +706,32 @@ function ManageInternalOwnersPage({ isGracePeriod }) { // NEW: Accept isGracePer
                     owner={selectedOwnerForBulkChange}
                     onClose={() => setShowBulkChangeLGOwnerModal(false)}
                     onSuccess={handleFormSuccess}
-                    isGracePeriod={isGracePeriod} // NEW: Pass prop to modal
+                    isGracePeriod={isGracePeriod}
+                />
+            )}
+
+            {categoryModalConfig.isOpen && (
+                <ChangeLGCategoryModal
+                    initialScope="multiple"
+                    categories={categories}
+                    preselectedSourceCategoryId={categoryModalConfig.preselectedSourceCategoryId}
+                    preselectSourceRecords={categoryModalConfig.preselectSourceRecords}
+                    onClose={() =>
+                        setCategoryModalConfig({
+                            isOpen: false,
+                            preselectedSourceCategoryId: '',
+                            preselectSourceRecords: false,
+                        })
+                    }
+                    onSuccess={() => {
+                        setCategoryModalConfig({
+                            isOpen: false,
+                            preselectedSourceCategoryId: '',
+                            preselectSourceRecords: false,
+                        });
+                        fetchCategories();
+                    }}
+                    isGracePeriod={isGracePeriod}
                 />
             )}
         </div>

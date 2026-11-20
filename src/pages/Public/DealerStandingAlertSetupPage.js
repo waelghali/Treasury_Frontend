@@ -138,13 +138,13 @@ export default function DealerStandingAlertSetupPage() {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-                <div className="max-w-md w-full bg-white rounded-2xl p-6 text-center shadow-xl">
-                    <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+                <div className="max-w-md w-full bg-slate-900 border border-rose-500/30 rounded-3xl p-6 text-center shadow-2xl">
+                    <div className="w-12 h-12 bg-rose-500/15 text-rose-400 border border-rose-500/25 rounded-2xl flex items-center justify-center mx-auto mb-3">
                         <AlertCircle size={24} />
                     </div>
-                    <h2 className="text-base font-bold text-slate-900">Setup Link Invalid</h2>
-                    <p className="text-xs text-slate-600 mt-2 leading-relaxed">{error}</p>
+                    <h2 className="text-base font-bold text-white">Setup Link Invalid</h2>
+                    <p className="text-xs text-slate-300 mt-2 leading-relaxed">{error}</p>
                 </div>
             </div>
         );

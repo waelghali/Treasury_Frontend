@@ -12,9 +12,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
         return (
             <div className="relative group inline-block">
                 {children}
-                <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+                <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-xl py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
                     This action is disabled during your subscription's grace period.
-                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                    <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                         <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
                     </svg>
                 </div>
@@ -23,8 +23,6 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     }
     return children;
 };
-
-const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
 const ChangeRequestorModal = ({ 
     lgRecords = [], // Can be a single LG or an array of LGs 
@@ -179,11 +177,11 @@ const ChangeRequestorModal = ({
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
                 </TransitionChild>
 
-                <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div className="fixed inset-0 z-[100] w-screen overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 text-center">
                         <TransitionChild
                             as={React.Fragment}
                             enter="ease-out duration-300"
@@ -193,182 +191,187 @@ const ChangeRequestorModal = ({
                             leaveFrom="opacity-100 translate-y-0 sm:scale-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-xl bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full max-w-2xl sm:p-6">
-                                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
-                                    <button
-                                        type="button"
-                                        className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none"
-                                        onClick={onClose}
-                                    >
-                                        <span className="sr-only">Close</span>
-                                        <X className="h-6 w-6" aria-hidden="true" />
-                                    </button>
-                                </div>
-                                <div className="sm:flex sm:items-start">
-                                    <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                        <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-4">
-                                            {isPublicPortal 
-                                                ? "Hand Over LG to Another Requestor" 
-                                                : singleLgMode 
+                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white border border-slate-200 text-left shadow-2xl transition-all w-full max-w-2xl flex flex-col max-h-[90vh]">
+                                {/* Sticky Header */}
+                                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between shrink-0">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="p-2 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shrink-0">
+                                            <Users className="h-5 w-5" />
+                                        </div>
+                                        <DialogTitle as="h3" className="text-base font-bold leading-6 text-slate-900 truncate">
+                                            {isPublicPortal
+                                                ? "Hand Over LG to Another Requestor"
+                                                : singleLgMode
                                                     ? `Transfer Ownership for LG: ${lgsToProcess[0].lg_ref_number || lgsToProcess[0].bank_lg_number}`
                                                     : `Transfer Ownership for ${lgsToProcess.length} LGs`
                                             }
                                         </DialogTitle>
-                                        <div className="mt-2 text-sm text-gray-600 mb-4">
-                                            {isPublicPortal 
-                                                ? "You are about to transfer ownership of this LG to a colleague. They will receive an email with instructions to log in and accept the handover. Until they accept, you will remain the owner."
-                                                : "Force-transferring ownership will require Maker-Checker approval. Once approved, ownership is updated instantly."
-                                            }
-                                        </div>
-                                        <div className="mt-2">
-                                            <Formik
-                                                initialValues={initialValues}
-                                                validationSchema={HandoverSchema}
-                                                onSubmit={handleSubmit}
-                                            >
-                                                {({ isSubmitting, errors, touched, values, setFieldValue }) => {
-                                                    // Sync formik state with local state check
-                                                    const creatingNew = isCreatingNewOwner;
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus:outline-none shrink-0"
+                                        onClick={onClose}
+                                    >
+                                        <span className="sr-only">Close</span>
+                                        <X className="h-5 w-5" aria-hidden="true" />
+                                    </button>
+                                </div>
 
-                                                    return (
-                                                    <Form className={`space-y-4 ${isGracePeriod ? 'opacity-50' : ''}`}>
-                                                        
-                                                        {/* Public Portal ONLY allows new creation */}
-                                                        {!isPublicPortal && (
-                                                            <div className="flex items-center space-x-2 mt-4 mb-4 bg-gray-50 p-3 rounded-md border">
-                                                                <input
-                                                                    id="isCreatingNewOwner"
-                                                                    name="isCreatingNewOwner"
-                                                                    type="checkbox"
-                                                                    checked={creatingNew}
-                                                                    onChange={() => {
-                                                                        setIsCreatingNewOwner(!creatingNew);
-                                                                    }}
-                                                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                                                    disabled={isGracePeriod}
-                                                                />
-                                                                <label htmlFor="isCreatingNewOwner" className="text-sm font-medium text-gray-900">
-                                                                    Enter a New Requestor (instead of selecting existing)
-                                                                </label>
+                                <Formik
+                                    initialValues={initialValues}
+                                    validationSchema={HandoverSchema}
+                                    onSubmit={handleSubmit}
+                                >
+                                    {({ isSubmitting, errors, touched, values, setFieldValue }) => {
+                                        // Sync formik state with local state check
+                                        const creatingNew = isCreatingNewOwner;
+
+                                        return (
+                                        <Form className={`flex flex-col flex-1 min-h-0 ${isGracePeriod ? 'opacity-50' : ''}`}>
+                                            {/* Scrollable Body */}
+                                            <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+                                                <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200/80 rounded-xl p-3 leading-relaxed">
+                                                    {isPublicPortal
+                                                        ? "You are about to transfer ownership of this LG to a colleague. They will receive an email with instructions to log in and accept the handover. Until they accept, you will remain the owner."
+                                                        : "Force-transferring ownership will require Maker-Checker approval. Once approved, ownership is updated instantly."
+                                                    }
+                                                </div>
+
+                                                {/* Public Portal ONLY allows new creation */}
+                                                {!isPublicPortal && (
+                                                    <div className="flex items-center space-x-2.5 bg-slate-50/80 p-3 rounded-xl border border-slate-200">
+                                                        <input
+                                                            id="isCreatingNewOwner"
+                                                            name="isCreatingNewOwner"
+                                                            type="checkbox"
+                                                            checked={creatingNew}
+                                                            onChange={() => {
+                                                                setIsCreatingNewOwner(!creatingNew);
+                                                            }}
+                                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                                                            disabled={isGracePeriod}
+                                                        />
+                                                        <label htmlFor="isCreatingNewOwner" className="text-sm font-medium text-slate-800 cursor-pointer">
+                                                            Enter a New Requestor (instead of selecting existing)
+                                                        </label>
+                                                    </div>
+                                                )}
+
+                                                {creatingNew ? (
+                                                    <div className="space-y-3.5 border border-blue-200/80 p-4 rounded-xl bg-blue-50/40">
+                                                        <h4 className="font-bold text-xs uppercase tracking-wider text-blue-800 border-b border-blue-200/60 pb-2">New Requestor Details</h4>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address <span className="text-rose-500">*</span></label>
+                                                                <Field name="newEmail" type="email" className={`block w-full px-3 py-2 rounded-xl border bg-white text-sm text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.newEmail && touched.newEmail ? 'border-rose-500' : 'border-slate-300'}`} disabled={isGracePeriod} placeholder="colleague@company.com" />
+                                                                <ErrorMessage name="newEmail" component="div" className="text-rose-600 text-xs mt-1" />
                                                             </div>
-                                                        )}
-
-                                                        {creatingNew ? (
-                                                            <div className="space-y-4 border border-blue-100 p-4 rounded-md shadow-sm bg-blue-50/30">
-                                                                <h4 className="font-medium text-md text-blue-800 border-b border-blue-100 pb-2">New Requestor Details</h4>
-                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                    <div>
-                                                                        <label className="block text-sm font-medium text-gray-700">Email Address <span className="text-red-500">*</span></label>
-                                                                        <Field name="newEmail" type="email" className={`mt-1 block w-full px-3 py-2 rounded-md border text-sm ${errors.newEmail && touched.newEmail ? 'border-red-500' : 'border-gray-300'}`} disabled={isGracePeriod} placeholder="colleague@company.com" />
-                                                                        <ErrorMessage name="newEmail" component="div" className="text-red-600 text-xs mt-1" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                                                                        <Field name="newName" type="text" className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 text-sm" disabled={isGracePeriod} />
-                                                                    </div>
-                                                                    <div>
-                                                                        <label className="block text-sm font-medium text-gray-700">Department</label>
-                                                                        <Field name="newDepartment" type="text" className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 text-sm" disabled={isGracePeriod} />
-                                                                    </div>
-                                                                    <div>
-                                                                        <label className="block text-sm font-medium text-gray-700">Job Title</label>
-                                                                        <Field name="newJobTitle" type="text" className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 text-sm" disabled={isGracePeriod} />
-                                                                    </div>
-                                                                    <div>
-                                                                        <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-                                                                        <Field name="newPhoneNumber" type="text" className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 text-sm" disabled={isGracePeriod} />
-                                                                    </div>
-                                                                    <div>
-                                                                        <label className="block text-sm font-medium text-gray-700">Employee ID</label>
-                                                                        <Field name="newEmployeeId" type="text" className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 text-sm" disabled={isGracePeriod} />
-                                                                    </div>
-                                                                    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                        <div>
-                                                                            <label className="block text-sm font-medium text-gray-700">Manager Email</label>
-                                                                            <Field name="newManagerEmail" type="email" className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 text-sm" disabled={isGracePeriod} />
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-sm font-medium text-gray-700">Second-Line Manager Email</label>
-                                                                            <Field name="newSecondLineManagerEmail" type="email" className="mt-1 block w-full px-3 py-2 rounded-md border border-gray-300 text-sm" disabled={isGracePeriod} />
-                                                                        </div>
-                                                                    </div>
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-700 mb-1">Full Name</label>
+                                                                <Field name="newName" type="text" className="block w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isGracePeriod} />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
+                                                                <Field name="newDepartment" type="text" className="block w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isGracePeriod} />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-700 mb-1">Job Title</label>
+                                                                <Field name="newJobTitle" type="text" className="block w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isGracePeriod} />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-700 mb-1">Phone Number</label>
+                                                                <Field name="newPhoneNumber" type="text" className="block w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isGracePeriod} />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-xs font-semibold text-slate-700 mb-1">Employee ID</label>
+                                                                <Field name="newEmployeeId" type="text" className="block w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isGracePeriod} />
+                                                            </div>
+                                                            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                                                <div>
+                                                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Manager Email</label>
+                                                                    <Field name="newManagerEmail" type="email" className="block w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isGracePeriod} />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-xs font-semibold text-slate-700 mb-1">Second-Line Manager Email</label>
+                                                                    <Field name="newSecondLineManagerEmail" type="email" className="block w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500" disabled={isGracePeriod} />
                                                                 </div>
                                                             </div>
-                                                        ) : (
-                                                            <div>
-                                                                <label htmlFor="selectedEmail" className="block text-sm font-medium text-gray-700">
-                                                                    Select Existing Requestor
-                                                                </label>
-                                                                {isLoadingRequestors ? (
-                                                                    <p className="text-gray-500 flex items-center mt-2 text-sm"><Loader2 className="animate-spin h-4 w-4 mr-2" /> Loading directory...</p>
-                                                                ) : (
-                                                                    <Field
-                                                                        as="select"
-                                                                        name="selectedEmail"
-                                                                        className={`mt-1 block w-full px-3 py-2 rounded-md border text-sm ${errors.selectedEmail && touched.selectedEmail ? 'border-red-500' : 'border-gray-300'}`}
-                                                                        disabled={isGracePeriod}
-                                                                    >
-                                                                        <option value="">-- Choose a Requestor Profile --</option>
-                                                                        {filteredRequestors.map((req, idx) => (
-                                                                            <option key={idx} value={req.email}>
-                                                                                {req.email} {req.name ? `(${req.name})` : ''} - {req.department || 'Unknown Dept'}
-                                                                            </option>
-                                                                        ))}
-                                                                    </Field>
-                                                                )}
-                                                                {errors.selectedEmail && touched.selectedEmail && <div className="text-red-600 text-xs mt-1">{errors.selectedEmail}</div>}
-                                                            </div>
-                                                        )}
-
-                                                        {!isPublicPortal && (
-                                                            <div>
-                                                                <label htmlFor="justification" className="block text-sm font-medium text-gray-700">
-                                                                    Reason / Justification <span className="text-red-500">*</span>
-                                                                </label>
-                                                                <Field
-                                                                    as="textarea"
-                                                                    name="justification"
-                                                                    rows="2"
-                                                                    className={`mt-1 block w-full px-3 py-2 rounded-md border text-sm ${errors.justification && touched.justification ? 'border-red-500' : 'border-gray-300'}`}
-                                                                    disabled={isGracePeriod}
-                                                                />
-                                                                <ErrorMessage name="justification" component="div" className="text-red-600 text-xs mt-1" />
-                                                            </div>
-                                                        )}
-
-                                                        {errors.general && (
-                                                            <div className="text-red-600 text-sm mt-2 flex items-center bg-red-50 p-2 rounded">
-                                                                <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                                                                {errors.general}
-                                                            </div>
-                                                        )}
-
-                                                        <div className="mt-6 sm:grid sm:grid-flow-row-dense sm:grid-cols-2 sm:gap-3 border-t pt-4">
-                                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                                <button
-                                                                    type="submit"
-                                                                    className={`${buttonBaseClassNames} sm:col-start-2 w-full justify-center bg-blue-600 text-white hover:bg-blue-700 ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                                    disabled={isSubmitting || isGracePeriod}
-                                                                >
-                                                                    {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Users className="h-5 w-5 mr-2" />}
-                                                                    {isPublicPortal ? 'Initiate Handover' : 'Submit Transfer'}
-                                                                </button>
-                                                            </GracePeriodTooltip>
-                                                            <button
-                                                                type="button"
-                                                                className={`${buttonBaseClassNames} sm:col-start-1 w-full justify-center bg-gray-100 text-gray-700 hover:bg-gray-200`}
-                                                                onClick={onClose}
-                                                                disabled={isSubmitting}
-                                                            >
-                                                                Cancel
-                                                            </button>
                                                         </div>
-                                                    </Form>
-                                                )}}
-                                            </Formik>
-                                        </div>
-                                    </div>
-                                </div>
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        <label htmlFor="selectedEmail" className="block text-xs font-semibold text-slate-700 mb-1">
+                                                            Select Existing Requestor
+                                                        </label>
+                                                        {isLoadingRequestors ? (
+                                                            <p className="text-slate-500 flex items-center mt-2 text-sm"><Loader2 className="animate-spin h-4 w-4 mr-2 text-blue-600" /> Loading directory...</p>
+                                                        ) : (
+                                                            <Field
+                                                                as="select"
+                                                                name="selectedEmail"
+                                                                className={`block w-full px-3 py-2 rounded-xl border bg-white text-sm text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.selectedEmail && touched.selectedEmail ? 'border-rose-500' : 'border-slate-300'}`}
+                                                                disabled={isGracePeriod}
+                                                            >
+                                                                <option value="">-- Choose a Requestor Profile --</option>
+                                                                {filteredRequestors.map((req, idx) => (
+                                                                    <option key={idx} value={req.email}>
+                                                                        {req.email} {req.name ? `(${req.name})` : ''} - {req.department || 'Unknown Dept'}
+                                                                    </option>
+                                                                ))}
+                                                            </Field>
+                                                        )}
+                                                        {errors.selectedEmail && touched.selectedEmail && <div className="text-rose-600 text-xs mt-1">{errors.selectedEmail}</div>}
+                                                    </div>
+                                                )}
+
+                                                {!isPublicPortal && (
+                                                    <div>
+                                                        <label htmlFor="justification" className="block text-xs font-semibold text-slate-700 mb-1">
+                                                            Reason / Justification <span className="text-rose-500">*</span>
+                                                        </label>
+                                                        <Field
+                                                            as="textarea"
+                                                            name="justification"
+                                                            rows="2"
+                                                            className={`block w-full px-3 py-2 rounded-xl border bg-white text-sm text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.justification && touched.justification ? 'border-rose-500' : 'border-slate-300'}`}
+                                                            disabled={isGracePeriod}
+                                                        />
+                                                        <ErrorMessage name="justification" component="div" className="text-rose-600 text-xs mt-1" />
+                                                    </div>
+                                                )}
+
+                                                {errors.general && (
+                                                    <div className="text-rose-700 text-xs flex items-center bg-rose-50 border border-rose-200 p-3 rounded-xl">
+                                                        <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                                                        {errors.general}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Sticky Footer inside Form */}
+                                            <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 shrink-0">
+                                                <button
+                                                    type="button"
+                                                    className="inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+                                                    onClick={onClose}
+                                                    disabled={isSubmitting}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                    <button
+                                                        type="submit"
+                                                        className={`inline-flex justify-center items-center px-4 py-2 text-sm font-semibold rounded-xl shadow-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors ${isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        disabled={isSubmitting || isGracePeriod}
+                                                    >
+                                                        {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Users className="h-4 w-4 mr-2" />}
+                                                        {isPublicPortal ? 'Initiate Handover' : 'Submit Transfer'}
+                                                    </button>
+                                                </GracePeriodTooltip>
+                                            </div>
+                                        </Form>
+                                    )}}
+                                </Formik>
                             </DialogPanel>
                         </TransitionChild>
                     </div>

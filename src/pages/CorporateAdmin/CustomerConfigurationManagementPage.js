@@ -68,7 +68,7 @@ const detectEmailProvider = (email) => {
 
 // --- 7-GROUP MASTER DOMAIN SETTINGS ARCHITECTURE ---
 const settingGroups = {
-  'General Platform & Security Policies': { icon: Lock },
+  'Enterprise Cloud Storage & General Settings': { icon: HardDrive },
   'LG Custody Lifecycle & Evidences': { icon: Shield },
   'LG Issuance Lifecycle & Compliance': { icon: FileCheck },
   'Smart Bank Facility Scoring & Recommendation': { icon: Layers },
@@ -141,20 +141,12 @@ const getGroupKey = (configOrKey, moduleTags = null) => {
     return 'LG Issuance Lifecycle & Compliance';
   }
 
-  // 6. General Platform & Security Policies
+  // 6. Enterprise Cloud Storage & General Settings
   if (
     (!tags || tags.length === 0) &&
-    (
-      key.includes('PASSWORD') ||
-      key.includes('LOCKOUT') ||
-      key.includes('GRACE_PERIOD') ||
-      key.includes('PP_VERSION') ||
-      key.includes('TC_VERSION') ||
-      key.includes('STORAGE_BUCKET') ||
-      key.includes('AUTH')
-    )
+    key.includes('STORAGE_BUCKET')
   ) {
-    return 'General Platform & Security Policies';
+    return 'Enterprise Cloud Storage & General Settings';
   }
 
   // 7. Cross-Module Operations & Banking Timers (Cross-module / operational timers)
@@ -334,7 +326,12 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
     setError('');
     try {
       const response = await apiRequest('/corporate-admin/customer-configurations/', 'GET');
-      const groupedConfigurations = response.map(config => ({
+      const allowedConfigs = (Array.isArray(response) ? response : []).filter((config) => {
+        const key = (config.global_config_key || '').toUpperCase();
+        if (key.startsWith('CBE_')) return true;
+        return !config.global_config_scope || config.global_config_scope === 'CUSTOMER_CONFIGURABLE';
+      });
+      const groupedConfigurations = allowedConfigs.map(config => ({
         ...config,
         group: getGroupKey(config)
       }));
@@ -981,7 +978,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   const availableModules = useMemo(() => {
     const list = [
       { id: 'ALL', label: 'All Modules', icon: Layers },
-      { id: 'general', label: 'General Platform', icon: Lock },
+      { id: 'general', label: 'Cloud Storage & General', icon: HardDrive },
     ];
     if (hasIssuance) {
       list.push({ id: 'issuance', label: 'LG Issuance', icon: FileCheck });
@@ -996,32 +993,34 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       list.push({ id: 'quotation', label: 'RFQ Quotations', icon: Building });
     }
 
-    return list.map(mod => {
-      if (mod.id === 'ALL') {
-        return { ...mod, count: configurations.length };
-      }
-      const count = configurations.filter(c => {
-        const tags = (c.global_module_tags || []).map(t => String(t).toLowerCase());
-        const key = (c.global_config_key || '').toUpperCase();
-        if (mod.id === 'general') {
-          return (!tags || tags.length === 0) || c.group === 'General Platform & Security Policies';
+    return list
+      .map(mod => {
+        if (mod.id === 'ALL') {
+          return { ...mod, count: configurations.length };
         }
-        if (mod.id === 'issuance') {
-          return tags.includes('issuance') || c.group === 'LG Issuance Lifecycle & Compliance' || c.group === 'Smart Bank Facility Scoring & Recommendation';
-        }
-        if (mod.id === 'custody') {
-          return tags.includes('custody') || c.group === 'LG Custody Lifecycle & Evidences';
-        }
-        if (mod.id === 'quotation') {
-          return tags.includes('quotation') || tags.includes('quotations') || c.group === 'RFQ Quotations Module' || key.includes('CROSS_ENTITY') || key.includes('QUOTATION');
-        }
-        if (mod.id === 'reconciliation') {
-          return tags.includes('reconciliation') || c.group === 'Bank Position Reconciliation' || key.includes('RECONCILIATION');
-        }
-        return false;
-      }).length;
-      return { ...mod, count };
-    });
+        const count = configurations.filter(c => {
+          const tags = (c.global_module_tags || []).map(t => String(t).toLowerCase());
+          const key = (c.global_config_key || '').toUpperCase();
+          if (mod.id === 'general') {
+            return (!tags || tags.length === 0) && c.group === 'Enterprise Cloud Storage & General Settings';
+          }
+          if (mod.id === 'issuance') {
+            return tags.includes('issuance') || c.group === 'LG Issuance Lifecycle & Compliance' || c.group === 'Smart Bank Facility Scoring & Recommendation';
+          }
+          if (mod.id === 'custody') {
+            return tags.includes('custody') || c.group === 'LG Custody Lifecycle & Evidences';
+          }
+          if (mod.id === 'quotation') {
+            return tags.includes('quotation') || tags.includes('quotations') || c.group === 'RFQ Quotations Module' || key.includes('CROSS_ENTITY') || key.includes('QUOTATION');
+          }
+          if (mod.id === 'reconciliation') {
+            return tags.includes('reconciliation') || c.group === 'Bank Position Reconciliation' || key.includes('RECONCILIATION');
+          }
+          return false;
+        }).length;
+        return { ...mod, count };
+      })
+      .filter(mod => mod.id !== 'general' || mod.count > 0);
   }, [configurations, hasIssuance, hasCustody, hasQuotation, hasReconciliation]);
 
   // Filter available setting groups based on active subscription modules AND selected module
@@ -1039,7 +1038,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
 
       // 2. Selected module filter
       if (selectedModule === 'general') {
-        return groupName === 'General Platform & Security Policies';
+        return groupName === 'Enterprise Cloud Storage & General Settings';
       }
       if (selectedModule === 'issuance') {
         return (
@@ -1100,7 +1099,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           const tags = (config.global_module_tags || []).map(t => String(t).toLowerCase());
           const key = (config.global_config_key || '').toUpperCase();
           if (selectedModule === 'general') {
-            const isGeneral = (!tags || tags.length === 0) || config.group === 'General Platform & Security Policies';
+            const isGeneral = (!tags || tags.length === 0) && config.group === 'Enterprise Cloud Storage & General Settings';
             if (!isGeneral) return false;
           } else if (selectedModule === 'issuance') {
             const isIssuance = tags.includes('issuance') || config.group === 'LG Issuance Lifecycle & Compliance' || config.group === 'Smart Bank Facility Scoring & Recommendation';
@@ -1170,66 +1169,66 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
 
       {/* --- UPDATED: Subscription & Usage Section (Collapsible) --- */}
       {subscriptionData && (
-        <div className="bg-white rounded-lg shadow-md border-l-4 border-blue-500 overflow-hidden transition-all duration-300">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm border-l-4 border-l-blue-500 overflow-hidden transition-all duration-300">
           {/* Header - Clickable to Toggle */}
           <div
-            className="p-6 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
+            className="p-4 sm:p-5 flex justify-between items-center cursor-pointer hover:bg-slate-50/70 transition-colors"
             onClick={() => setIsSubscriptionExpanded(!isSubscriptionExpanded)}
           >
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+              <h3 className="text-base sm:text-lg font-semibold text-slate-800 flex items-center">
                 <Activity className="h-5 w-5 mr-2 text-blue-600" />
                 Subscription & Usage
               </h3>
               {!isSubscriptionExpanded && (
-                <p className="text-sm text-gray-500 mt-1">
-                  {subscriptionData.subscription_plan.name} • <span className={subscriptionData.status === 'active' ? 'text-green-600' : 'text-red-600'}>{subscriptionData.status.toUpperCase()}</span>
+                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                  {subscriptionData.subscription_plan.name} • <span className={subscriptionData.status === 'active' ? 'text-emerald-600 font-medium' : 'text-rose-600 font-medium'}>{subscriptionData.status.toUpperCase()}</span>
                 </p>
               )}
               {isSubscriptionExpanded && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Plan: <span className="font-semibold text-gray-700">{subscriptionData.subscription_plan.name}</span>
+                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                  Plan: <span className="font-semibold text-slate-700">{subscriptionData.subscription_plan.name}</span>
                 </p>
               )}
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               {isSubscriptionExpanded && (
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${subscriptionData.status === 'active' ? 'bg-green-100 text-green-800' :
-                  subscriptionData.status === 'grace' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${subscriptionData.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                  subscriptionData.status === 'grace' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200'
                   }`}>
                   {subscriptionData.status.toUpperCase()}
                 </span>
               )}
               {isSubscriptionExpanded ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
+                <ChevronUp className="h-5 w-5 text-slate-400" />
               ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
+                <ChevronDown className="h-5 w-5 text-slate-400" />
               )}
             </div>
           </div>
 
           {/* Collapsible Content */}
           {isSubscriptionExpanded && (
-            <div className="px-6 pb-6 pt-0 border-t border-gray-100 mt-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
+            <div className="px-4 sm:px-5 pb-5 pt-0 border-t border-slate-100 mt-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
                 {/* Period Info */}
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
-                    <Calendar className="h-4 w-4 mr-2" /> Current Term
+                <div className="bg-slate-50/80 border border-slate-200/70 p-3.5 rounded-xl">
+                  <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2.5 flex items-center">
+                    <Calendar className="h-3.5 w-3.5 mr-1.5" /> Current Term
                   </h4>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-1.5 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Start Date:</span>
-                      <span className="font-medium text-gray-900">{formatDate(subscriptionData.start_date)}</span>
+                      <span className="text-slate-600">Start Date:</span>
+                      <span className="font-medium text-slate-900">{formatDate(subscriptionData.start_date)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Renewal Date:</span>
-                      <span className={`font-medium ${new Date(subscriptionData.end_date) < new Date() ? 'text-red-600' : 'text-gray-900'}`}>
+                      <span className="text-slate-600">Renewal Date:</span>
+                      <span className={`font-medium ${new Date(subscriptionData.end_date) < new Date() ? 'text-rose-600' : 'text-slate-900'}`}>
                         {formatDate(subscriptionData.end_date)}
                       </span>
                     </div>
@@ -1237,9 +1236,9 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                 </div>
 
                 {/* Usage Limits */}
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
-                    <Activity className="h-4 w-4 mr-2" /> Usage Limits
+                <div className="bg-slate-50/80 border border-slate-200/70 p-3.5 rounded-xl">
+                  <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2.5 flex items-center">
+                    <Activity className="h-3.5 w-3.5 mr-1.5" /> Usage Limits
                   </h4>
                   <UsageProgressBar
                     current={subscriptionData.active_user_count}
@@ -1256,11 +1255,11 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                 </div>
 
                 {/* Plan Features */}
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="text-sm font-semibold text-gray-600 uppercase tracking-wider mb-3 flex items-center">
-                    <Shield className="h-4 w-4 mr-2" /> Plan Features
+                <div className="bg-slate-50/80 border border-slate-200/70 p-3.5 rounded-xl">
+                  <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2.5 flex items-center">
+                    <Shield className="h-3.5 w-3.5 mr-1.5" /> Plan Features
                   </h4>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <FeatureItem
                       label="Maker-Checker"
                       isEnabled={subscriptionData.subscription_plan.can_maker_checker}
@@ -1290,9 +1289,9 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
       )}
 
       {/* --- Configuration Settings Section --- */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-gray-800">Module Settings (Customer Configurations)</h2>
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Module Settings (Customer Configurations)</h2>
           <div className="flex space-x-3">
             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
               <button
@@ -1301,10 +1300,10 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                   setShowAdvancedEmailSettings(!hasExistingData);
                   setShowEmailSettingsModal(true);
                 }}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-3.5 py-2 text-sm font-medium rounded-xl shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 disabled={isGracePeriod}
               >
-                <Mail className="h-4 w-4 mr-2" />
+                <Mail className="h-4 w-4 mr-1.5" />
                 Manage Email Settings
               </button>
             </GracePeriodTooltip>
@@ -1312,14 +1311,14 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         </div>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-            <AlertCircle className="h-5 w-5 mr-2" />
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative mb-4 flex items-center text-sm" role="alert">
+            <AlertCircle className="h-4 w-4 mr-2 text-rose-500 shrink-0" />
             <span className="block sm:inline">{error}</span>
           </div>
         )}
 
         {/* Module Filter Pills */}
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1.5">
             <Sliders className="h-3.5 w-3.5 text-slate-400" /> Filter by Module:
           </span>
@@ -1335,7 +1334,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
                   setSelectedGroup('All Groups');
                 }}
                 disabled={isGracePeriod}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80'
@@ -1356,9 +1355,9 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         </div>
 
         {/* Combined Filters */}
-        <div className="mb-6 flex flex-col md:flex-row md:space-x-4 space-y-3 md:space-y-0">
+        <div className="mb-4 flex flex-col md:flex-row md:space-x-3 space-y-2.5 md:space-y-0">
           <div className="flex items-center space-x-2 flex-1">
-            <Filter className="h-5 w-5 text-gray-500 flex-shrink-0" />
+            <Filter className="h-4 w-4 text-slate-400 flex-shrink-0" />
             <input
               type="text"
               placeholder="Filter by setting, description, or value..."
@@ -1370,7 +1369,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           </div>
 
           <div className="flex items-center space-x-2 w-full md:w-auto">
-            <Layers className="h-5 w-5 text-gray-500 flex-shrink-0" />
+            <Layers className="h-4 w-4 text-slate-400 flex-shrink-0" />
             <select
               value={selectedModule}
               onChange={(e) => {
@@ -1387,7 +1386,7 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
           </div>
 
           <div className="flex items-center space-x-2 w-full md:w-auto">
-            <Settings className="h-5 w-5 text-gray-500 flex-shrink-0" />
+            <Settings className="h-4 w-4 text-slate-400 flex-shrink-0" />
             <select
               value={selectedGroup}
               onChange={(e) => setSelectedGroup(e.target.value)}
@@ -1403,31 +1402,31 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
         </div>
 
         {Object.keys(groupedAndSortedConfigurations).length === 0 && !isLoading ? (
-          <div className="bg-gray-50 p-6 rounded-lg text-center border border-gray-200">
-            <p className="text-gray-500">No configurable settings found matching your filters.</p>
+          <div className="bg-slate-50 p-6 rounded-2xl text-center border border-slate-200/80">
+            <p className="text-sm text-slate-500">No configurable settings found matching your filters.</p>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-4">
             {Object.keys(groupedAndSortedConfigurations).map(groupName => {
               const configs = groupedAndSortedConfigurations[groupName];
               const GroupIcon = settingGroups[groupName]?.icon || Settings;
               return (
-                <div key={groupName} className="border border-gray-200 rounded-lg shadow-sm">
-                  <div className="bg-gray-100 px-4 py-3 rounded-t-lg flex items-center justify-between">
+                <div key={groupName} className="border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+                  <div className="bg-slate-50/80 px-4 py-2.5 border-b border-slate-200/80 flex items-center justify-between">
                     <div className="flex items-center">
-                      <GroupIcon className="h-5 w-5 mr-2 text-gray-600" />
-                      <h3 className="text-lg font-semibold text-gray-800">{groupName} ({configs.length})</h3>
+                      <GroupIcon className="h-4 w-4 mr-2 text-slate-600" />
+                      <h3 className="text-base font-semibold text-slate-800">{groupName} ({configs.length})</h3>
                     </div>
                     {groupName === 'RFQ Quotations Module' && hasQuotation && (
                       <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                         <button
                           type="button"
                           onClick={() => setShowQuotationBanksModal(true)}
-                          className="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-xl shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           disabled={isGracePeriod}
                           title="Manage banks participating in RFQ Quotations"
                         >
-                          <Building className="h-4 w-4 mr-1.5" />
+                          <Building className="h-3.5 w-3.5 mr-1.5" />
                           Quotation Banks
                         </button>
                       </GracePeriodTooltip>
@@ -1445,63 +1444,63 @@ function CustomerConfigurationManagementPage({ onLogout, isGracePeriod, customer
 
                     return (
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
+                        <table className="min-w-full divide-y divide-slate-200" style={{ tableLayout: 'fixed', width: '100%' }}>
                           <colgroup>
                             <col style={{ width: '22%' }} /> {/* Setting */}
                             <col style={{ width: '28%' }} /> {/* Description */}
-                            <col style={{ width: '6%' }} />  {/* Min Value */}
-                            <col style={{ width: '6%' }} />  {/* Max Value */}
-                            <col style={{ width: '10%' }} /> {/* Default Value */}
-                            <col style={{ width: '14%' }} /> {/* Current Value */}
+                            <col style={{ width: '6%' }} />  {/* Min */}
+                            <col style={{ width: '6%' }} />  {/* Max */}
+                            <col style={{ width: '10%' }} /> {/* Default */}
+                            <col style={{ width: '14%' }} /> {/* Current */}
                             <col style={{ width: '6%' }} />  {/* Unit */}
                             <col style={{ width: '8%' }} />  {/* Actions */}
                           </colgroup>
                           <thead className="bg-white">
                             <tr>
-                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_config_key')}>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_config_key')}>
                                 <div className="flex items-center">
                                   Setting
                                   {getSortIcon('global_config_key')}
                                 </div>
                               </th>
-                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_description')}>
+                              <th scope="col" className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_description')}>
                                 <div className="flex items-center">
                                   Description
                                   {getSortIcon('global_description')}
                                 </div>
                               </th>
-                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_min')}>
+                              <th scope="col" className="px-2 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_min')}>
                                 <div className="flex items-center">
-                                  Min Value
+                                  Min
                                   {getSortIcon('global_value_min')}
                                 </div>
                               </th>
-                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_max')}>
+                              <th scope="col" className="px-2 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_max')}>
                                 <div className="flex items-center">
-                                  Max Value
+                                  Max
                                   {getSortIcon('global_value_max')}
                                 </div>
                               </th>
-                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_default')}>
+                              <th scope="col" className="px-2.5 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_value_default')}>
                                 <div className="flex items-center">
-                                  Default Value
+                                  Default
                                   {getSortIcon('global_value_default')}
                                 </div>
                               </th>
-                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('effective_value')}>
+                              <th scope="col" className="px-2.5 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('effective_value')}>
                                 <div className="flex items-center">
-                                  Current Value
+                                  Current
                                   {getSortIcon('effective_value')}
                                 </div>
                               </th>
-                              <th scope="col" className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_unit')}>
+                              <th scope="col" className="px-2 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer" onClick={() => handleSort('global_unit')}>
                                 <div className="flex items-center">
                                   Unit
                                   {getSortIcon('global_unit')}
                                 </div>
                               </th>
                               {/* CHANGED: 'text-left' to 'text-center' for Actions header */}
-                              <th scope="col" className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              <th scope="col" className="px-2.5 py-2 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
                                 Actions
                               </th>
                             </tr>

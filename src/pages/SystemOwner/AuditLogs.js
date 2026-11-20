@@ -424,15 +424,15 @@ function AuditLogs() {
           <p className="text-xs text-blue-600 font-bold uppercase">Updates & Configs</p>
           <p className="text-2xl font-black text-blue-700 mt-1">{stats.updates}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-red-200 shadow-sm">
-          <p className="text-xs text-red-600 font-bold uppercase">Deletes & Alerts</p>
-          <p className="text-2xl font-black text-red-700 mt-1">{stats.critical}</p>
+        <div className="bg-white p-4 rounded-xl border border-rose-200 shadow-sm">
+          <p className="text-xs text-rose-600 font-bold uppercase">Deletes &amp; Alerts</p>
+          <p className="text-2xl font-black text-rose-700 mt-1">{stats.critical}</p>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="space-y-3">
-        <div className="flex gap-3 flex-wrap items-center">
+      <div className="space-y-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div className="flex gap-2.5 flex-wrap items-center">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[220px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -442,7 +442,7 @@ function AuditLogs() {
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               placeholder="Search action, details, IP, or entity name..."
-              className="w-full !pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full !pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -450,7 +450,7 @@ function AuditLogs() {
           <select
             value={customerFilter}
             onChange={(e) => setCustomerFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">🏢 All Customers</option>
             {customers.map((c) => (
@@ -464,7 +464,7 @@ function AuditLogs() {
           <select
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">⚡ All Actions</option>
             {ACTION_TYPES.filter(a => a !== 'ALL').map((a) => (
@@ -476,7 +476,7 @@ function AuditLogs() {
           <select
             value={entityFilter}
             onChange={(e) => setEntityFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">📦 All Entities</option>
             {ENTITY_TYPES.filter(et => et !== 'ALL').map((et) => (
@@ -489,14 +489,14 @@ function AuditLogs() {
             onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm font-medium transition-colors ${
               showFilters || activeFilterCount > 0
-                ? 'border-blue-300 bg-blue-50 text-blue-700'
+                ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
             }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
             More Filters
             {activeFilterCount > 0 && (
-              <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+              <span className="bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                 {activeFilterCount}
               </span>
             )}
@@ -505,7 +505,7 @@ function AuditLogs() {
           {/* Search Trigger */}
           <button
             onClick={fetchAuditLogs}
-            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl shadow-sm transition-colors"
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors"
           >
             Search
           </button>
@@ -514,7 +514,7 @@ function AuditLogs() {
           {(activeFilterCount > 0 || searchTerm) && (
             <button
               onClick={handleClearAllFilters}
-              className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium"
+              className="flex items-center gap-1 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 rounded-xl transition-colors font-medium"
             >
               <X className="w-3.5 h-3.5" /> Clear All
             </button>

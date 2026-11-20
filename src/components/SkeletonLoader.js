@@ -40,20 +40,29 @@ export const SkeletonTable = ({ rows = 5, cols = 5, className = '' }) => (
 );
 
 // Metric Cards Skeleton (Simulates stat cards grid)
-export const SkeletonCards = ({ count = 3, className = '' }) => (
-  <div className={`grid grid-cols-1 md:grid-cols-${Math.min(count, 4)} gap-4 ${className}`}>
-    {Array.from({ length: count }).map((_, idx) => (
-      <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <SkeletonBlock width="w-24" height="h-3.5" />
-          <SkeletonBlock width="w-8" height="h-8" className="rounded-full" />
+export const SkeletonCards = ({ count = 3, className = '' }) => {
+  const gridCols = {
+    1: 'md:grid-cols-1',
+    2: 'md:grid-cols-2',
+    3: 'md:grid-cols-3',
+    4: 'md:grid-cols-4',
+  }[Math.min(Math.max(count, 1), 4)] || 'md:grid-cols-3';
+
+  return (
+    <div className={`grid grid-cols-1 ${gridCols} gap-4 ${className}`}>
+      {Array.from({ length: count }).map((_, idx) => (
+        <div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <SkeletonBlock width="w-24" height="h-3.5" />
+            <SkeletonBlock width="w-8" height="h-8" className="rounded-full" />
+          </div>
+          <SkeletonBlock width="w-36" height="h-7" />
+          <SkeletonBlock width="w-20" height="h-3" />
         </div>
-        <SkeletonBlock width="w-36" height="h-7" />
-        <SkeletonBlock width="w-20" height="h-3" />
-      </div>
-    ))}
-  </div>
-);
+      ))}
+    </div>
+  );
+};
 
 // Detail Page Skeleton
 export const SkeletonDetails = ({ className = '' }) => (

@@ -14,9 +14,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
         return (
             <div className="relative group inline-block">
                 {children}
-                <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+                <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-xl py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
                     This action is disabled during your subscription's grace period.
-                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                    <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                         <polygon className="fill-current" points="0,0 127.5,127.5 255,0" />
                     </svg>
                 </div>
@@ -26,7 +26,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
     return children;
 };
 
-const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-semibold rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
 // Helper function for formatting currency
 const formatCurrency = (amount, currencyCode) => {
@@ -130,11 +130,11 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+                    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" />
                 </TransitionChild>
 
                 <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-0">
+                    <div className="flex min-h-full items-center justify-center p-3 text-center sm:p-4">
                         <TransitionChild
                             as={React.Fragment}
                             enter="ease-out duration-300"
@@ -144,158 +144,164 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                             leaveFrom="opacity-100"
                             leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                         >
-                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all my-auto sm:my-8 w-full max-w-lg mx-2 sm:mx-auto p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
-                                <div className="absolute right-3 top-3 sm:right-4 sm:top-4 z-10">
+                            <DialogPanel className="relative transform overflow-hidden rounded-2xl bg-white border border-slate-200/80 text-left shadow-2xl transition-all my-auto w-full max-w-lg flex flex-col max-h-[90vh]">
+                                {/* Sticky Header */}
+                                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3 shrink-0">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="p-2 rounded-xl bg-orange-50 text-orange-600 border border-orange-100 shrink-0">
+                                            <MinusCircle className="h-4 w-4" />
+                                        </div>
+                                        <DialogTitle as="h3" className="text-base sm:text-lg font-bold leading-6 text-slate-900 tracking-tight truncate">
+                                            Decrease LG Amount: {lgRecord.lg_number}
+                                        </DialogTitle>
+                                    </div>
                                     <button
                                         type="button"
-                                        className="rounded-full p-1 bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-300 shrink-0"
                                         onClick={onClose}
                                     >
                                         <span className="sr-only">Close</span>
                                         <X className="h-5 w-5" aria-hidden="true" />
                                     </button>
                                 </div>
-                                <div className="w-full">
-                                    <DialogTitle as="h3" className="text-lg font-bold leading-6 text-gray-900 tracking-tight border-b pb-3 mb-4 pr-8">
-                                        Decrease LG Amount: {lgRecord.lg_number}
-                                    </DialogTitle>
-                                    <div className="mt-2">
-                                        <p className="text-gray-600 mb-4 text-xs sm:text-sm">
-                                            Reduce the amount of this LG. This action may require approval.
-                                        </p>
-                                        <Formik
-                                            initialValues={initialValues}
-                                            validationSchema={DecreaseAmountSchema}
-                                            onSubmit={handleSubmit}
-                                        >
-                                            {({ errors, touched, values }) => {
-                                                const currentAmount = parseFloat(lgRecord.lg_amount) || 0;
-                                                const decreaseAmount = parseFloat(values.decreaseAmount) || 0;
-                                                const newAmount = currentAmount - decreaseAmount;
-                                                const currencyCode = lgRecord.lg_currency?.iso_code;
 
-                                                return (
-                                                    <Form className={classNames('space-y-4', isGracePeriod ? 'opacity-50' : '')}>
-                                                        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-lg text-xs sm:text-sm">
-                                                            Current LG Amount: <strong>{currentAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode}</strong>
-                                                        </div>
+                                <Formik
+                                    initialValues={initialValues}
+                                    validationSchema={DecreaseAmountSchema}
+                                    onSubmit={handleSubmit}
+                                >
+                                    {({ errors, touched, values }) => {
+                                        const currentAmount = parseFloat(lgRecord.lg_amount) || 0;
+                                        const decreaseAmount = parseFloat(values.decreaseAmount) || 0;
+                                        const newAmount = currentAmount - decreaseAmount;
+                                        const currencyCode = lgRecord.lg_currency?.iso_code;
 
-                                                        <div>
-                                                            <label htmlFor="decreaseAmount" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                                Amount to Decrease ({currencyCode}) <span className="text-red-500">*</span>
-                                                            </label>
-                                                            <Field
-                                                                type="number"
-                                                                id="decreaseAmount"
-                                                                name="decreaseAmount"
-                                                                step="0.01"
-                                                                min="0.01"
-                                                                placeholder="Enter amount to reduce by..."
-                                                                className={classNames(
-                                                                    'mt-1 block w-full px-3 py-2 text-sm rounded-lg border shadow-sm focus:outline-none',
-                                                                    errors.decreaseAmount && touched.decreaseAmount ? 'border-red-500' : 'border-gray-300'
-                                                                )}
-                                                                disabled={isGracePeriod || isSubmitting}
-                                                            />
-                                                            <ErrorMessage name="decreaseAmount" component="div" className="text-red-600 text-xs mt-1" />
+                                        return (
+                                            <Form className={classNames('flex flex-col flex-1 min-h-0', isGracePeriod ? 'opacity-50' : '')}>
+                                                <div className="px-5 py-4 space-y-3.5 overflow-y-auto flex-1">
+                                                    <p className="text-slate-600 text-xs sm:text-sm">
+                                                        Reduce the amount of this LG. This action may require approval.
+                                                    </p>
+                                                    <div className="bg-blue-50/80 border border-blue-200/80 text-blue-900 p-3 rounded-xl text-xs sm:text-sm">
+                                                        Current LG Amount: <strong>{currentAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode}</strong>
+                                                    </div>
 
-                                                            {decreaseAmount > 0 && decreaseAmount < currentAmount && (
-                                                                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-                                                                    New remaining amount will be: <strong className="text-sm font-bold">{newAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode}</strong>
-                                                                </div>
+                                                    <div>
+                                                        <label htmlFor="decreaseAmount" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                            Amount to Decrease ({currencyCode}) <span className="text-rose-500">*</span>
+                                                        </label>
+                                                        <Field
+                                                            type="number"
+                                                            id="decreaseAmount"
+                                                            name="decreaseAmount"
+                                                            step="0.01"
+                                                            min="0.01"
+                                                            placeholder="Enter amount to reduce by..."
+                                                            className={classNames(
+                                                                'mt-1 block w-full px-3 py-2 text-sm rounded-xl border shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                                                                errors.decreaseAmount && touched.decreaseAmount ? 'border-rose-500' : 'border-slate-300'
                                                             )}
-                                                        </div>
+                                                            disabled={isGracePeriod || isSubmitting}
+                                                        />
+                                                        <ErrorMessage name="decreaseAmount" component="div" className="text-rose-600 text-xs mt-1" />
 
-                                                        <div>
-                                                            <label htmlFor="reason" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                                Reason for Decrease <span className="text-red-500">*</span>
-                                                            </label>
-                                                            <Field
-                                                                as="textarea"
-                                                                id="reason"
-                                                                name="reason"
-                                                                rows="2"
-                                                                placeholder="Explain why the LG amount is being reduced..."
-                                                                className={classNames(
-                                                                    'mt-1 block w-full px-3 py-2 text-sm rounded-lg border shadow-sm focus:outline-none',
-                                                                    errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'
-                                                                )}
-                                                                disabled={isGracePeriod || isSubmitting}
-                                                            />
-                                                            <ErrorMessage name="reason" component="div" className="text-red-600 text-xs mt-1" />
-                                                        </div>
-
-                                                        <div>
-                                                            <label htmlFor="notes" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                                Additional Notes (Optional)
-                                                            </label>
-                                                            <Field
-                                                                as="textarea"
-                                                                id="notes"
-                                                                name="notes"
-                                                                rows="2"
-                                                                className="mt-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-lg shadow-sm"
-                                                                disabled={isGracePeriod || isSubmitting}
-                                                            />
-                                                        </div>
-
-                                                        <div className="border-t pt-3">
-                                                            <label htmlFor="supporting-document-file" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                                                Supporting Document {isDocMandatory ? <span className="text-red-500">*</span> : '(Optional)'}
-                                                            </label>
-                                                            <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
-                                                                <input
-                                                                    id="supporting-document-file"
-                                                                    name="internal_supporting_document_file"
-                                                                    type="file"
-                                                                    onChange={handleFileChange}
-                                                                    accept=".pdf,image/*"
-                                                                    className="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                                                    disabled={isGracePeriod || isSubmitting}
-                                                                />
-                                                                {supportingDocument && (
-                                                                    <span className="text-xs text-gray-500 truncate">
-                                                                        <FileText className="inline-block h-3.5 w-3.5 mr-1" />
-                                                                        {supportingDocument.name}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <p className="mt-1 text-xs text-gray-500">Attach any documents related to this request (e.g., formal request from beneficiary).</p>
-                                                        </div>
-
-                                                        {errors.general && (
-                                                            <div className="text-red-600 text-xs mt-2">
-                                                                <AlertCircle className="inline h-4 w-4 mr-1" />
-                                                                {errors.general}
+                                                        {decreaseAmount > 0 && decreaseAmount < currentAmount && (
+                                                            <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-800">
+                                                                New remaining amount will be: <strong className="text-sm font-bold">{newAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currencyCode}</strong>
                                                             </div>
                                                         )}
+                                                    </div>
 
-                                                        <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 pt-2 border-t border-gray-100">
-                                                            <button
-                                                                type="button"
-                                                                className={classNames(buttonBaseClassNames, 'justify-center w-full sm:w-auto bg-gray-100 text-gray-700 hover:bg-gray-200 py-2.5')}
-                                                                onClick={onClose}
-                                                                disabled={isSubmitting}
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-                                                                <button
-                                                                    type="submit"
-                                                                    className={classNames(buttonBaseClassNames, 'justify-center w-full sm:w-auto bg-orange-600 text-white hover:bg-orange-700 font-bold py-2.5 shadow-md', isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : '')}
-                                                                    disabled={isSubmitting || isGracePeriod}
-                                                                >
-                                                                    {isSubmitting ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <MinusCircle className="h-5 w-5 mr-2" />}
-                                                                    {isSubmitting ? 'Processing...' : 'Submit Decrease Request'}
-                                                                </button>
-                                                            </GracePeriodTooltip>
+                                                    <div>
+                                                        <label htmlFor="reason" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                            Reason for Decrease <span className="text-rose-500">*</span>
+                                                        </label>
+                                                        <Field
+                                                            as="textarea"
+                                                            id="reason"
+                                                            name="reason"
+                                                            rows="2"
+                                                            placeholder="Explain why the LG amount is being reduced..."
+                                                            className={classNames(
+                                                                'mt-1 block w-full px-3 py-2 text-sm rounded-xl border shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500',
+                                                                errors.reason && touched.reason ? 'border-rose-500' : 'border-slate-300'
+                                                            )}
+                                                            disabled={isGracePeriod || isSubmitting}
+                                                        />
+                                                        <ErrorMessage name="reason" component="div" className="text-rose-600 text-xs mt-1" />
+                                                    </div>
+
+                                                    <div>
+                                                        <label htmlFor="notes" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                            Additional Notes (Optional)
+                                                        </label>
+                                                        <Field
+                                                            as="textarea"
+                                                            id="notes"
+                                                            name="notes"
+                                                            rows="2"
+                                                            className="mt-1 block w-full px-3 py-2 text-sm border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                            disabled={isGracePeriod || isSubmitting}
+                                                        />
+                                                    </div>
+
+                                                    <div className="border-t border-slate-200 pt-3">
+                                                        <label htmlFor="supporting-document-file" className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+                                                            Supporting Document {isDocMandatory ? <span className="text-rose-500">*</span> : '(Optional)'}
+                                                        </label>
+                                                        <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                                                            <input
+                                                                id="supporting-document-file"
+                                                                name="internal_supporting_document_file"
+                                                                type="file"
+                                                                onChange={handleFileChange}
+                                                                accept=".pdf,image/*"
+                                                                className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                                                disabled={isGracePeriod || isSubmitting}
+                                                            />
+                                                            {supportingDocument && (
+                                                                <span className="text-xs text-slate-500 truncate">
+                                                                    <FileText className="inline-block h-3.5 w-3.5 mr-1" />
+                                                                    {supportingDocument.name}
+                                                                </span>
+                                                            )}
                                                         </div>
-                                                    </Form>
-                                                );
-                                            }}
-                                        </Formik>
-                                    </div>
-                                </div>
+                                                        <p className="mt-1 text-xs text-slate-500">Attach any documents related to this request (e.g., formal request from beneficiary).</p>
+                                                    </div>
+
+                                                    {errors.general && (
+                                                        <div className="text-rose-600 text-xs bg-rose-50 border border-rose-200 rounded-xl p-2.5">
+                                                            <AlertCircle className="inline h-4 w-4 mr-1" />
+                                                            {errors.general}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Sticky Footer */}
+                                                <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        className={classNames(buttonBaseClassNames, 'justify-center w-full sm:w-auto rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50')}
+                                                        onClick={onClose}
+                                                        disabled={isSubmitting}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                    <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                                        <button
+                                                            type="submit"
+                                                            className={classNames(buttonBaseClassNames, 'justify-center w-full sm:w-auto rounded-xl bg-orange-600 text-white hover:bg-orange-700', isSubmitting || isGracePeriod ? 'opacity-50 cursor-not-allowed' : '')}
+                                                            disabled={isSubmitting || isGracePeriod}
+                                                        >
+                                                            {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MinusCircle className="h-4 w-4 mr-2" />}
+                                                            {isSubmitting ? 'Processing...' : 'Submit Decrease Request'}
+                                                        </button>
+                                                    </GracePeriodTooltip>
+                                                </div>
+                                            </Form>
+                                        );
+                                    }}
+                                </Formik>
                             </DialogPanel>
                         </TransitionChild>
                     </div>

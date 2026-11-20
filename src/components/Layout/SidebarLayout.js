@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../../services/apiClient';
 import { getSidebarUserDisplay } from '../../utils/authUtils';
+import { GrowLeafIcon } from '../Common/GrowLogo';
 
 function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
   const userDisplay = getSidebarUserDisplay({
@@ -106,7 +107,7 @@ function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
           className={navItemClass(isLinkActive('/system-owner/feedback'))}
         >
           <span className="flex items-center gap-2.5">
-            <MessageSquare className="w-4 h-4 text-purple-300" />
+            <MessageSquare className={`w-4 h-4 ${isLinkActive('/system-owner/feedback') ? 'text-purple-200' : 'text-purple-600'}`} />
             User Feedback
           </span>
           {unreviewedFeedback > 0 && (
@@ -173,7 +174,7 @@ function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
           className={navItemClass(isLinkActive('/system-owner/campaigns'))}
         >
           <span className="flex items-center gap-2.5">
-            <Gift className="w-4 h-4 text-emerald-400" />
+            <Gift className={`w-4 h-4 ${isLinkActive('/system-owner/campaigns') ? 'text-emerald-200' : 'text-emerald-600'}`} />
             Partner Campaigns & Cashback
           </span>
         </Link>
@@ -184,7 +185,7 @@ function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
           className={navItemClass(isLinkActive('/system-owner/quotations-telemetry'))}
         >
           <span className="flex items-center gap-2.5">
-            <Activity className="w-4 h-4 text-cyan-400" />
+            <Activity className={`w-4 h-4 ${isLinkActive('/system-owner/quotations-telemetry') ? 'text-cyan-200' : 'text-cyan-600'}`} />
             Quotation Telemetry & SLAs
           </span>
         </Link>
@@ -195,7 +196,7 @@ function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
           className={navItemClass(isLinkActive('/system-owner/live-ranking'))}
         >
           <span className="flex items-center gap-2.5">
-            <BarChart className="w-4 h-4 text-amber-400" />
+            <BarChart className={`w-4 h-4 ${isLinkActive('/system-owner/live-ranking') ? 'text-amber-200' : 'text-amber-600'}`} />
             Live Ranking Matrix
           </span>
         </Link>
@@ -299,7 +300,7 @@ function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
           className={navItemClass(isLinkActive('/system-owner/compose-email'))}
         >
           <span className="flex items-center gap-2.5">
-            <Mail className="w-4 h-4 text-sky-400" />
+            <Mail className={`w-4 h-4 ${isLinkActive('/system-owner/compose-email') ? 'text-sky-200' : 'text-sky-600'}`} />
             Compose Email
           </span>
         </Link>
@@ -352,7 +353,7 @@ function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
       {/* MOBILE TOPBAR */}
       <header className="lg:hidden flex items-center justify-between px-4 py-2.5 bg-white/90 backdrop-blur-md border-b border-gray-200 z-30 shrink-0">
         <div className="flex items-center space-x-2">
-          <img src="/growlogonleaf.png" alt="Logo" className="w-7 h-auto" />
+          <GrowLeafIcon className="w-7 h-auto" />
           <div>
             <h1 className="text-xs font-bold text-gray-800 leading-tight">Grow Treasury</h1>
             <span className="text-[9px] bg-indigo-100 text-indigo-800 font-bold px-1.5 py-0.2 rounded-full">System Owner</span>
@@ -374,7 +375,7 @@ function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
           <div className="relative flex flex-col w-4/5 max-w-xs bg-white h-full shadow-2xl z-50">
             <div className="p-3 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <img src="/growlogonleaf.png" alt="Logo" className="w-7 h-auto" />
+                <GrowLeafIcon className="w-7 h-auto" />
                 <div>
                   <h2 className="text-sm font-bold text-gray-800">Grow Platform</h2>
                   <p className="text-[10px] text-indigo-600 font-semibold">System Owner</p>
@@ -413,11 +414,7 @@ function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
       <aside className="hidden lg:flex w-64 bg-white/90 backdrop-blur-md shadow-sm border-r border-slate-200/80 flex-col flex-shrink-0 relative z-10">
         {/* Brand Header */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-3">
-          <img
-            src="/growlogonleaf.png"
-            alt="Grow Logo"
-            className="w-8 h-auto"
-          />
+          <GrowLeafIcon className="w-8 h-auto" />
           <div>
             <div className="flex items-center gap-1.5">
               <h1 className="text-sm font-black text-slate-900 tracking-tight">Treasury Engine</h1>
@@ -460,7 +457,7 @@ function SidebarLayout({ onLogout, userEmail, userName, headerTitle }) {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 p-3 sm:p-4 lg:p-5 pb-24 overflow-y-auto h-full flex flex-col relative z-10">
+      <main className="flex-1 p-3 sm:p-4 lg:p-5 pb-12 overflow-y-auto overflow-x-hidden min-w-0 h-full flex flex-col relative z-10">
         <Outlet />
       </main>
     </div>

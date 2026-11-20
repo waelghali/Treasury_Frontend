@@ -12,7 +12,7 @@ import {
     Bell, Check, X, BarChart3, Landmark, Building, History, ChevronRight, ChevronDown, Clock,
     Search, Filter, AlertCircle, TrendingUp, ArrowUpRight, ArrowDownRight, FileText, Download,
     Undo2, RefreshCw, Sparkles, Trophy, AlertTriangle, Shield, ShieldAlert, Info, Loader2,
-    Calendar, CalendarClock, Zap, MessageSquare
+    Calendar, CalendarClock, Zap, MessageSquare, Layers
 } from 'lucide-react';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -623,21 +623,21 @@ export default function AdminQuotationDashboard() {
 
 
     if (loading) return (
-        <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex items-center justify-center min-h-[45vh]">
             <div className="text-center">
-                <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-gray-500 text-sm">Loading quotation data...</p>
+                <Loader2 className="w-7 h-7 animate-spin text-blue-600 mx-auto mb-3" />
+                <p className="text-slate-500 text-sm">Loading quotation data...</p>
             </div>
         </div>
     );
 
     return (
-        <div className="w-full space-y-6 sm:space-y-8">
+        <div className="w-full space-y-4 sm:space-y-5">
             {/* Header */}
-            <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                    <div className="flex items-center gap-3 flex-wrap">
-                        <h1 className="text-3xl sm:text-4xl font-light tracking-tight mb-1 text-gray-900">Quotation Control Center</h1>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">Quotation Control Center</h1>
                         {isLiveSyncActive && (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -645,19 +645,19 @@ export default function AdminQuotationDashboard() {
                             </span>
                         )}
                     </div>
-                    <p className="text-gray-500 italic font-serif">Monitor, approve, and analyze all quotation activity.</p>
+                    <p className="text-sm text-slate-500 mt-0.5">Monitor, approve, and analyze all quotation activity.</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => fetchData(false)}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-white text-gray-700 border border-gray-200 text-xs font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-2xs cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-white text-slate-700 border border-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
                         title="Manually refresh quotation data"
                     >
                         <RefreshCw size={13} className={isFetchingRef.current ? "animate-spin" : ""} /> Refresh
                     </button>
                     <button
                         onClick={handleExportCSV}
-                        className="flex items-center gap-2 px-4 py-2.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-colors shadow-lg shadow-black/10 cursor-pointer"
+                        className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
                     >
                         <Download size={14} /> Export Report (CSV)
                     </button>
@@ -669,49 +669,49 @@ export default function AdminQuotationDashboard() {
                 title="Real-Time Quotation Alerts"
                 description="Receive instant lock-screen notifications the moment banks submit quotes, RFQs open for evaluation, or countdown timeouts approach."
                 dismissKey="corp_admin_rfq_alerts_dismissed"
-                className="mb-2"
+                className="mb-1"
             />
 
             {/* Zero-Knowledge Collaborative Market Intelligence */}
             <MarketSpreadTicker currencyPair="USD/EGP" tradeType="FX_SPOT" />
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-black/5 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500">
-                            <FileText size={18} />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                    <div className="flex items-center gap-2.5 mb-2">
+                        <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600">
+                            <FileText size={16} />
                         </div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">Total RFQs</span>
+                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total RFQs</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalRfqs}</p>
+                    <p className="text-2xl font-bold text-slate-900 tabular-nums">{totalRfqs}</p>
                 </div>
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-black/5 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500">
-                            <Clock size={18} />
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                    <div className="flex items-center gap-2.5 mb-2">
+                        <div className="w-8 h-8 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
+                            <Clock size={16} />
                         </div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">Active</span>
+                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Active</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-bold text-amber-600">{activeRfqs}</p>
+                    <p className="text-2xl font-bold text-amber-600 tabular-nums">{activeRfqs}</p>
                 </div>
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-black/5 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500">
-                            <Check size={18} />
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                    <div className="flex items-center gap-2.5 mb-2">
+                        <div className="w-8 h-8 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
+                            <Check size={16} />
                         </div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">Completed</span>
+                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-bold text-emerald-600">{completedRfqs}</p>
+                    <p className="text-2xl font-bold text-emerald-600 tabular-nums">{completedRfqs}</p>
                 </div>
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-black/5 hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 bg-red-50 rounded-xl flex items-center justify-center text-red-400">
-                            <X size={18} />
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                    <div className="flex items-center gap-2.5 mb-2">
+                        <div className="w-8 h-8 bg-rose-50 rounded-xl flex items-center justify-center text-rose-500">
+                            <X size={16} />
                         </div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">Rejected</span>
+                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Rejected</span>
                     </div>
-                    <p className="text-2xl sm:text-3xl font-bold text-red-500">{rejectedRfqs}</p>
+                    <p className="text-2xl font-bold text-rose-600 tabular-nums">{rejectedRfqs}</p>
                 </div>
             </div>
 
@@ -813,7 +813,7 @@ export default function AdminQuotationDashboard() {
                                         <span className="text-xs font-bold text-gray-400 uppercase">{rfq.type === 'TBILL' ? 'T-Bill' : 'FX Spot'}</span>
                                         {rfq.legs && rfq.legs.length > 1 && (
                                             <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                📑 {rfq.legs.length} Legs Package
+                                                <Layers size={11} /> {rfq.legs.length} Legs Package
                                             </span>
                                         )}
                                         {(() => {
@@ -821,20 +821,20 @@ export default function AdminQuotationDashboard() {
                                             const isMixed = rfq.quotation_base === 'Mixed' || legBases.length > 1;
                                             const currentBase = isMixed ? 'Mixed' : (rfq.quotation_base || legBases[0] || 'Execution');
                                             return (
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
+                                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
                                                     isMixed
                                                         ? 'bg-purple-50 text-purple-700 border-purple-200'
                                                         : currentBase.toLowerCase() === 'indicative'
                                                             ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                                             : 'bg-amber-50 text-amber-700 border-amber-200'
                                                 }`}>
-                                                    {isMixed ? '⚡📊 Mixed Package' : (currentBase.toLowerCase() === 'indicative' ? '📊 Indicative' : '⚡ Execution')}
+                                                    {isMixed ? <><Zap size={10} /> Mixed Package</> : (currentBase.toLowerCase() === 'indicative' ? <><BarChart3 size={10} /> Indicative</> : <><Zap size={10} /> Execution</>)}
                                                 </span>
                                             );
                                         })()}
                                         {rfq.entity_name && (
                                             <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                                                🏢 {rfq.entity_name}
+                                                <Building size={11} /> {rfq.entity_name}
                                             </span>
                                         )}
                                         {rfq.status === 'APPROVED_SCHEDULED' && (
@@ -992,7 +992,7 @@ export default function AdminQuotationDashboard() {
                                             </button>
                                             <button
                                                 onClick={() => handleApprove(rfq.id)}
-                                                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-black text-white hover:bg-gray-800 font-bold shadow-lg shadow-gray-200 transition-all text-xs cursor-pointer"
+                                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 font-semibold shadow-sm transition-colors text-xs cursor-pointer"
                                             >
                                                 <Check size={15} /> Approve
                                             </button>
@@ -1006,7 +1006,7 @@ export default function AdminQuotationDashboard() {
             )}
 
             {/* Bank Performance Stats (On-Demand Collapsible) */}
-            <section className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden transition-all">
+            <section className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden transition-all">
                 <button
                     type="button"
                     onClick={handleToggleStats}
@@ -1367,7 +1367,7 @@ export default function AdminQuotationDashboard() {
                                     <button
                                         type="button"
                                         onClick={() => setShowDatePopover(false)}
-                                        className="px-3 py-1 bg-black text-white text-xs font-semibold rounded-lg hover:bg-gray-800 transition-colors"
+                                        className="px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors"
                                     >
                                         Done
                                     </button>
@@ -1390,31 +1390,31 @@ export default function AdminQuotationDashboard() {
                     )}
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-black/5 overflow-hidden">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-gray-50 border-b border-gray-100">
-                                    <th className="px-3.5 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Ref No</th>
-                                    <th className="px-3.5 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Entity</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Type</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Maker / Date</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Details</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Amount</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Winning Counterparty & Rate</th>
-                                    <th className="px-3 py-3 text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Status</th>
-                                    <th className="px-2.5 py-3 text-[10px] font-bold text-gray-400 uppercase text-right whitespace-nowrap w-8"></th>
+                                <tr className="bg-slate-50/80 border-b border-slate-200">
+                                    <th className="px-2.5 py-2.5 text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Ref No</th>
+                                    <th className="px-2.5 py-2.5 text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Entity</th>
+                                    <th className="px-2.5 py-2.5 text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Type</th>
+                                    <th className="px-2.5 py-2.5 text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Maker / Date</th>
+                                    <th className="px-2.5 py-2.5 text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Details</th>
+                                    <th className="px-2.5 py-2.5 text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Amount</th>
+                                    <th className="px-2.5 py-2.5 text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Winner & Rate</th>
+                                    <th className="px-2.5 py-2.5 text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Status</th>
+                                    <th className="px-2 py-2.5 text-[10px] font-bold text-slate-500 uppercase text-right whitespace-nowrap w-7"></th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-50">
+                            <tbody className="divide-y divide-slate-100">
                                 {filteredHistory.map((rfq) => (
                                     <tr
                                         key={rfq.id}
-                                        className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
+                                        className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
                                         onClick={() => setSelectedRfqId(rfq.id)}
                                     >
-                                        <td className="px-3.5 py-3 min-w-[140px]">
-                                            <div className="font-mono text-xs sm:text-sm font-bold text-gray-900 whitespace-nowrap">{rfq.ref_no}</div>
+                                        <td className="px-2.5 py-2.5 max-w-[140px]">
+                                            <div className="font-mono text-xs font-bold text-slate-900 whitespace-nowrap">{rfq.ref_no}</div>
                                             {rfq.parent_rfq_ref && (
                                                 <div className="text-[10px] text-indigo-600 font-mono flex items-center gap-1 mt-0.5 whitespace-nowrap" title={`Re-tendered from ${rfq.parent_rfq_ref}`}>
                                                     <RefreshCw size={10} /> ↳ from {rfq.parent_rfq_ref}
@@ -1437,25 +1437,25 @@ export default function AdminQuotationDashboard() {
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-3.5 py-3 min-w-[130px]">
+                                        <td className="px-2.5 py-2.5 max-w-[130px]">
                                             {rfq.entity_name ? (
                                                 <div className="cell-truncate">
-                                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded-xl max-w-full w-fit min-w-0" title={rfq.entity_name}>
+                                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-lg max-w-full w-fit min-w-0" title={rfq.entity_name}>
                                                         <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
                                                         <span className="truncate">{rfq.entity_name}</span>
                                                     </span>
                                                 </div>
                                             ) : (
-                                                <span className="text-xs text-gray-400 font-mono">—</span>
+                                                <span className="text-xs text-slate-400 font-mono">—</span>
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 whitespace-nowrap">
+                                        <td className="px-2.5 py-2.5 whitespace-nowrap">
                                             {rfq.type === 'TBILL' ? (
                                                 <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider whitespace-nowrap bg-blue-50 text-blue-600">
                                                     T-Bill
                                                 </span>
                                             ) : rfq.legs && rfq.legs.length > 1 ? (
-                                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                                <div className="flex items-center gap-1 whitespace-nowrap">
                                                     <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/70">
                                                         FX Portfolio
                                                     </span>
@@ -1469,18 +1469,18 @@ export default function AdminQuotationDashboard() {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 min-w-[120px]">
+                                        <td className="px-2.5 py-2.5 max-w-[120px]">
                                             <div className="cell-truncate">
-                                                <div className="text-xs font-semibold text-gray-800 truncate" title={rfq.creator_name || 'corp.admin'}>{rfq.creator_name || 'corp.admin'}</div>
+                                                <div className="text-xs font-semibold text-slate-800 truncate" title={rfq.creator_name || 'corp.admin'}>{rfq.creator_name || 'corp.admin'}</div>
                                             </div>
-                                            <div className="text-[10px] text-gray-400 whitespace-nowrap">{formatDate(rfq.created_at)}</div>
+                                            <div className="text-[10px] text-slate-400 whitespace-nowrap">{formatDate(rfq.created_at)}</div>
                                         </td>
-                                        <td className="px-3 py-3 text-xs min-w-[140px]">
+                                        <td className="px-2.5 py-2.5 text-xs max-w-[150px]">
                                             {rfq.type === 'TBILL' ? (
-                                                <span className="font-semibold text-gray-800 whitespace-nowrap">{rfq.direction}</span>
+                                                <span className="font-semibold text-slate-800 whitespace-nowrap">{rfq.direction}</span>
                                             ) : rfq.legs && rfq.legs.length > 1 ? (
                                                 <div className="flex flex-col gap-1 py-0.5">
-                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <div className="flex items-center gap-1 flex-wrap">
                                                         {rfq.legs.map((leg, idx) => {
                                                             const pair = leg.currency_pair || `${leg.buy_currency}/${leg.sell_currency}`;
                                                             return (
@@ -1499,32 +1499,32 @@ export default function AdminQuotationDashboard() {
                                                         const legBases = Array.from(new Set(rfq.legs.map(l => l.quotation_base).filter(Boolean)));
                                                         const isMixed = rfq.quotation_base === 'Mixed' || legBases.length > 1;
                                                         if (isMixed) {
-                                                            return <span className="text-[9px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.2 w-fit">⚡📊 Mixed</span>;
+                                                            return <span className="inline-flex items-center gap-1 text-[9px] font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.2 w-fit"><Zap size={9} /> Mixed</span>;
                                                         } else if ((rfq.quotation_base || legBases[0] || '').toLowerCase() === 'indicative') {
-                                                            return <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.2 w-fit">📊 Indicative</span>;
+                                                            return <span className="inline-flex items-center gap-1 text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.2 w-fit"><BarChart3 size={9} /> Indicative</span>;
                                                         }
                                                         return null;
                                                     })()}
                                                 </div>
                                             ) : (
                                                 <div>
-                                                    <div className="text-xs sm:text-sm font-semibold whitespace-nowrap text-gray-800">
+                                                    <div className="text-xs font-semibold whitespace-nowrap text-slate-800">
                                                         {rfq.buy_currency}/{rfq.sell_currency}
                                                     </div>
                                                     {rfq.value_date && (
-                                                        <div className="text-[10px] text-gray-400 font-mono">
+                                                        <div className="text-[10px] text-slate-400 font-mono">
                                                             Val: {formatDate(rfq.value_date)}
                                                         </div>
                                                     )}
                                                     {(rfq.quotation_base || '').toLowerCase() === 'indicative' && (
-                                                        <span className="block text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.2 w-fit mt-0.5">📊 Indicative</span>
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.2 w-fit mt-0.5"><BarChart3 size={9} /> Indicative</span>
                                                     )}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 text-xs whitespace-nowrap font-mono">
+                                        <td className="px-2.5 py-2.5 text-xs whitespace-nowrap font-mono">
                                             {rfq.type === 'TBILL' ? (
-                                                <span className="font-semibold text-gray-900">Min: {new Intl.NumberFormat().format(rfq.min_ticket_amount || 0)}</span>
+                                                <span className="font-semibold text-slate-900">Min: {new Intl.NumberFormat().format(rfq.min_ticket_amount || 0)}</span>
                                             ) : rfq.legs && rfq.legs.length > 1 ? (
                                                 <div className="flex flex-col gap-0.5 py-0.5 font-mono text-xs">
                                                     {rfq.legs.map((leg, idx) => (
@@ -1537,12 +1537,12 @@ export default function AdminQuotationDashboard() {
                                                 </div>
                                             ) : (
                                                 <div className="whitespace-nowrap font-mono">
-                                                    <span className="font-bold text-gray-900">{new Intl.NumberFormat().format(rfq.amount || 0)}</span>
+                                                    <span className="font-bold text-slate-900">{new Intl.NumberFormat().format(rfq.amount || 0)}</span>
                                                     <span className="text-[10px] text-slate-500 font-semibold ml-1">{rfq.buy_currency}</span>
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-3 py-3 min-w-[155px]">
+                                        <td className="px-2.5 py-2.5 max-w-[165px]">
                                             {(() => {
                                                 const timing = getRfqTimingState(rfq);
                                                 const isMultiLeg = Boolean(rfq.legs && rfq.legs.length > 1);
@@ -1698,7 +1698,7 @@ export default function AdminQuotationDashboard() {
                                                 );
                                             })()}
                                         </td>
-                                        <td className="px-3 py-3 min-w-[155px]">
+                                        <td className="px-2.5 py-2.5 max-w-[155px]">
                                             {(() => {
                                                 const timing = getRfqTimingState(rfq);
                                                 const isMultiLeg = Boolean(rfq.legs && rfq.legs.length > 1);

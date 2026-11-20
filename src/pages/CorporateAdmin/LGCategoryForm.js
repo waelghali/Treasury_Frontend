@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { Save } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -39,6 +39,7 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
     extra_field_name: '',
     is_mandatory: false,
     communication_list: '',
+    is_default: false,
     has_all_entity_access: true,
   });
 
@@ -48,7 +49,6 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [formTitle, setFormTitle] = useState('Create New LG Category');
-  const [isDefaultCategory, setIsDefaultCategory] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -74,8 +74,9 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
             name: category.name || '',
             code: category.code || '',
             extra_field_name: category.extra_field_name || '',
-            is_mandatory: category.is_mandatory,
+            is_mandatory: Boolean(category.is_mandatory),
             communication_list: Array.isArray(category.communication_list) ? category.communication_list.join(', ') : '',
+            is_default: Boolean(category.is_default),
             has_all_entity_access: category.has_all_entity_access,
           });
 
@@ -111,7 +112,21 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
           }
           return { ...prevData, [name]: checked };
         }
+        if (name === 'is_default') {
+          if (checked) {
+            setSelectedEntityIds([]);
+            return { ...prevData, is_default: true, has_all_entity_access: true };
+          }
+          return { ...prevData, is_default: false };
+        }
         return { ...prevData, [name]: checked };
+      }
+      if (name === 'extra_field_name') {
+        return {
+          ...prevData,
+          extra_field_name: value,
+          is_mandatory: value.trim() ? prevData.is_mandatory : false,
+        };
       }
       if (name === 'communication_list') {
         return { ...prevData, [name]: value };
@@ -139,6 +154,11 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
     setError('');
 
     const payload = { ...formData };
+    payload.extra_field_name = payload.extra_field_name ? payload.extra_field_name.trim() : null;
+    if (!payload.extra_field_name) {
+      payload.extra_field_name = null;
+      payload.is_mandatory = false;
+    }
     if (payload.communication_list) {
       payload.communication_list = payload.communication_list.split(',').map(item => item.trim()).filter(item => item !== '');
     } else {
@@ -151,6 +171,9 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
     
     // Logic for entity IDs is only for Corporate Admins
     if (userRole === 'corporate-admin') {
+      if (payload.is_default) {
+        payload.has_all_entity_access = true;
+      }
       if (payload.has_all_entity_access) {
         payload.entity_ids = [];
       } else {
@@ -192,33 +215,30 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
 
   if (isLoading) {
     return (
-      <div className="text-center py-8">
-        <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p className="text-gray-600 mt-2">Loading LG category data...</p>
+      <div className="flex flex-col items-center justify-center py-12">
+        <Loader2 className="animate-spin h-7 w-7 text-blue-600" />
+        <p className="text-sm text-slate-500 mt-2">Loading LG category data...</p>
       </div>
     );
   }
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">{formTitle}</h2>
+    <div className="max-w-3xl">
+      <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mb-4">{formTitle}</h2>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative mb-4 text-sm" role="alert">
           <span className="block sm:inline">{error}</span>
         </div>
       )}
 
       {isSystemOwner && id && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl relative mb-4 text-sm" role="alert">
           <span className="block sm:inline">You are editing a system-wide (universal) category. Changes will affect all customers.</span>
         </div>
       )}
 
-      <div className={`bg-white p-6 rounded-lg shadow-md ${isFormDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className={`bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-sm ${isFormDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="name" className={labelClassNames}>Category Name</label>
@@ -269,12 +289,32 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
               id="is_mandatory"
               checked={formData.is_mandatory}
               onChange={handleChange}
-              disabled={isFormDisabled}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              disabled={isFormDisabled || !formData.extra_field_name.trim()}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
             />
             <label htmlFor="is_mandatory" className="ml-2 block text-sm text-gray-900">
               Is Extra Field Mandatory?
             </label>
+          </div>
+
+          <div className="p-3 rounded-md bg-amber-50/60 border border-amber-200/80">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="is_default"
+                id="is_default"
+                checked={formData.is_default}
+                onChange={handleChange}
+                disabled={isFormDisabled}
+                className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+              />
+              <label htmlFor="is_default" className="ml-2 block text-sm font-medium text-gray-900">
+                Set as Default Category
+              </label>
+            </div>
+            <p className="mt-1 ml-6 text-xs text-gray-600">
+              Automatically pre-selects this category when recording new LGs (replacing any previous default).
+            </p>
           </div>
 
           <div>
@@ -304,11 +344,16 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
                     id="has_all_entity_access"
                     checked={formData.has_all_entity_access}
                     onChange={handleChange}
-                    disabled={isFormDisabled}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    disabled={isFormDisabled || formData.is_default}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
                   />
                   <label htmlFor="has_all_entity_access" className="ml-2 block text-sm text-gray-900">
                     Applies to All Entities for this Customer
+                    {formData.is_default && (
+                      <span className="ml-2 text-xs text-amber-700 font-medium">
+                        (Default category must apply to all entities)
+                      </span>
+                    )}
                   </label>
                 </div>
 
@@ -344,11 +389,11 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
               </>
           )}
 
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={() => navigate(isSystemOwner ? '/system-owner/lg-categories/universal' : '/corporate-admin/lg-categories')}
-              className="btn-secondary px-4 py-2"
+              className="btn-secondary px-4 py-2 rounded-xl"
               disabled={isSaving}
             >
               Cancel
@@ -356,14 +401,11 @@ function LGCategoryForm({ onLogout, isGracePeriod, userRole }) {
             <GracePeriodTooltip isGracePeriod={isGracePeriod}>
               <button
                 type="submit"
-                className={`btn-primary px-4 py-2 flex items-center justify-center ${isSaving || isFormDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`btn-primary px-4 py-2 rounded-xl flex items-center justify-center ${isSaving || isFormDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={isSaving || isFormDisabled}
               >
                 {isSaving && (
-                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" />
                 )}
                 {id ? (isSaving ? 'Updating...' : 'Update LG Category') : (isSaving ? 'Creating...' : 'Create LG Category')}
               </button>

@@ -80,30 +80,51 @@ const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center">
-            <div className="bg-white p-6 rounded-lg shadow-xl w-11/12 md:w-2/3 lg:w-1/2">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Generate Bulk Bank Reminders</h2>
-                
-                {processError && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4 flex items-center" role="alert">
-                        <X className="h-5 w-5 mr-2" />
-                        <span className="block sm:inline">{processError}</span>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex justify-center items-center p-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                {/* Header */}
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-teal-50 text-teal-600 border border-teal-100">
+                            <Mail className="h-5 w-5" />
+                        </div>
+                        <h2 className="text-base font-bold text-slate-900">Generate Bulk Bank Reminders</h2>
                     </div>
-                )}
-                
-                <p className="text-gray-700 mb-4">
-                    This action will automatically identify all eligible LG instructions for a bank reminder, which may extend beyond the list below. It will then generate a consolidated PDF document containing all such reminders. The PDF will open in a new tab for printing.
-                </p>
-                <p className="text-gray-700 mb-6">
-                    Eligible instructions are those where a bank reply has not been recorded, and they fall
-                    within configured time thresholds (e.g., days since issuance/delivery).
-                </p>
-
-                <div className="flex justify-end space-x-4">
                     <button
                         type="button"
                         onClick={onClose}
-                        className={`inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        disabled={isProcessing}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="px-5 py-4 space-y-3.5 overflow-y-auto flex-1">
+                    {processError && (
+                        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-3.5 py-2.5 rounded-xl text-xs font-medium flex items-center" role="alert">
+                            <X className="h-4 w-4 mr-2 shrink-0" />
+                            <span>{processError}</span>
+                        </div>
+                    )}
+
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2 text-sm text-slate-700 leading-relaxed">
+                        <p>
+                            This action will automatically identify all eligible LG instructions for a bank reminder, which may extend beyond the list below. It will then generate a consolidated PDF document containing all such reminders. The PDF will open in a new tab for printing.
+                        </p>
+                        <p className="text-xs text-slate-500">
+                            Eligible instructions are those where a bank reply has not been recorded, and they fall within configured time thresholds (e.g., days since issuance/delivery).
+                        </p>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 py-3 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 shrink-0">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className={`inline-flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-xs ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                         disabled={isProcessing}
                     >
                         Cancel
@@ -113,12 +134,12 @@ const BulkRemindersModal = ({ onClose, onSuccess, isGracePeriod }) => {
                             type="button"
                             onClick={handleGenerateBulkReminders}
                             disabled={isProcessing || isGracePeriod}
-                            className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm bg-teal-100 text-teal-700 hover:bg-teal-200 ${isProcessing || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            className={`inline-flex items-center justify-center px-4 py-2 text-sm font-semibold rounded-xl shadow-sm bg-teal-600 text-white hover:bg-teal-700 transition-colors ${isProcessing || isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             {isProcessing ? (
-                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                             ) : (
-                                <Mail className="h-5 w-5 mr-2" />
+                                <Mail className="h-4 w-4 mr-2" />
                             )}
                             {isProcessing ? 'Generating...' : 'Generate & Print Reminders'}
                         </button>

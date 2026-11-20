@@ -14,7 +14,7 @@ import { formatDate } from '../../utils/dateFormat';
 // NEW: History Preview Modal Component
 // =====================================================================
 	const StatusTile = ({ label, count, colorClass, icon: Icon }) => (
-		<div className={`flex-1 min-w-[130px] p-4 rounded-xl border ${colorClass} shadow-sm flex flex-col items-center justify-center transition-all hover:scale-105 hover:shadow-md`}>
+		<div className={`flex-1 min-w-[120px] p-3.5 rounded-2xl border ${colorClass} shadow-sm flex flex-col items-center justify-center transition-colors`}>
 			<div className="flex items-center gap-2 mb-2 opacity-80">
 				<Icon size={16} />
 				<span className="text-xs font-bold uppercase tracking-wider">{label}</span>
@@ -27,8 +27,8 @@ const HistoryPreviewModal = ({ lgHistory, onClose }) => {
     if (!lgHistory) return null;
 
     return (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex justify-center items-center">
-            <div className="relative p-8 bg-white w-4/5 max-w-4xl rounded-xl shadow-lg border border-gray-200 animate-slide-in-top max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex justify-center items-center p-4">
+            <div className="relative p-6 bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 animate-slide-in-top max-h-[90vh] flex flex-col">
                 <div className="flex justify-between items-center mb-6 border-b pb-3">
                     <h2 className="text-2xl font-bold text-gray-800 flex items-center">
                         <History className="w-6 h-6 mr-2 text-indigo-500" />
@@ -89,10 +89,10 @@ const HistoryPreviewModal = ({ lgHistory, onClose }) => {
                     </ol>
                 </div>
                 
-                <div className="mt-6 flex justify-end">
+                <div className="mt-5 flex justify-end">
                     <button 
                         onClick={onClose} 
-                        className="px-6 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                        className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors"
                     >
                         Close
                     </button>
@@ -261,68 +261,68 @@ const StagedRecordsTable = ({ records, getStatusColor, onRecordUpdate, onRecordD
 
 
     return (
-        <div className="overflow-auto relative shadow-xl rounded-xl border border-gray-200 bg-white max-h-[75vh]">
-            <table className="w-full text-sm text-left text-gray-500">
-                <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 z-20 shadow-sm backdrop-blur-sm bg-opacity-95">	
+        <div className="overflow-auto relative shadow-sm rounded-2xl border border-slate-200/80 bg-white max-h-[70vh]">
+            <table className="w-full text-sm text-left text-slate-600">
+                <thead className="text-xs text-slate-600 uppercase bg-slate-50/95 sticky top-0 z-20 border-b border-slate-200 backdrop-blur-sm">	
                     <tr>
-                         <th scope="col" className="py-3 px-3">
+                         <th scope="col" className="py-2.5 px-3">
                             <input
                                 type="checkbox"
-                                className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                                className="form-checkbox h-4 w-4 text-blue-600 rounded border-slate-300"
                                 checked={selectedRecords.length === records.length && records.length > 0}
                                 onChange={onToggleSelectAll}
                             />
                         </th>
-                        <th scope="col" className="py-3 px-6">Actions</th>
-                        <th scope="col" className="py-3 px-6">ID</th>
-                        <th scope="col" className="py-3 px-6">File Name</th>
-                        <th scope="col" className="py-3 px-6">Status</th>
-                        <th scope="col" className="py-3 px-6">Validation Log</th>
+                        <th scope="col" className="py-2.5 px-3">Actions</th>
+                        <th scope="col" className="py-2.5 px-3">ID</th>
+                        <th scope="col" className="py-2.5 px-3">File Name</th>
+                        <th scope="col" className="py-2.5 px-3">Status</th>
+                        <th scope="col" className="py-2.5 px-3">Validation Log</th>
                         {ALL_LG_FIELDS.map(key => (
-                            <th key={key} scope="col" className="py-3 px-6">{friendlyHeaderNames[key] || key}</th>
+                            <th key={key} scope="col" className="py-2.5 px-3 whitespace-nowrap">{friendlyHeaderNames[key] || key}</th>
                         ))}
                     </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                     {records.map((record) => {
                         const isImported = record.record_status === 'IMPORTED';
                         const isEditingField = isEditing(record.id);
 
                         return (
-                            <tr key={record.id} className="bg-white border-b hover:bg-gray-50 transition-colors">
-                                <td className="py-4 px-3">
+                            <tr key={record.id} className="bg-white hover:bg-slate-50/70 transition-colors">
+                                <td className="py-2.5 px-3">
                                     <input
                                         type="checkbox"
-                                        className={`form-checkbox h-4 w-4 rounded ${isImported ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600'}`}
+                                        className={`form-checkbox h-4 w-4 rounded ${isImported ? 'text-slate-400 cursor-not-allowed' : 'text-blue-600'}`}
                                         checked={selectedRecords.includes(record.id) && !isImported}
                                         onChange={() => onToggleSelect(record.id)}
                                         disabled={isImported}
                                     />
                                 </td>
-                                <td className="py-4 px-6 whitespace-nowrap">
-                                    <div className="flex space-x-2">
+                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                    <div className="flex space-x-1.5">
                                         {isEditingField ? (
-                                            <button onClick={() => handleSaveClick(record.id)} className="text-green-600 hover:text-green-800" title="Save" disabled={isImported}>
-                                                <Save className="w-5 h-5" />
+                                            <button onClick={() => handleSaveClick(record.id)} className="p-1 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50" title="Save" disabled={isImported}>
+                                                <Save className="w-4 h-4" />
                                             </button>
                                         ) : (
-                                            <button onClick={() => handleEditClick(record)} className={`hover:text-blue-800 ${isImported ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600'}`} title="Edit" disabled={isImported}>
-                                                <Edit className="w-5 h-5" />
+                                            <button onClick={() => handleEditClick(record)} className={`p-1 rounded-lg ${isImported ? 'text-slate-400 cursor-not-allowed' : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'}`} title="Edit" disabled={isImported}>
+                                                <Edit className="w-4 h-4" />
                                             </button>
                                         )}
-                                        <button onClick={() => onRecordDelete(record.id)} className={`hover:text-red-800 ${isImported ? 'text-gray-400 cursor-not-allowed' : 'text-red-600'}`} title="Delete" disabled={isImported}>
-                                            <Trash2 className="w-5 h-5" />
+                                        <button onClick={() => onRecordDelete(record.id)} className={`p-1 rounded-lg ${isImported ? 'text-slate-400 cursor-not-allowed' : 'text-rose-600 hover:text-rose-800 hover:bg-rose-50'}`} title="Delete" disabled={isImported}>
+                                            <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </td>
-                                <th scope="row" className="py-4 px-6 font-medium text-gray-900 whitespace-nowrap">{record.id}</th>
-                                <td className="py-4 px-6">{record.file_name}</td>
-                                <td className="py-4 px-6">
-                                    <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(record.record_status)}`}>
+                                <th scope="row" className="py-2.5 px-3 font-medium text-slate-900 whitespace-nowrap tabular-nums">{record.id}</th>
+                                <td className="py-2.5 px-3 max-w-[160px] truncate" title={record.file_name}>{record.file_name}</td>
+                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                    <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getStatusColor(record.record_status)}`}>
                                         {record.record_status}
                                     </span>
                                 </td>
-                                <td className="py-4 px-6" style={{ minWidth: '400px' }}>
+                                <td className="py-2.5 px-3" style={{ minWidth: '280px' }}>
                                     {record.validation_log && Object.keys(record.validation_log).filter(k => k !== 'ignored_ai_issues').length > 0 ? (
                                         <div className="space-y-2">
                                             {Object.entries(record.validation_log).map(([field, message]) => (
@@ -1381,7 +1381,7 @@ function MigrationUploadPage() {
 
 
     return (
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 w-full min-w-0 font-sans overflow-x-auto">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80 w-full min-w-0 font-sans">
             <input
                 type="file"
                 ref={folderInputRef}
@@ -1405,85 +1405,85 @@ function MigrationUploadPage() {
             )}
 
             {uploadMessage && (
-                <div className={`p-4 mb-4 text-sm rounded-lg border-l-4 ${isSuccess ? 'bg-green-100 text-green-700 border-green-500' : 'bg-red-100 text-red-700 border-red-500'}`} role="alert">
-                    <div className="flex items-center space-x-3">
-                        {isSuccess ? <CheckCircle className="h-5 w-5 flex-shrink-0" /> : <XCircle className="h-5 w-5 flex-shrink-0" />}
+                <div className={`p-3.5 mb-4 text-sm rounded-xl border ${isSuccess ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`} role="alert">
+                    <div className="flex items-center space-x-2.5">
+                        {isSuccess ? <CheckCircle className="h-4 w-4 flex-shrink-0" /> : <XCircle className="h-4 w-4 flex-shrink-0" />}
                         <span className="font-medium">{uploadMessage}</span>
                     </div>
                 </div>
             )}
             
             {/* NEW: Reporting Section */}
-            <div className="mt-3 p-3 bg-white rounded-xl border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800 mb-1 flex items-center space-x-2">
-                    <TrendingUp className="w-5 h-5 text-gray-600" />
+            <div className="mt-2 p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80">
+                <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-slate-600" />
                     <span>Migration Report & Batches</span>
                 </h3>
                 {reportSummary ? (
-                <div className="flex flex-wrap gap-3 mb-6">
+                <div className="flex flex-wrap gap-2.5">
                     <StatusTile 
                         label="Total Staged" 
                         count={reportSummary.total_staged_records} 
-                        colorClass="bg-gray-50 text-gray-700 border-gray-200" 
+                        colorClass="bg-white text-slate-700 border-slate-200" 
                         icon={Layers} 
                     />
                     <StatusTile 
                         label="Imported" 
                         count={reportSummary.summary_by_status.IMPORTED} 
-                        colorClass="bg-green-50 text-green-700 border-green-200" 
+                        colorClass="bg-emerald-50/70 text-emerald-700 border-emerald-200" 
                         icon={CheckCircle} 
                     />
                     <StatusTile 
                         label="Ready" 
                         count={reportSummary.summary_by_status.READY_FOR_IMPORT} 
-                        colorClass="bg-emerald-50 text-emerald-700 border-emerald-200" 
+                        colorClass="bg-teal-50/70 text-teal-700 border-teal-200" 
                         icon={ShieldCheck} 
                     />
                     <StatusTile 
                         label="Pending" 
                         count={reportSummary.summary_by_status.PENDING} 
-                        colorClass="bg-amber-50 text-amber-700 border-amber-200" 
+                        colorClass="bg-amber-50/70 text-amber-700 border-amber-200" 
                         icon={Loader2} 
                     />
                     <StatusTile 
                         label="Errors" 
                         count={reportSummary.summary_by_status.ERROR} 
-                        colorClass="bg-red-50 text-red-700 border-red-200" 
+                        colorClass="bg-rose-50/70 text-rose-700 border-rose-200" 
                         icon={XCircle} 
                     />
                     <StatusTile 
                         label="Expired" 
                         count={reportSummary.summary_by_status.EXPIRED} 
-                        colorClass="bg-orange-50 text-orange-700 border-orange-200" 
+                        colorClass="bg-orange-50/70 text-orange-700 border-orange-200" 
                         icon={CalendarX} 
                     />
                     <StatusTile 
                         label="Duplicates" 
                         count={reportSummary.summary_by_status.DUPLICATE} 
-                        colorClass="bg-purple-50 text-purple-700 border-purple-200" 
+                        colorClass="bg-purple-50/70 text-purple-700 border-purple-200" 
                         icon={Copy} 
                     />
                 </div>
             ) : (
-                <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-xl border border-dashed">
-                    <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-2" />
-                    <p className="text-sm text-gray-500">Loading report statistics...</p>
+                <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl border border-dashed border-slate-200">
+                    <Loader2 className="w-6 h-6 animate-spin text-indigo-500 mb-2" />
+                    <p className="text-xs text-slate-500">Loading report statistics...</p>
                 </div>
             )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-8 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5 mt-4">
                 {/* Combined Data Intake Section */}
-                <div className="p-6 bg-gray-50 rounded-xl border border-gray-200 flex flex-col justify-between">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center space-x-2">
-                        <Upload className="w-5 h-5 text-gray-600" />
+                <div className="p-4 sm:p-5 bg-slate-50/70 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
+                    <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                        <Upload className="w-4 h-4 text-slate-600" />
                         <span>Upload or Enter a Record</span>
                     </h3>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                          {/* NEW: Radio buttons for migration type */}
-                        <div className="flex space-x-4 mb-4 items-center">
-                            <label className="text-sm font-medium text-gray-700">Migration Type:</label>
-                            <div className="flex space-x-4">
+                        <div className="flex flex-wrap gap-3 items-center">
+                            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Migration Type:</label>
+                            <div className="flex flex-wrap gap-3">
                                 <label className="flex items-center space-x-2">
                                     <input
                                         type="radio"
@@ -1493,7 +1493,7 @@ function MigrationUploadPage() {
                                         onChange={(e) => setMigrationType(e.target.value)}
                                         className="form-radio text-blue-600"
                                     />
-                                    <span className="text-sm text-gray-800">New LG Records</span>
+                                    <span className="text-sm text-slate-800">New LG Records</span>
                                 </label>
                                 <label className="flex items-center space-x-2">
                                     <input
@@ -1504,13 +1504,13 @@ function MigrationUploadPage() {
                                         onChange={(e) => setMigrationType(e.target.value)}
                                         className="form-radio text-blue-600"
                                     />
-                                    <span className="text-sm text-gray-800">LG Instructions (Amendments)</span>
+                                    <span className="text-sm text-slate-800">LG Instructions (Amendments)</span>
                                 </label>
                             </div>
                         </div>
                          {/* File Upload Form */}
                         <div className="flex flex-col">
-                            <label className="mb-2 text-sm font-medium text-gray-700">Select File (.json, .csv, .xlsx)</label>
+                            <label className="mb-1.5 text-xs font-medium text-slate-700">Select File (.json, .csv, .xlsx)</label>
                             <input
                                 type="file"
                                 onChange={handleFileChange}
@@ -1518,18 +1518,18 @@ function MigrationUploadPage() {
                                 accept=".json,.csv,.xlsx"
                                 disabled={isLoading}
                             />
-                            {selectedFile && <p className="mt-2 text-xs text-gray-500 truncate">Selected: <span className="font-medium">{selectedFile.name}</span></p>}
+                            {selectedFile && <p className="mt-1.5 text-xs text-slate-500 truncate">Selected: <span className="font-medium">{selectedFile.name}</span></p>}
                         </div>
-                        <div className="border-t border-gray-200 my-4 text-center text-gray-400 text-sm">OR</div>
+                        <div className="border-t border-slate-200 my-2.5 text-center text-slate-400 text-xs font-medium">OR</div>
                          {/* Manual Entry Form */}
                         <div className="flex flex-col">
-                            <label className="mb-2 text-sm font-medium text-gray-700">Enter a single LG record (JSON format)</label>
+                            <label className="mb-1.5 text-xs font-medium text-slate-700">Enter a single LG record (JSON format)</label>
                             <textarea
-                                rows="4"
+                                rows="3"
                                 value={manualEntryData}
                                 onChange={handleManualEntryChange}
                                 placeholder='Example: {"lg_number": "LG123", "lg_amount": 1000, "lg_currency_id": 1, "expiry_date": "2025-12-31", ...}'
-                                className="mt-1 block w-full p-2 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                                className="block w-full p-2.5 text-sm text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                                 disabled={isLoading}
                             ></textarea>
                         </div>
@@ -1537,42 +1537,42 @@ function MigrationUploadPage() {
                     <button
                         onClick={handleIntake}
                         disabled={isLoading || (!selectedFile && !manualEntryData)}
-                        className={`mt-4 w-full flex items-center justify-center px-6 py-3 text-sm font-medium rounded-lg shadow-md transition-all duration-200 ${
+                        className={`mt-4 w-full flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-xl shadow-sm transition-colors ${
                             isLoading || (!selectedFile && !manualEntryData)
-                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg'
+                                ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
                         }`}
                     >
-                        {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Stage Records
                     </button>
                 </div>
 
                 {/* Processing and Import Actions */}
-                <div className="p-6 bg-gray-50 rounded-xl border border-gray-200 flex flex-col justify-between">
+                <div className="p-4 sm:p-5 bg-slate-50/70 rounded-2xl border border-slate-200/80 flex flex-col justify-between">
                     <div>
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2 flex items-center space-x-2">
-                             <CloudUpload className="w-5 h-5 text-gray-600" />
+                        <h3 className="text-base font-semibold text-slate-800 mb-2 flex items-center gap-2">
+                             <CloudUpload className="w-4 h-4 text-slate-600" />
                             <span>Finalize Migration</span>
                         </h3>
-                        <div className="space-y-4">
-                            <p className="text-sm text-gray-600">
+                        <div className="space-y-3">
+                            <p className="text-sm text-slate-600">
                                Once records are ready, finalize the migration by importing them into the main system. This is an irreversible action.
                             </p>
                         </div>
                     </div>
-                    <div className="flex flex-col space-y-4 mt-auto">
+                    <div className="flex flex-col gap-2.5 mt-4">
                         <button
                             onClick={handleFinalizeMigration}
                             disabled={isLoading || !hasReadyRecords}
-                            className={`w-full flex items-center justify-center px-6 py-3 text-sm font-medium rounded-lg shadow-md transition-all duration-200 ${
+                            className={`w-full flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-xl shadow-sm transition-colors ${
                                 isLoading || !hasReadyRecords
-                                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                    : 'bg-green-600 text-white hover:bg-green-700 hover:shadow-lg'
+                                    ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
                             }`}
                         >
-                            {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                            <CloudUpload className="mr-2 h-5 w-5 animate-pulse" />
+                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <CloudUpload className="mr-2 h-4 w-4" />
                             Finalize Migration & Import
                         </button>
                         {resetEligibility?.allowed && (
@@ -1580,7 +1580,7 @@ function MigrationUploadPage() {
                                 type="button"
                                 onClick={handleResetMigrated}
                                 disabled={isLoading}
-                                className="w-full flex items-center justify-center px-6 py-2.5 text-sm font-medium rounded-lg shadow-sm transition-all duration-200 bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100"
+                                className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-xl shadow-sm transition-colors bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
                                 title={resetEligibility.reason || "Purge previously migrated LG records from production and reset staged rows to Ready (auto-suspended after 48h or upon first live instruction)"}
                             >
                                 <RotateCcw className="w-4 h-4 mr-2" />
@@ -1595,13 +1595,13 @@ function MigrationUploadPage() {
                         <button
                             onClick={handlePreviewHistory}
                             disabled={isLoading}
-                            className={`w-full flex items-center justify-center px-6 py-3 text-sm font-medium rounded-lg shadow-md transition-all duration-200 ${
+                            className={`w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-xl shadow-sm transition-colors ${
                                 isLoading
-                                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                    : 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-lg'
+                                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                                    : 'bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50'
                             }`}
                         >
-                            {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             <History className="w-4 h-4 mr-2" />
                             Preview Historical Import
                         </button>
@@ -1609,7 +1609,7 @@ function MigrationUploadPage() {
                             type="button"
                             onClick={() => setIsAddOwnerModalOpen(true)}
                             disabled={isLoading}
-                            className="w-full flex items-center justify-center px-6 py-3 text-sm font-medium rounded-lg shadow-md transition-all duration-200 bg-teal-600 text-white hover:bg-teal-700 hover:shadow-lg"
+                            className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium rounded-xl shadow-sm transition-colors bg-white text-teal-700 border border-teal-200 hover:bg-teal-50"
                         >
                             <UserPlus className="w-4 h-4 mr-2" />
                             Add New Internal Owner ({internalOwners.length} Existing)
@@ -1618,18 +1618,18 @@ function MigrationUploadPage() {
                 </div>
             </div>
 
-            <div className="mt-12 pt-8 border-t border-gray-200">
-                 <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center space-x-2">
-                    <Eye className="w-5 h-5 text-gray-600" />
+            <div className="mt-6 pt-5 border-t border-slate-200">
+                 <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-slate-600" />
                     <span>View Staged Records</span>
                  </h3>
-                 <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mb-8">
+                 <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3 mb-4 flex flex-wrap items-center justify-between gap-2.5">
                      {/* NEW: Filters Section */}
-                     <div className="flex space-x-4 w-full md:w-auto">
+                     <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                         <select 
                             value={filterStatus} 
                             onChange={(e) => setFilterStatus(e.target.value)}
-                            className="w-full md:w-36 text-sm p-2  px-4 py-2 border border-gray-300 rounded-lg"
+                            className="w-full sm:w-40 text-sm px-3 py-2 bg-white border border-slate-300 rounded-xl"
                         >
                             <option value="">All Statuses</option>
                             <option value="PENDING">PENDING</option>
@@ -1645,68 +1645,68 @@ function MigrationUploadPage() {
                             placeholder="Filter by File Name"
                             value={filterFileName}
                             onChange={(e) => setFilterFileName(e.target.value)}
-                            className="w-full md:w-36 text-sm p-2  px-4 py-3 border border-gray-300 rounded-lg"
+                            className="w-full sm:w-40 text-sm px-3 py-2 bg-white border border-slate-300 rounded-xl"
                         />
                         <input
                             type="text"
                             placeholder="Filter by LG Number"
                             value={filterLGNumber}
                             onChange={(e) => setFilterLGNumber(e.target.value)}
-                            className="w-full md:w-36 text-sm p-2  px-4 py-3 border border-gray-300 rounded-lg"
+                            className="w-full sm:w-40 text-sm px-3 py-2 bg-white border border-slate-300 rounded-xl"
                         />
+                        <button
+                            onClick={fetchStagedRecords}
+                            disabled={isLoading}
+                            className={`w-full sm:w-auto flex items-center justify-center px-3.5 py-2 text-sm font-medium rounded-xl shadow-sm transition-colors ${
+                                isLoading
+                                    ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                                    : 'bg-slate-700 text-white hover:bg-slate-800'
+                            }`}
+                        >
+                            {isLoading && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                            View All Staged Records
+                        </button>
                      </div>
-                    <button
-                        onClick={fetchStagedRecords}
-                        disabled={isLoading}
-                        className={`w-full md:w-auto flex items-center justify-center px-6 py-3 text-sm font-medium rounded-lg shadow-md transition-all duration-200 ${
-                            isLoading
-                                ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                : 'bg-gray-600 text-white hover:bg-gray-700 hover:shadow-lg'
-                        }`}
-                    >
-                        {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-						View All Staged Records
-                    </button>
                  {/* NEW: Bulk Action Buttons */}
-                 <div className="flex space-x-4 mb-4">
+                 <div className="flex flex-wrap items-center gap-2">
                      <button
                          onClick={handleRevalidateSelected}
                          disabled={selectedRecords.length === 0 || isLoading}
-                         className={`flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg shadow-md transition-all duration-200 ${
+                         className={`flex items-center justify-center px-3.5 py-2 text-sm font-medium rounded-xl shadow-sm transition-colors ${
                              selectedRecords.length === 0 || isLoading
-                                 ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                 : 'bg-purple-600 text-white hover:bg-purple-700 hover:shadow-lg'
+                                 ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                                 : 'bg-purple-600 text-white hover:bg-purple-700'
                          }`}
                      >
-                         <RotateCcw className="w-6 h-4 mr-2" />
-                         Re-Validate Selected ({selectedRecords.length})
+                         <RotateCcw className="w-4 h-4 mr-1.5" />
+                         Re-Validate ({selectedRecords.length})
                      </button>
                      <button
                          onClick={handleDeleteSelected}
                          disabled={selectedRecords.length === 0 || isLoading}
-                         className={`flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg shadow-md transition-all duration-200 ${
+                         className={`flex items-center justify-center px-3.5 py-2 text-sm font-medium rounded-xl shadow-sm transition-colors ${
                              selectedRecords.length === 0 || isLoading
-                                 ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                 : 'bg-red-600 text-white hover:bg-red-700 hover:shadow-lg'
+                                 ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                                 : 'bg-rose-600 text-white hover:bg-rose-700'
                          }`}
                      >
-                         <Trash2 className="w-6 h-4 mr-2" />
-                         Delete Selected ({selectedRecords.length})
+                         <Trash2 className="w-4 h-4 mr-1.5" />
+                         Delete ({selectedRecords.length})
                      </button>
                      {/* --- AI AUDIT BUTTON --- */}
                      <button
                         onClick={handleRunAudit}
                         disabled={isAuditing || stagedRecords.length === 0}
-                        className={`flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg shadow-md transition-all duration-200 ${
+                        className={`flex items-center justify-center px-3.5 py-2 text-sm font-medium rounded-xl shadow-sm transition-colors ${
                             isAuditing || stagedRecords.length === 0
-                                ? 'bg-indigo-100 text-indigo-400 cursor-not-allowed'
-                                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                                ? 'bg-indigo-50 text-indigo-300 border border-indigo-100 cursor-not-allowed'
+                                : 'bg-white text-indigo-700 hover:bg-indigo-50 border border-indigo-200'
                         }`}
                     >
                         {isAuditing ? (
-                            <Loader2 className="w-6 h-4 animate-spin mr-2" />
+                            <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
                         ) : (
-                            <ShieldCheck className="w-6 h-4 mr-2" />
+                            <ShieldCheck className="w-4 h-4 mr-1.5" />
                         )}
                         {isAuditing ? 'Scanning Docs...' : 'Run AI Audit'}
                     </button>

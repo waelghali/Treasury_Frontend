@@ -42,57 +42,61 @@ function TrialRegistrationDetailsModal({ registration, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-      <div className="relative p-8 bg-white w-full max-w-2xl rounded-lg shadow-xl">
-        
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+
         {/* Modal Header */}
-        <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-          <h3 className="text-xl font-semibold text-gray-900">Registration Details</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-6 w-6" />
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between shrink-0">
+          <h3 className="text-lg font-bold text-slate-900">Registration Details</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 bg-slate-50/70 p-4 rounded-xl border border-slate-200/70">
             <div>
-              <p className="text-sm font-medium text-gray-500">Organization Name</p>
-              <p className="mt-1 text-sm text-gray-900">{registration.organization_name}</p>
+              <p className="text-xs font-semibold text-slate-500">Organization Name</p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900">{registration.organization_name}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Admin Email</p>
-              <p className="mt-1 text-sm text-gray-900">{registration.admin_email}</p>
+              <p className="text-xs font-semibold text-slate-500">Admin Email</p>
+              <p className="mt-0.5 text-sm text-slate-800 break-all">{registration.admin_email}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Super Admin Name</p>
-              <p className="mt-1 text-sm text-gray-900">{registration.contact_admin_name}</p>
+              <p className="text-xs font-semibold text-slate-500">Super Admin Name</p>
+              <p className="mt-0.5 text-sm text-slate-800">{registration.contact_admin_name}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Contact Phone</p>
-              <p className="mt-1 text-sm text-gray-900">{registration.contact_phone}</p>
+              <p className="text-xs font-semibold text-slate-500">Contact Phone</p>
+              <p className="mt-0.5 text-sm text-slate-800">{registration.contact_phone}</p>
             </div>
-            <div className="col-span-2">
-              <p className="text-sm font-medium text-gray-500">Organization Address</p>
-              <p className="mt-1 text-sm text-gray-900">{registration.organization_address}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Entities Count</p>
-              <p className="mt-1 text-sm text-gray-900">{registration.entities_count}</p>
+            <div className="col-span-1 md:col-span-2">
+              <p className="text-xs font-semibold text-slate-500">Organization Address</p>
+              <p className="mt-0.5 text-sm text-slate-800">{registration.organization_address}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Requested Modules</p>
-              <div className="mt-1 flex gap-1 flex-wrap">
+              <p className="text-xs font-semibold text-slate-500">Entities Count</p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900">{registration.entities_count}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-500">Requested Modules</p>
+              <div className="mt-1 flex gap-1.5 flex-wrap">
                 {(registration.requested_modules || ['custody']).map(mod => {
                   const badgeMap = {
-                    custody: { label: 'LG Custody', cls: 'bg-blue-100 text-blue-700' },
-                    issuance: { label: 'LG Issuance', cls: 'bg-purple-100 text-purple-700' },
-                    quotations: { label: 'FX & T-Bill Quotations', cls: 'bg-emerald-100 text-emerald-700' },
-                    reconciliation: { label: 'Bank Auto-Reconciliation', cls: 'bg-amber-100 text-amber-800' },
+                    custody: { label: 'LG Custody', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+                    issuance: { label: 'LG Issuance', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
+                    quotations: { label: 'FX & T-Bill Quotations', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                    reconciliation: { label: 'Bank Auto-Reconciliation', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
                   };
-                  const b = badgeMap[mod] || { label: mod, cls: 'bg-gray-100 text-gray-700' };
+                  const b = badgeMap[mod] || { label: mod, cls: 'bg-slate-100 text-slate-700 border-slate-200' };
                   return (
-                    <span key={mod} className={`px-2 py-0.5 text-xs font-medium rounded-full ${b.cls}`}>
+                    <span key={mod} className={`px-2 py-0.5 text-xs font-medium rounded-full border ${b.cls}`}>
                       {b.label}
                     </span>
                   );
@@ -100,46 +104,47 @@ function TrialRegistrationDetailsModal({ registration, onClose }) {
               </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Status</p>
-              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  registration.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  registration.status === 'approved' ? 'bg-green-100 text-green-800' :
-                  'bg-red-100 text-red-800'
+              <p className="text-xs font-semibold text-slate-500">Status</p>
+              <span className={`mt-1 px-2.5 py-0.5 inline-flex text-xs font-semibold rounded-full border ${
+                  registration.status === 'pending' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                  registration.status === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                  'bg-rose-50 text-rose-800 border-rose-200'
                 }`}>
                 {registration.status === 'pending' ? 'Pending Review' :
                  registration.status === 'approved' ? 'Approved' : 'Rejected'}
               </span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Registered At</p>
-              <p className="mt-1 text-sm text-gray-900">{registeredDate}</p>
+              <p className="text-xs font-semibold text-slate-500">Registered At</p>
+              <p className="mt-0.5 text-sm text-slate-800">{registeredDate}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Registration IP</p>
-              <p className="mt-1 text-sm text-gray-900">{registration.accepted_terms_ip || 'N/A'}</p>
+              <p className="text-xs font-semibold text-slate-500">Registration IP</p>
+              <p className="mt-0.5 text-sm font-mono text-slate-700">{registration.accepted_terms_ip || 'N/A'}</p>
             </div>
-            <div className="col-span-2">
-              <p className="text-sm font-medium text-gray-500">Commercial Register Document</p>
+            <div className="col-span-1 md:col-span-2">
+              <p className="text-xs font-semibold text-slate-500 mb-1.5">Commercial Register Document</p>
               {registration.commercial_register_document_path ? (
-                // Replaced the <a> tag with a <button> for secure, authenticated access
-                <button 
-                  onClick={() => handleViewDocument(registration.commercial_register_document_path)} 
-                  className="text-blue-600 hover:underline text-sm font-medium hover:text-blue-800"
+                <button
+                  type="button"
+                  onClick={() => handleViewDocument(registration.commercial_register_document_path)}
+                  className="inline-flex items-center px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 text-xs font-semibold transition-colors"
                 >
                   View Document (Securely)
                 </button>
               ) : (
-                <p className="text-sm text-gray-500 italic">No document uploaded.</p>
+                <p className="text-sm text-slate-500 italic">No document uploaded.</p>
               )}
             </div>
           </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="mt-5 pt-3 border-t border-gray-200 text-right">
+        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-xl text-sm font-semibold transition-colors shadow-sm"
           >
             Close
           </button>

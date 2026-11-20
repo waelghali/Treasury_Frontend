@@ -4,13 +4,13 @@ import { apiRequest } from 'services/apiService.js';
 import { Loader2 } from 'lucide-react'; // Added Loader2
 
 // Common input field styling classes
-const inputClassNames = "mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200";
-const labelClassNames = "block text-sm font-medium text-gray-700";
-const requiredSpan = <span className="text-red-500">*</span>;
+const inputClassNames = "mt-1 block w-full text-sm px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors";
+const labelClassNames = "block text-xs font-semibold text-slate-700";
+const requiredSpan = <span className="text-rose-500">*</span>;
 
 // Custom Toggle Switch Component (reusable)
 const ToggleSwitch = ({ id, name, checked, onChange, label }) => (
-  <label htmlFor={id} className="relative inline-flex items-center cursor-pointer mb-2">
+  <label htmlFor={id} className="relative inline-flex items-center cursor-pointer py-1">
     <input
       type="checkbox"
       name={name}
@@ -19,8 +19,8 @@ const ToggleSwitch = ({ id, name, checked, onChange, label }) => (
       onChange={onChange}
       className="sr-only peer"
     />
-    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-    <span className="ml-3 text-sm font-medium text-gray-900">{label}</span>
+    <div className="w-11 h-6 bg-slate-200 shrink-0 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[6px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+    <span className="ml-3 text-sm font-medium text-slate-800">{label}</span>
   </label>
 );
 
@@ -141,27 +141,30 @@ function SubscriptionPlanForm({ onLogout }) {
 
   if (isLoading) {
     return (
-      <div className="text-center py-8">
-        <Loader2 className="h-8 w-8 text-blue-600 mx-auto animate-spin" />
-        <p className="text-gray-600 mt-2">Loading plan data...</p>
+      <div className="flex flex-col items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+        <p className="text-sm text-slate-500 mt-3">Loading plan data...</p>
       </div>
     );
   }
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">{formTitle}</h2>
+    <div className="max-w-3xl mx-auto space-y-4">
+      <div>
+        <h2 className="text-xl font-bold text-slate-900">{formTitle}</h2>
+        <p className="text-xs text-slate-500 mt-0.5">Configure pricing, usage quotas, feature entitlements, and module access.</p>
+      </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm" role="alert">
           <span className="block sm:inline">{error}</span>
         </div>
       )}
 
-      <div className="bg-white p-6 rounded-lg shadow-md">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Plan Name */}
-          <div className="mb-2">
+          <div>
             <label htmlFor="name" className={labelClassNames}>Plan Name {requiredSpan}</label>
             <input
               type="text"
@@ -175,7 +178,7 @@ function SubscriptionPlanForm({ onLogout }) {
           </div>
 
           {/* Description */}
-          <div className="mb-2">
+          <div>
             <label htmlFor="description" className={labelClassNames}>Description</label>
             <textarea
               name="description"
@@ -189,7 +192,7 @@ function SubscriptionPlanForm({ onLogout }) {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Duration Months */}
-            <div className="mb-2">
+            <div>
               <label htmlFor="duration_months" className={labelClassNames}>Duration (Months) {requiredSpan}</label>
               <input
                 type="number"
@@ -204,7 +207,7 @@ function SubscriptionPlanForm({ onLogout }) {
             </div>
 
             {/* Monthly Price */}
-            <div className="mb-2">
+            <div>
               <label htmlFor="monthly_price" className={labelClassNames}>Monthly Price {requiredSpan}</label>
               <input
                 type="number"
@@ -220,7 +223,7 @@ function SubscriptionPlanForm({ onLogout }) {
             </div>
 
             {/* Annual Price */}
-            <div className="mb-2">
+            <div>
               <label htmlFor="annual_price" className={labelClassNames}>Annual Price {requiredSpan}</label>
               <input
                 type="number"
@@ -238,7 +241,7 @@ function SubscriptionPlanForm({ onLogout }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Max Users */}
-            <div className="mb-2">
+            <div>
               <label htmlFor="max_users" className={labelClassNames}>Max Users {requiredSpan}</label>
               <input
                 type="number"
@@ -253,7 +256,7 @@ function SubscriptionPlanForm({ onLogout }) {
             </div>
 
             {/* Max Records */}
-            <div className="mb-2">
+            <div>
               <label htmlFor="max_records" className={labelClassNames}>Max Records {requiredSpan}</label>
               <input
                 type="number"
@@ -269,74 +272,78 @@ function SubscriptionPlanForm({ onLogout }) {
           </div>
 
           {/* Feature Checkboxes (now using ToggleSwitch) */}
-          <div className="border border-gray-200 rounded-md p-4 space-y-2">
-            <p className="text-base font-medium text-gray-800 mb-2">Features</p>
-            <ToggleSwitch
-              id="can_maker_checker"
-              name="can_maker_checker"
-              checked={formData.can_maker_checker}
-              onChange={handleChange}
-              label="Maker/Checker Workflow"
-            />
-            <ToggleSwitch
-              id="can_multi_entity"
-              name="can_multi_entity"
-              checked={formData.can_multi_entity}
-              onChange={handleChange}
-              label="Multi-Entity Support"
-            />
-            <ToggleSwitch
-              id="can_ai_integration"
-              name="can_ai_integration"
-              checked={formData.can_ai_integration}
-              onChange={handleChange}
-              label="AI Integration"
-            />
-            <ToggleSwitch
-              id="can_image_storage"
-              name="can_image_storage"
-              checked={formData.can_image_storage}
-              onChange={handleChange}
-              label="Image Storage"
-            />
+          <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-3">Features</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <ToggleSwitch
+                id="can_maker_checker"
+                name="can_maker_checker"
+                checked={formData.can_maker_checker}
+                onChange={handleChange}
+                label="Maker/Checker Workflow"
+              />
+              <ToggleSwitch
+                id="can_multi_entity"
+                name="can_multi_entity"
+                checked={formData.can_multi_entity}
+                onChange={handleChange}
+                label="Multi-Entity Support"
+              />
+              <ToggleSwitch
+                id="can_ai_integration"
+                name="can_ai_integration"
+                checked={formData.can_ai_integration}
+                onChange={handleChange}
+                label="AI Integration"
+              />
+              <ToggleSwitch
+                id="can_image_storage"
+                name="can_image_storage"
+                checked={formData.can_image_storage}
+                onChange={handleChange}
+                label="Image Storage"
+              />
+            </div>
           </div>
 
           {/* Module Access Section */}
-          <div className="border border-blue-200 rounded-md p-4 space-y-2 bg-blue-50">
-            <p className="text-base font-medium text-blue-800 mb-2">Module Access</p>
-            <ToggleSwitch
-              id="has_custody_module"
-              name="has_custody_module"
-              checked={formData.has_custody_module}
-              onChange={handleChange}
-              label="LG Custody Module (Phase 1)"
-            />
-            <ToggleSwitch
-              id="has_issuance_module"
-              name="has_issuance_module"
-              checked={formData.has_issuance_module}
-              onChange={handleChange}
-              label="LG Issuance Module (Phase 2)"
-            />
-            <ToggleSwitch
-              id="has_quotation_module"
-              name="has_quotation_module"
-              checked={formData.has_quotation_module}
-              onChange={handleChange}
-              label="FX & T-Bill Quotation Module"
-            />
-            <ToggleSwitch
-              id="has_reconciliation_module"
-              name="has_reconciliation_module"
-              checked={formData.has_reconciliation_module}
-              onChange={handleChange}
-              label="Bank Reconciliation Module"
-            />
+          <div className="border border-indigo-200/80 rounded-xl p-4 bg-indigo-50/40">
+            <p className="text-xs font-bold uppercase tracking-wider text-indigo-800 mb-3">Module Access</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <ToggleSwitch
+                id="has_custody_module"
+                name="has_custody_module"
+                checked={formData.has_custody_module}
+                onChange={handleChange}
+                label="LG Custody Module (Phase 1)"
+              />
+              <ToggleSwitch
+                id="has_issuance_module"
+                name="has_issuance_module"
+                checked={formData.has_issuance_module}
+                onChange={handleChange}
+                label="LG Issuance Module (Phase 2)"
+              />
+              <ToggleSwitch
+                id="has_quotation_module"
+                name="has_quotation_module"
+                checked={formData.has_quotation_module}
+                onChange={handleChange}
+                label="FX & T-Bill Quotation Module"
+              />
+              <ToggleSwitch
+                id="has_reconciliation_module"
+                name="has_reconciliation_module"
+                checked={formData.has_reconciliation_module}
+                onChange={handleChange}
+                label="Bank Reconciliation Module"
+              />
+            </div>
           </div>
 
           {/* Additional Limits */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="mb-2">
+            <div>
               <label htmlFor="max_checker_users" className={labelClassNames}>Max Checker Users</label>
               <input
                 type="number"
@@ -348,7 +355,7 @@ function SubscriptionPlanForm({ onLogout }) {
                 className={inputClassNames}
               />
             </div>
-            <div className="mb-2">
+            <div>
               <label htmlFor="max_issuance_records" className={labelClassNames}>Max Issuance Records</label>
               <input
                 type="number"
@@ -360,7 +367,7 @@ function SubscriptionPlanForm({ onLogout }) {
                 className={inputClassNames}
               />
             </div>
-            <div className="mb-2">
+            <div>
               <label htmlFor="grace_period_days" className={labelClassNames}>Grace Period (Days)</label>
               <input
                 type="number"
@@ -375,22 +382,22 @@ function SubscriptionPlanForm({ onLogout }) {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 mt-4">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={() => navigate('/system-owner/subscription-plans')}
-              className="inline-flex items-center px-4 py-1 border border-gray-300 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-semibold rounded-xl shadow-xs text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
               disabled={isSaving}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="inline-flex items-center px-4 py-1 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-semibold rounded-xl shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
               disabled={isSaving}
             >
               {isSaving && (
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               {id ? (isSaving ? 'Updating...' : 'Update Plan') : (isSaving ? 'Creating...' : 'Create Plan')}
             </button>

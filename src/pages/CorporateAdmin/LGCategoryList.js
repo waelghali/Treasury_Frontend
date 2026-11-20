@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
-import { PlusCircle, Edit, Trash, RotateCcw, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash, RotateCcw, Loader2, Star, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
@@ -25,7 +25,7 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 // Common input field styling classes
 const inputClassNames = "mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200";
 const labelClassNames = "block text-sm font-medium text-gray-700";
-const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
+const buttonBaseClassNames = "inline-flex items-center px-3.5 py-2 text-sm font-medium rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
 
 function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
@@ -134,85 +134,130 @@ function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
     }
   };
 
+  const handleSetDefault = async (category) => {
+    if (isGracePeriod) {
+      toast.warn("This action is disabled during your subscription's grace period.");
+      return;
+    }
+    if (!category.has_all_entity_access) {
+      toast.error("Only categories that apply to all entities can be set as the default category.");
+      return;
+    }
+    try {
+      setIsLoading(true);
+      if (isSystemOwner) {
+        await apiRequest(`/system-owner/lg-categories/universal/${category.id}`, 'PUT', { is_default: true });
+      } else {
+        await apiRequest(`/corporate-admin/lg-categories/${category.id}/set-default`, 'POST');
+      }
+      toast.success(`"${category.name}" is now the default LG category.`);
+      await fetchLGCategories();
+    } catch (err) {
+      console.error('Failed to set default LG category:', err);
+      toast.error(err.message || 'Failed to set default LG category.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleClearDefault = async () => {
+    if (isGracePeriod) {
+      toast.warn("This action is disabled during your subscription's grace period.");
+      return;
+    }
+    try {
+      setIsLoading(true);
+      await apiRequest('/corporate-admin/lg-categories/clear-default', 'POST');
+      toast.info('Default LG category cleared.');
+      await fetchLGCategories();
+    } catch (err) {
+      console.error('Failed to clear default LG category:', err);
+      toast.error(err.message || 'Failed to clear default LG category.');
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800">{pageTitle}</h2>
-        <GracePeriodTooltip isGracePeriod={isGracePeriod}>
-            <button
-              onClick={() => {
-                const newUrl = userRole === 'system-owner' ? '/system-owner/lg-categories/universal/new' : '/corporate-admin/lg-categories/new';
-                navigate(newUrl);
-              }}
-              className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={isGracePeriod}
-            >
-              <PlusCircle className="h-5 w-5 mr-2" /> Add New {singularListName}
-            </button>
-        </GracePeriodTooltip>
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">{pageTitle}</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-xl cursor-pointer select-none text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+            <input
+              type="checkbox"
+              className="form-checkbox h-4 w-4 text-blue-600 rounded border-slate-300"
+              checked={showDeleted}
+              onChange={(e) => setShowDeleted(e.target.checked)}
+            />
+            <span>Show Deleted</span>
+          </label>
+          <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+              <button
+                onClick={() => {
+                  const newUrl = userRole === 'system-owner' ? '/system-owner/lg-categories/universal/new' : '/corporate-admin/lg-categories/new';
+                  navigate(newUrl);
+                }}
+                className={`${buttonBaseClassNames} bg-blue-600 text-white hover:bg-blue-700 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={isGracePeriod}
+              >
+                <PlusCircle className="h-4 w-4 mr-1.5" /> Add New {singularListName}
+              </button>
+          </GracePeriodTooltip>
+        </div>
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative mb-4 flex items-center gap-2 text-sm" role="alert">
+          <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
           <span className="block sm:inline">{error}</span>
         </div>
       )}
 
-      <div className="flex justify-end mb-4">
-        <label className="inline-flex items-center">
-          <input
-            type="checkbox"
-            className="form-checkbox h-4 w-4 text-blue-600 rounded"
-            checked={showDeleted}
-            onChange={(e) => setShowDeleted(e.target.checked)}
-          />
-          <span className="ml-2 text-sm text-gray-700">Show Deleted Categories</span>
-        </label>
-      </div>
-
       {categories.length === 0 && !isLoading ? (
-        <div className="bg-white p-6 rounded-lg shadow-md text-center">
-          <p className="text-gray-500">No {pageTitle.toLowerCase()} found. Click "Add New {singularListName}" to get started.</p>
+        <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm text-center">
+          <p className="text-sm text-slate-500">No {pageTitle.toLowerCase()} found. Click "Add New {singularListName}" to get started.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow-md">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-x-auto bg-white rounded-2xl border border-slate-200/80 shadow-sm">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50/80">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Category Name
+                <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Category
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Code
                 </th>
                 {!isSystemOwner && (
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-2.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     Type
                   </th>
                 )}
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Extra Field Name
+                <th scope="col" className="px-2.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Extra Field
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mandatory?
+                <th scope="col" className="px-2.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Req.
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Communication List
+                <th scope="col" className="px-2.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Comm. List
                 </th>
                 {!isSystemOwner && (
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Applies To Entities
+                    <th scope="col" className="px-2.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Entities
                     </th>
                 )}
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" className="px-2.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  LGs
+                </th>
+                <th scope="col" className="px-3 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-100">
               {categories.map((category) => {
                 const isEditable = (category.customer_id !== null || isSystemOwner) && !category.is_deleted && !isGracePeriod;
                 return (
@@ -222,42 +267,50 @@ function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
                       if (isEditable) handleEdit(category);
                     }}
                     className={`transition-colors ${
-                      isEditable ? 'hover:bg-indigo-50/40 cursor-pointer' : ''
-                    } ${category.is_deleted ? 'bg-gray-50 opacity-60' : ''}`}
+                      isEditable ? 'hover:bg-blue-50/40 cursor-pointer' : ''
+                    } ${category.is_deleted ? 'bg-slate-50 opacity-60' : ''}`}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {category.name}
+                    <td className="px-3 py-2.5 text-sm font-medium text-slate-900 max-w-[160px]">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate" title={category.name}>{category.name}</span>
+                        {category.is_default && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                            <Star className="h-3 w-3 fill-amber-500 text-amber-600" />
+                            Default
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-2.5 py-2.5 whitespace-nowrap text-xs font-mono text-slate-600">
                       {category.code || 'N/A'}
                     </td>
                     {!isSystemOwner && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                        {category.customer_id === null ? 'Universal' : 'Customer-specific'}
+                      <td className="px-2.5 py-2.5 whitespace-nowrap text-xs text-slate-600 capitalize">
+                        {category.customer_id === null ? 'Universal' : 'Custom'}
                       </td>
                     )}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-2.5 py-2.5 text-xs text-slate-600 max-w-[120px] truncate" title={category.extra_field_name || 'N/A'}>
                       {category.extra_field_name || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-2.5 py-2.5 whitespace-nowrap text-xs text-slate-600">
                       {category.is_mandatory ? 'Yes' : 'No'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-2.5 py-2.5 text-xs text-slate-600 max-w-[140px] truncate" title={Array.isArray(category.communication_list) && category.communication_list.length > 0 ? category.communication_list.join(', ') : 'N/A'}>
                       {Array.isArray(category.communication_list) && category.communication_list.length > 0
                         ? category.communication_list.join(', ')
                         : 'N/A'}
                     </td>
                     {!isSystemOwner && (
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-2.5 py-2.5 text-xs text-slate-600 max-w-[150px]">
                           {category.has_all_entity_access ? (
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                              <span className="px-2 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                                   All Entities
                               </span>
                           ) : (
                               Array.isArray(category.entities_with_access) && category.entities_with_access.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
                                       {category.entities_with_access.map(entity => (
-                                          <span key={entity.id} className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                          <span key={entity.id} className="px-2 py-0.5 inline-flex text-[11px] leading-4 font-medium rounded-full bg-slate-100 text-slate-700 border border-slate-200 truncate max-w-[130px]" title={entity.entity_name}>
                                               {entity.entity_name}
                                           </span>
                                       ))}
@@ -268,30 +321,71 @@ function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
                           )}
                       </td>
                     )}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-2.5 py-2.5 whitespace-nowrap text-xs">
                       {category.is_deleted ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                        <span className="px-2 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                           Deleted
                         </span>
                       ) : (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        <span className="px-2 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                           Active
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
-                      {category.customer_id === null && !isSystemOwner ? (
-                          <span className="text-gray-400">System Default</span>
-                      ) : (
+                    <td className="px-2.5 py-2.5 whitespace-nowrap text-xs text-slate-700 font-semibold tabular-nums">
+                      {category.lg_count ?? 0}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-right text-xs font-medium" onClick={(e) => e.stopPropagation()}>
+                      <div className="inline-flex items-center gap-1.5 justify-end">
+                        {!category.is_deleted && (
+                          category.is_default ? (
+                            !isSystemOwner && (
+                              <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                                <button
+                                  onClick={handleClearDefault}
+                                  className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  title="Unset Default Category"
+                                  disabled={isGracePeriod}
+                                >
+                                  <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-600" />
+                                  Default
+                                </button>
+                              </GracePeriodTooltip>
+                            )
+                          ) : (
+                            <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                              <button
+                                onClick={() => handleSetDefault(category)}
+                                className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg border ${
+                                  category.has_all_entity_access && !isGracePeriod
+                                    ? 'bg-white text-slate-700 border-slate-300 hover:bg-amber-50 hover:text-amber-800 hover:border-amber-300'
+                                    : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                                }`}
+                                title={
+                                  category.has_all_entity_access
+                                    ? 'Set as Default Category'
+                                    : 'Only categories applying to all entities can be set as default'
+                                }
+                                disabled={isGracePeriod || !category.has_all_entity_access}
+                              >
+                                <Star className="h-3.5 w-3.5" />
+                                Set Default
+                              </button>
+                            </GracePeriodTooltip>
+                          )
+                        )}
+                        {category.customer_id === null && !isSystemOwner ? (
+                          <span className="text-xs text-slate-400">Universal</span>
+                        ) : (
                           category.is_deleted ? (
                               <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                   <button
                                       onClick={() => handleRestore(category)}
-                                      className={`text-green-600 hover:text-green-900 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      className={`text-emerald-600 hover:text-emerald-800 p-1.5 rounded-lg hover:bg-emerald-50 transition-colors ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                       title="Restore"
                                       disabled={isGracePeriod}
                                   >
-                                      <RotateCcw className="h-5 w-5" />
+                                      <RotateCcw className="h-4 w-4" />
                                   </button>
                               </GracePeriodTooltip>
                           ) : (
@@ -299,26 +393,27 @@ function LGCategoryList({ onLogout, isGracePeriod, userRole }) {
                               <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                   <button
                                       onClick={() => handleEdit(category)}
-                                      className={`text-indigo-600 hover:text-indigo-900 mr-3 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      className={`text-indigo-600 hover:text-indigo-800 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                       title="Edit"
                                       disabled={isGracePeriod}
                                   >
-                                      <Edit className="h-5 w-5" />
+                                      <Edit className="h-4 w-4" />
                                   </button>
                               </GracePeriodTooltip>
                               <GracePeriodTooltip isGracePeriod={isGracePeriod}>
                                   <button
                                       onClick={() => handleDelete(category)}
-                                      className={`text-red-600 hover:text-red-900 p-1 rounded-md hover:bg-gray-100 ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                      className={`text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition-colors ${isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''}`}
                                       title="Delete"
                                       disabled={isGracePeriod}
                                   >
-                                      <Trash className="h-5 w-5" />
+                                      <Trash className="h-4 w-4" />
                                   </button>
                               </GracePeriodTooltip>
                           </>
                           )
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

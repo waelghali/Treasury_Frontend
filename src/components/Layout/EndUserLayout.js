@@ -322,7 +322,7 @@ function EndUserLayout({ onLogout, userEmail, userName, activeMenuItem, customer
           </Link>
           <Link
             to="/end-user/internal-owners"
-            title={isCollapsed && !isDrawer ? "Manage Internal Owners" : ""}
+            title={isCollapsed && !isDrawer ? "Manage Internal Data" : ""}
             className={`flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${activeMenuItem === 'end-user-internal-owners'
               ? 'font-semibold'
               : 'hover:bg-white/[0.07]'
@@ -332,7 +332,7 @@ function EndUserLayout({ onLogout, userEmail, userName, activeMenuItem, customer
               : { color: '#cbd5e1' }}
           >
             <Users className="h-5 w-5 flex-shrink-0" />
-            {(!isCollapsed || isDrawer) && <span className="ml-3">Manage Internal Owners</span>}
+            {(!isCollapsed || isDrawer) && <span className="ml-3">Manage Internal Data</span>}
           </Link>
         </>
       )}
@@ -822,7 +822,7 @@ function EndUserLayout({ onLogout, userEmail, userName, activeMenuItem, customer
       )}
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 pb-24 overflow-y-auto relative z-10 flex flex-col min-w-0">
+      <main className="flex-1 pb-12 overflow-y-auto overflow-x-hidden relative z-10 flex flex-col min-w-0">
         {/* Banner area becomes sticky to ensure visibility as it grows */}
         {(isGracePeriod || isExpired) && (
           <div className="sticky top-0 z-20">
@@ -834,7 +834,7 @@ function EndUserLayout({ onLogout, userEmail, userName, activeMenuItem, customer
           </div>
         )}
 
-        <div className="p-3.5 sm:p-5 md:p-6 flex-1 min-w-0">
+        <div className="p-3.5 sm:p-4 md:p-5 flex-1 min-w-0">
           {!isLoading && notifications.length > 0 && (
             <div className="mb-4">
               <NotificationBanner notifications={notifications} />

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { apiRequest } from 'services/apiService.js';
 import RangeBarController from '../../../components/RangeBarController';
+import { Loader2 } from 'lucide-react';
 
 function GlobalConfigurationForm({ onLogout }) {
   const { id } = useParams(); // Get config ID from URL for editing (will be undefined for new)
@@ -15,6 +16,7 @@ function GlobalConfigurationForm({ onLogout }) {
     value_default: '',
     unit: '',
     description: '',
+    config_scope: 'CUSTOMER_CONFIGURABLE',
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +40,7 @@ function GlobalConfigurationForm({ onLogout }) {
             value_default: config.value_default != null && config.value_default !== 'null' ? String(config.value_default) : '',
             unit: config.unit ?? '',
             description: config.description ?? '',
+            config_scope: config.config_scope ?? 'CUSTOMER_CONFIGURABLE',
           });
         } catch (err) {
           console.error('Failed to fetch config for editing:', err);
@@ -111,33 +114,31 @@ function GlobalConfigurationForm({ onLogout }) {
 
   if (isLoading) {
     return (
-      <div onLogout={onLogout}>
-        <div className="text-center py-8">
-          <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p className="text-gray-600 mt-2">Loading configuration data...</p>
-        </div>
+      <div className="flex flex-col items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 text-indigo-600 animate-spin" />
+        <p className="text-sm text-slate-500 mt-3">Loading configuration data...</p>
       </div>
     );
   }
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">{formTitle}</h2>
-      
+    <div className="max-w-3xl mx-auto space-y-4">
+      <div>
+        <h2 className="text-xl font-bold text-slate-900">{formTitle}</h2>
+        <p className="text-xs text-slate-500 mt-0.5">Define platform limits, default bounds, and visibility scope.</p>
+      </div>
+
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-4" role="alert">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm" role="alert">
           <span className="block sm:inline">{error}</span>
         </div>
       )}
 
-      <div className="bg-white p-6 rounded-lg shadow-md">
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Key */}
           <div>
-            <label htmlFor="key" className="block text-sm font-medium text-gray-700">Configuration Key</label>
+            <label htmlFor="key" className="block text-xs font-semibold text-slate-700 mb-1">Configuration Key</label>
             <input
               type="text"
               name="key"
@@ -145,54 +146,54 @@ function GlobalConfigurationForm({ onLogout }) {
               value={formData.key}
               onChange={handleChange}
               required
-              readOnly={!!id} // Key should be read-only when editing existing config
-              className={`mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200 ${id ? 'bg-gray-100' : ''} `}
+              readOnly={!!id}
+              className={`block w-full text-sm px-3 py-2 rounded-xl border border-slate-300 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${id ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white text-slate-800'}`}
             />
           </div>
 
           {/* Description */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
+            <label htmlFor="description" className="block text-xs font-semibold text-slate-700 mb-1">Description</label>
             <textarea
               name="description"
               id="description"
               rows="3"
               value={formData.description}
               onChange={handleChange}
-              className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200 shadow-sm:text-sm"
+              className="block w-full text-sm px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
             ></textarea>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Min Value */}
             <div>
-              <label htmlFor="value_min" className="block text-sm font-medium text-gray-700">Minimum Value (as string)</label>
+              <label htmlFor="value_min" className="block text-xs font-semibold text-slate-700 mb-1">Minimum Value (as string)</label>
               <input
                 type="text"
                 name="value_min"
                 id="value_min"
                 value={formData.value_min}
                 onChange={handleChange}
-                className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200 shadow-sm:text-sm"
+                className="block w-full text-sm px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
               />
             </div>
 
             {/* Max Value */}
             <div>
-              <label htmlFor="value_max" className="block text-sm font-medium text-gray-700">Maximum Value (as string)</label>
+              <label htmlFor="value_max" className="block text-xs font-semibold text-slate-700 mb-1">Maximum Value (as string)</label>
               <input
                 type="text"
                 name="value_max"
                 id="value_max"
                 value={formData.value_max}
                 onChange={handleChange}
-                className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200 shadow-sm:text-sm"
+                className="block w-full text-sm px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
               />
             </div>
 
             {/* Default Value */}
             <div>
-              <label htmlFor="value_default" className="block text-sm font-medium text-gray-700">Default Value (as string)</label>
+              <label htmlFor="value_default" className="block text-xs font-semibold text-slate-700 mb-1">Default Value (as string)</label>
               {formData.unit === 'json' || formData.unit === 'emails_json_array' || (typeof formData.value_default === 'string' && formData.value_default.startsWith('{')) ? (
                 <textarea
                   name="value_default"
@@ -200,7 +201,7 @@ function GlobalConfigurationForm({ onLogout }) {
                   rows={4}
                   value={formData.value_default}
                   onChange={handleChange}
-                  className="mb-2 mt-1 block w-full text-sm font-mono px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200"
+                  className="block w-full text-sm font-mono px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                 />
               ) : (
                 <input
@@ -209,7 +210,7 @@ function GlobalConfigurationForm({ onLogout }) {
                   id="value_default"
                   value={formData.value_default}
                   onChange={handleChange}
-                  className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200 shadow-sm:text-sm"
+                  className="block w-full text-sm px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
                 />
               )}
             </div>
@@ -217,7 +218,7 @@ function GlobalConfigurationForm({ onLogout }) {
 
           {/* Visual Range Bar Controller Preview (For numeric settings) */}
           {!isNaN(parseFloat(formData.value_min)) && !isNaN(parseFloat(formData.value_max)) && parseFloat(formData.value_max) > parseFloat(formData.value_min) && (
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-200">
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
                 Range Bar Controller Preview (Min / Default / Max)
               </label>
@@ -239,37 +240,53 @@ function GlobalConfigurationForm({ onLogout }) {
 
           {/* Unit */}
           <div>
-            <label htmlFor="unit" className="block text-sm font-medium text-gray-700">Unit (e.g., days, percentage)</label>
+            <label htmlFor="unit" className="block text-xs font-semibold text-slate-700 mb-1">Unit (e.g., days, percentage)</label>
             <input
               type="text"
               name="unit"
               id="unit"
               value={formData.unit}
               onChange={handleChange}
-              className="mb-2 mt-1 block w-full text-base px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-200 transition-all duration-200 shadow-sm:text-sm"
+              className="block w-full text-sm px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
             />
           </div>
 
+          {/* Ownership Scope */}
+          <div>
+            <label htmlFor="config_scope" className="block text-xs font-semibold text-slate-700 mb-1">Ownership &amp; Visibility Scope</label>
+            <select
+              name="config_scope"
+              id="config_scope"
+              value={formData.config_scope}
+              onChange={handleChange}
+              className="block w-full text-sm px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+            >
+              <option value="CUSTOMER_CONFIGURABLE">Customer Configurable (Corporate Admins can adjust within [Min - Max])</option>
+              <option value="SYSTEM_CUSTOMER_OVERRIDE">System Owner Only — Per-Customer Override (Hidden from Corporate Admins)</option>
+              <option value="PLATFORM_GLOBAL">Platform Global Only (Single platform-wide setting, hidden from Corporate Admins)</option>
+            </select>
+            <p className="text-xs text-slate-500 mt-1.5">
+              Controls whether Corporate Admins can view/edit this setting or if it is reserved for the System Owner.
+            </p>
+          </div>
+
           {/* Action Buttons */}
-          <div className="flex justify-end space-x-3">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={() => navigate('/system-owner/global-configurations')}
-              className="inline-flex items-center px-4 py-1 border border-gray-300 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              className="inline-flex items-center justify-center px-4 py-2 border border-slate-300 text-sm font-semibold rounded-xl shadow-xs text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
               disabled={isSaving}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="inline-flex items-center px-4 py-1 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-semibold rounded-xl shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
               disabled={isSaving}
             >
               {isSaving && (
-                <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+                <Loader2 className="animate-spin -ml-0.5 mr-2 h-4 w-4 text-white" />
               )}
               {id ? (isSaving ? 'Updating...' : 'Update Configuration') : (isSaving ? 'Creating...' : 'Create Configuration')}
             </button>

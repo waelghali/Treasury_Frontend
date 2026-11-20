@@ -18,9 +18,9 @@ import {
 } from 'lucide-react';
 
 const inputClassNames =
-  "mb-2 mt-1 block w-full text-sm px-3 py-2 rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200";
-const labelClassNames = "block text-xs font-semibold uppercase tracking-wider text-gray-600";
-const requiredSpan = <span className="text-red-500">*</span>;
+  "mb-2 mt-1 block w-full text-sm px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors";
+const labelClassNames = "block text-xs font-semibold uppercase tracking-wider text-slate-600";
+const requiredSpan = <span className="text-rose-500">*</span>;
 
 const ToggleSwitch = ({ id, name, checked, onChange, label, description }) => (
   <label htmlFor={id} className="relative flex items-start cursor-pointer py-1">
@@ -33,11 +33,11 @@ const ToggleSwitch = ({ id, name, checked, onChange, label, description }) => (
         onChange={onChange}
         className="sr-only peer"
       />
-      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[6px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
     </div>
     <div className="ml-3">
-      <span className="text-sm font-semibold text-gray-900 block">{label}</span>
-      {description && <span className="text-xs text-gray-500 block">{description}</span>}
+      <span className="text-sm font-semibold text-slate-900 block">{label}</span>
+      {description && <span className="text-xs text-slate-500 block">{description}</span>}
     </div>
   </label>
 );
@@ -515,28 +515,28 @@ function TemplateForm() {
   }
 
   return (
-    <div className="p-4 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto space-y-4">
       {/* Top Header */}
-      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+      <div className="flex flex-wrap justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => navigate('/system-owner/global-configurations/templates')}
-            className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600"
+            className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors shadow-xs"
             title="Back to Templates"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{formTitle}</h2>
-            <p className="text-xs text-gray-500">
+            <h2 className="text-xl font-bold text-slate-900">{formTitle}</h2>
+            <p className="text-xs text-slate-500">
               Upload an HTML template file, revise placeholders &amp; A4 print layout with sample data, and approve for a specific customer or globally.
             </p>
           </div>
         </div>
 
         {/* File Upload Drop/Button Banner */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <input
             ref={fileInputRef}
             type="file"
@@ -547,7 +547,7 @@ function TemplateForm() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center px-4 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-sm font-semibold hover:bg-indigo-100 transition-colors shadow-sm"
+            className="inline-flex items-center px-3.5 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-sm font-semibold hover:bg-indigo-100 transition-colors shadow-xs"
           >
             <Upload className="h-4 w-4 mr-2" />
             Upload Template File (.html)
@@ -556,7 +556,7 @@ function TemplateForm() {
             type="button"
             onClick={() => triggerReview()}
             disabled={isReviewing || !formData.content}
-            className="inline-flex items-center px-4 py-2.5 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors shadow-sm"
+            className="inline-flex items-center px-3.5 py-2 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors shadow-sm"
           >
             {isReviewing ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -569,7 +569,7 @@ function TemplateForm() {
       </div>
 
       {uploadedFileName && (
-        <div className="mb-4 bg-indigo-50 border border-indigo-200 text-indigo-900 px-4 py-2.5 rounded-lg text-xs flex items-center justify-between">
+        <div className="bg-indigo-50 border border-indigo-200 text-indigo-900 px-4 py-2.5 rounded-xl text-xs flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileCode className="h-4 w-4 text-indigo-600" />
             <span>
@@ -580,13 +580,13 @@ function TemplateForm() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm font-medium">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm font-medium">
           {error}
         </div>
       )}
 
       {successMsg && (
-        <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 px-4 py-3 rounded-lg mb-4 text-sm font-semibold flex items-center gap-2">
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5 text-emerald-600" />
           {successMsg}
         </div>
@@ -594,7 +594,7 @@ function TemplateForm() {
 
       {/* Revision & Audit Banner (Appears when Revise & Preview is clicked or file uploaded) */}
       {reviewReport && (
-        <div className="mb-6 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
           <div
             className={`px-5 py-3 flex flex-wrap items-center justify-between border-b ${
               reviewReport.is_ready
@@ -609,13 +609,13 @@ function TemplateForm() {
                 <AlertTriangle className="h-5 w-5 text-amber-600" />
               )}
               <div>
-                <span className="text-sm font-bold text-gray-900">
+                <span className="text-sm font-bold text-slate-900">
                   Template Revision Audit —{' '}
                   {reviewReport.is_ready
                     ? 'Ready for Approval & Deployment'
                     : 'Attention Needed Before Deployment'}
                 </span>
-                <span className="ml-3 text-xs text-gray-600">
+                <span className="ml-3 text-xs text-slate-600">
                   ({reviewReport.recognized_placeholders?.length || 0} recognized fields,{' '}
                   {reviewReport.missing_essential_placeholders?.length || 0} missing core fields,{' '}
                   {reviewReport.unknown_placeholders?.length || 0} unknown fields)
@@ -630,7 +630,7 @@ function TemplateForm() {
                   type="button"
                   disabled={isSaving}
                   onClick={() => handleSaveAndDeploy('customer')}
-                  className="inline-flex items-center px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md shadow-sm transition-colors"
+                  className="inline-flex items-center px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors"
                 >
                   <Building2 className="h-3.5 w-3.5 mr-1.5" />
                   Approve &amp; Assign to Selected Customer
@@ -640,7 +640,7 @@ function TemplateForm() {
                 type="button"
                 disabled={isSaving}
                 onClick={() => handleSaveAndDeploy('global')}
-                className="inline-flex items-center px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-md shadow-sm transition-colors"
+                className="inline-flex items-center px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors"
               >
                 <Globe className="h-3.5 w-3.5 mr-1.5" />
                 Approve &amp; Move to Global
@@ -650,8 +650,8 @@ function TemplateForm() {
 
           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             {/* Structural Checks */}
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-              <div className="font-bold text-gray-700 uppercase mb-2">Structural &amp; Print Checks</div>
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+              <div className="font-bold text-slate-700 uppercase mb-2">Structural &amp; Print Checks</div>
               <ul className="space-y-1.5">
                 {(reviewReport.checks || []).map((chk) => (
                   <li key={chk.id} className="flex items-center gap-2">
@@ -660,7 +660,7 @@ function TemplateForm() {
                     ) : (
                       <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                     )}
-                    <span className={chk.passed ? 'text-gray-700' : 'text-amber-800 font-semibold'}>
+                    <span className={chk.passed ? 'text-slate-700' : 'text-amber-800 font-semibold'}>
                       {chk.label}
                     </span>
                   </li>
@@ -669,8 +669,8 @@ function TemplateForm() {
             </div>
 
             {/* Recognized Placeholders */}
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-40 overflow-y-auto">
-              <div className="font-bold text-gray-700 uppercase mb-2">
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70 max-h-40 overflow-y-auto">
+              <div className="font-bold text-slate-700 uppercase mb-2">
                 Verified Fields ({reviewReport.recognized_placeholders?.length || 0})
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -678,7 +678,7 @@ function TemplateForm() {
                   <span
                     key={item.placeholder}
                     title={item.description}
-                    className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-mono text-[11px] font-semibold"
+                    className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md font-mono text-[11px] font-semibold"
                   >
                     {item.placeholder}
                   </span>
@@ -687,8 +687,8 @@ function TemplateForm() {
             </div>
 
             {/* Missing / Unknown Warnings */}
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-40 overflow-y-auto">
-              <div className="font-bold text-gray-700 uppercase mb-2">Warnings &amp; Missing Fields</div>
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70 max-h-40 overflow-y-auto">
+              <div className="font-bold text-slate-700 uppercase mb-2">Warnings &amp; Missing Fields</div>
               {reviewReport.missing_essential_placeholders?.length === 0 &&
               reviewReport.unknown_placeholders?.length === 0 ? (
                 <p className="text-emerald-700 font-medium">
@@ -700,13 +700,13 @@ function TemplateForm() {
                     <div
                       key={m.placeholder}
                       onClick={() => handleInsertPlaceholder(m.placeholder)}
-                      className="text-amber-800 bg-amber-100/70 px-2 py-1 rounded cursor-pointer hover:bg-amber-200"
+                      className="text-amber-800 bg-amber-100/70 px-2 py-1 rounded-lg cursor-pointer hover:bg-amber-200"
                     >
                       Missing core field: <strong className="font-mono">{m.placeholder}</strong> (click to insert)
                     </div>
                   ))}
                   {reviewReport.unknown_placeholders?.map((u) => (
-                    <div key={u.placeholder} className="text-red-700 bg-red-100/70 px-2 py-1 rounded">
+                    <div key={u.placeholder} className="text-rose-700 bg-rose-100/70 px-2 py-1 rounded-lg">
                       Unrecognized placeholder: <strong className="font-mono">{u.placeholder}</strong>
                     </div>
                   ))}
@@ -717,9 +717,9 @@ function TemplateForm() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Main Form & Editor / Preview Area */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -759,7 +759,7 @@ function TemplateForm() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50/80 p-4 rounded-xl border border-slate-200">
               <div>
                 <label className={labelClassNames}>Instruction / Action Type {requiredSpan}</label>
                 <select
@@ -786,10 +786,10 @@ function TemplateForm() {
                     onClick={() =>
                       setFormData((prev) => ({ ...prev, is_global: false }))
                     }
-                    className={`flex-1 py-2 px-3 rounded-md text-xs font-bold border flex items-center justify-center gap-1.5 transition-all ${
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all ${
                       !formData.is_global
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                     }`}
                   >
                     <Building2 className="h-4 w-4" />
@@ -800,10 +800,10 @@ function TemplateForm() {
                     onClick={() =>
                       setFormData((prev) => ({ ...prev, is_global: true, customer_id: null }))
                     }
-                    className={`flex-1 py-2 px-3 rounded-md text-xs font-bold border flex items-center justify-center gap-1.5 transition-all ${
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all ${
                       formData.is_global
                         ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
                     }`}
                   >
                     <Globe className="h-4 w-4" />
@@ -832,7 +832,7 @@ function TemplateForm() {
                 </div>
               )}
 
-              <div className="md:col-span-2 pt-1 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
+              <div className="md:col-span-2 pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
                 <ToggleSwitch
                   id="is_notification_template"
                   name="is_notification_template"
@@ -860,15 +860,15 @@ function TemplateForm() {
 
             {/* Tabs for HTML Code Editor vs Rendered Live Preview */}
             <div>
-              <div className="flex items-center justify-between border-b border-gray-200 mb-2">
+              <div className="flex items-center justify-between border-b border-slate-200 mb-2">
                 <div className="flex space-x-2">
                   <button
                     type="button"
                     onClick={() => setActiveTab('editor')}
-                    className={`py-2 px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 ${
+                    className={`py-2 px-4 text-xs font-bold border-b-2 rounded-none flex items-center gap-1.5 transition-colors ${
                       activeTab === 'editor'
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                   >
                     <Code2 className="h-4 w-4" />
@@ -883,17 +883,17 @@ function TemplateForm() {
                         setActiveTab('preview');
                       }
                     }}
-                    className={`py-2 px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 ${
+                    className={`py-2 px-4 text-xs font-bold border-b-2 rounded-none flex items-center gap-1.5 transition-colors ${
                       activeTab === 'preview'
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
                     }`}
                   >
                     <Eye className="h-4 w-4" />
                     Live A4 Print Preview
                   </button>
                 </div>
-                <span className="text-[11px] text-gray-400">
+                <span className="text-[11px] text-slate-400">
                   {formData.content?.length || 0} characters
                 </span>
               </div>
@@ -907,11 +907,11 @@ function TemplateForm() {
                   onChange={handleChange}
                   required
                   placeholder="Paste HTML template content here or click 'Upload Template File (.html)' above..."
-                  className={`${inputClassNames} font-mono text-xs leading-relaxed bg-slate-900 text-slate-100 p-4`}
+                  className="mb-2 mt-1 block w-full rounded-xl border border-slate-700 font-mono text-xs leading-relaxed bg-slate-900 text-slate-100 p-4 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
                 />
               ) : (
-                <div className="border border-gray-300 rounded-lg bg-gray-100 p-4">
-                  <div className="text-xs text-gray-500 mb-2 flex justify-between items-center">
+                <div className="border border-slate-300 rounded-xl bg-slate-100 p-4">
+                  <div className="text-xs text-slate-500 mb-2 flex justify-between items-center">
                     <span>
                       Simulated A4 Print Output with sample data for{' '}
                       <strong>{formData.action_type}</strong>
@@ -919,7 +919,7 @@ function TemplateForm() {
                     <button
                       type="button"
                       onClick={() => triggerReview()}
-                      className="text-blue-600 hover:underline font-semibold"
+                      className="text-indigo-600 hover:underline font-semibold"
                     >
                       Refresh Preview
                     </button>
@@ -927,24 +927,24 @@ function TemplateForm() {
                   <iframe
                     title="Template Live Preview"
                     srcDoc={reviewReport?.rendered_preview || formData.content}
-                    className="w-full h-[640px] bg-white shadow-md rounded border border-gray-200"
+                    className="w-full h-[640px] bg-white shadow-sm rounded-lg border border-slate-200"
                   />
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => navigate('/system-owner/global-configurations/templates')}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-slate-300 rounded-xl text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors"
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-colors inline-flex items-center justify-center"
               >
                 {isSaving ? (
                   <Loader2 className="animate-spin inline mr-2 h-4 w-4" />
@@ -962,11 +962,11 @@ function TemplateForm() {
         </div>
 
         {/* Right Sidebar: Official Placeholders Dictionary */}
-        <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 max-h-[820px] flex flex-col">
-          <h3 className="font-bold text-sm text-gray-800 mb-1">
+        <div className="bg-slate-50/80 p-4 rounded-2xl shadow-sm border border-slate-200/80 max-h-[820px] flex flex-col">
+          <h3 className="font-bold text-sm text-slate-800 mb-1">
             Official Placeholders ({placeholders.length})
           </h3>
-          <p className="text-xs text-gray-500 mb-3">
+          <p className="text-xs text-slate-500 mb-3">
             For <strong>{formData.action_type || 'Selected Action'}</strong> — click any field to insert at cursor position.
           </p>
           <div className="space-y-2 overflow-y-auto pr-1 flex-1">
@@ -977,26 +977,26 @@ function TemplateForm() {
                   <div
                     key={p.name}
                     onClick={() => handleInsertPlaceholder(p.name)}
-                    className={`p-2.5 bg-white border rounded-lg cursor-pointer transition-all ${
+                    className={`p-2.5 bg-white border rounded-xl cursor-pointer transition-all ${
                       isUsed
                         ? 'border-emerald-300 bg-emerald-50/30 hover:bg-emerald-50'
-                        : 'border-gray-200 hover:bg-blue-50 hover:border-blue-200'
+                        : 'border-slate-200 hover:bg-indigo-50/50 hover:border-indigo-200'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <code className="text-blue-700 text-xs font-bold">{p.name}</code>
+                      <code className="text-indigo-700 text-xs font-bold">{p.name}</code>
                       {isUsed && (
                         <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-semibold">
                           Used
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-1">{p.description}</p>
+                    <p className="text-[11px] text-slate-500 mt-1">{p.description}</p>
                   </div>
                 );
               })
             ) : (
-              <p className="text-gray-400 italic text-xs">
+              <p className="text-slate-400 italic text-xs">
                 Select an Action Type to see available placeholders.
               </p>
             )}

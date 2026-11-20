@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, Save, MessageSquare, Lock, ChevronDown, Zap, BarChart2, EyeOff } from 'lucide-react';
+import { Plus, Send, FileText, CheckCircle2, Clock, Landmark, Building, DollarSign, Copy, Check, ExternalLink, AlertCircle, AlertTriangle, Sparkles, Undo2, RefreshCw, ArrowLeft, Calendar, Shield, ShieldAlert, Info, RotateCcw, CheckSquare, Square, Trash2, Layers, SlidersHorizontal, Save, MessageSquare, Lock, ChevronDown, Zap, BarChart2, EyeOff, Phone } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import { safeLocalStorage } from '../../../utils/safeStorage';
 import { getCurrentUser } from '../../../utils/authUtils';
@@ -3127,7 +3127,7 @@ export default function QuotationRequestDashboard() {
                                 </h2>
                                 {createdRfq.is_manual_deal && (
                                     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 mt-1">
-                                        📞 Offline / Manual Record
+                                        <Phone className="w-3 h-3" /> Offline / Manual Record
                                     </span>
                                 )}
                             </div>

@@ -45,7 +45,7 @@ export default function ApprovalProgressTracker({ requestId, requestStatus, comp
     }
 
     if (error) {
-        return <div className="text-xs text-red-500 italic py-4 text-center">{error}</div>;
+        return <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-3 py-2 text-xs text-center">{error}</div>;
     }
 
     if (!roadmap || !roadmap.steps || roadmap.steps.length === 0) {
@@ -110,7 +110,7 @@ export default function ApprovalProgressTracker({ requestId, requestStatus, comp
                     </div>
                     {steps.length > 0 && <div className="w-0.5 flex-1 min-h-[16px] bg-emerald-300" />}
                 </div>
-                <div className={`pb-${compact ? '3' : '5'} flex-1`}>
+                <div className={`${compact ? 'pb-3' : 'pb-5'} flex-1`}>
                     <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Submitted</span>
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-medium">Complete</span>
@@ -141,7 +141,7 @@ export default function ApprovalProgressTracker({ requestId, requestStatus, comp
                         </div>
 
                         {/* Step Content */}
-                        <div className={`pb-${compact ? '3' : '5'} flex-1 min-w-0`}>
+                        <div className={`${compact ? 'pb-3' : 'pb-5'} flex-1 min-w-0`}>
                             {/* Header */}
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className={`text-xs font-bold uppercase tracking-wider ${config.labelColor}`}>

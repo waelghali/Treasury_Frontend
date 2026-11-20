@@ -1,6 +1,6 @@
 import React from 'react';
 import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
-import { EllipsisVertical, CalendarPlus, Users, CheckCircle, FileMinus, MinusCircle, Eye, Edit, PlayCircle, ShieldAlert, DollarSign } from 'lucide-react';
+import { EllipsisVertical, CalendarPlus, Users, CheckCircle, FileMinus, MinusCircle, Eye, Edit, PlayCircle, ShieldAlert, DollarSign, Tag } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
 
@@ -26,7 +26,7 @@ function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquidate, onDecreaseAmount, onViewDetails, isGracePeriod, onAmend, onActivate, onCancelLiquidation, onRecordFunds }) => {
+const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onChangeCategory, onRelease, onLiquidate, onDecreaseAmount, onViewDetails, isGracePeriod, onAmend, onActivate, onCancelLiquidation, onRecordFunds }) => {
   const isLgValid = lgRecord.lg_status?.name === 'Valid';
   const isExpired = lgRecord.lg_status?.name === 'Expired';
   const expiryDateMoment = moment(lgRecord.expiry_date);
@@ -59,7 +59,7 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
   return (
     <Menu as="div" className="relative z-[100] inline-block text-left">
       <div>
-        <MenuButton className="inline-flex justify-center w-full rounded-md p-1 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-blue-500">
+        <MenuButton className="inline-flex justify-center w-full rounded-lg p-1.5 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 shadow-none focus:outline-none focus:ring-0 transition-colors">
           <EllipsisVertical className="h-5 w-5" aria-hidden="true" />
         </MenuButton>
       </div>
@@ -72,18 +72,18 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
         leaveFrom="transform opacity-100 scale-100"
         leaveTo="transform opacity-0 scale-95"
       >
-        <MenuItems className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+        <MenuItems className="origin-top-right absolute right-0 mt-1.5 w-56 rounded-xl shadow-xl bg-white border border-slate-200 focus:outline-none z-10 overflow-hidden">
           <div className="py-1">
             <MenuItem>
               {({ active }) => (
                 <button
                   onClick={() => handleAction(() => onViewDetails(lgRecord.id))}
                   className={classNames(
-                    active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                    'group flex items-center w-full px-4 py-2 text-sm'
+                    active ? 'bg-slate-50 text-slate-900' : 'text-slate-700',
+                    'group flex items-center w-full px-4 py-2 text-sm font-medium rounded-none shadow-none focus:ring-0'
                   )}
                 >
-                  <Eye className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" aria-hidden="true" />
+                  <Eye className="mr-3 h-4 w-4 text-slate-400 group-hover:text-slate-600" aria-hidden="true" />
                   View Details
                 </button>
               )}
@@ -96,13 +96,13 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                     <button
                       onClick={() => handleAction(() => onExtend(lgRecord))}
                       className={classNames(
-                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                        'group flex items-center w-full px-4 py-2 text-sm',
+                        active ? 'bg-slate-50 text-slate-900' : 'text-slate-700',
+                        'group flex items-center w-full px-4 py-2 text-sm font-medium rounded-none shadow-none focus:ring-0',
                         isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
                       )}
                       disabled={isGracePeriod}
                     >
-                      <CalendarPlus className="mr-3 h-5 w-5 text-blue-600 group-hover:text-blue-700" aria-hidden="true" />
+                      <CalendarPlus className="mr-3 h-4 w-4 text-blue-600 group-hover:text-blue-700" aria-hidden="true" />
                       Extend LG
                     </button>
                   </GracePeriodTooltip>
@@ -117,13 +117,13 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                     <button
                       onClick={() => handleAction(() => onDecreaseAmount(lgRecord))}
                       className={classNames(
-                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                        'group flex items-center w-full px-4 py-2 text-sm',
+                        active ? 'bg-slate-50 text-slate-900' : 'text-slate-700',
+                        'group flex items-center w-full px-4 py-2 text-sm font-medium rounded-none shadow-none focus:ring-0',
                         isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
                       )}
                       disabled={isGracePeriod}
                     >
-                      <MinusCircle className="mr-3 h-5 w-5 text-orange-600 group-hover:text-orange-700" aria-hidden="true" />
+                      <MinusCircle className="mr-3 h-4 w-4 text-orange-600 group-hover:text-orange-700" aria-hidden="true" />
                       Decrease Amount
                     </button>
                   </GracePeriodTooltip>
@@ -138,13 +138,13 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                     <button
                       onClick={() => handleAction(() => onAmend(lgRecord))}
                       className={classNames(
-                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                        'group flex items-center w-full px-4 py-2 text-sm',
+                        active ? 'bg-slate-50 text-slate-900' : 'text-slate-700',
+                        'group flex items-center w-full px-4 py-2 text-sm font-medium rounded-none shadow-none focus:ring-0',
                         isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
                       )}
                       disabled={isGracePeriod}
                     >
-                      <Edit className="mr-3 h-5 w-5 text-yellow-600 group-hover:text-yellow-700" aria-hidden="true" />
+                      <Edit className="mr-3 h-4 w-4 text-amber-600 group-hover:text-amber-700" aria-hidden="true" />
                       Amend LG
                     </button>
                   </GracePeriodTooltip>
@@ -159,13 +159,13 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                     <button
                       onClick={() => handleAction(() => onActivate(lgRecord))}
                       className={classNames(
-                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                        'group flex items-center w-full px-4 py-2 text-sm',
+                        active ? 'bg-slate-50 text-slate-900' : 'text-slate-700',
+                        'group flex items-center w-full px-4 py-2 text-sm font-medium rounded-none shadow-none focus:ring-0',
                         isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
                       )}
                       disabled={isGracePeriod}
                     >
-                      <PlayCircle className="mr-3 h-5 w-5 text-teal-600 group-hover:text-teal-700" aria-hidden="true" />
+                      <PlayCircle className="mr-3 h-4 w-4 text-teal-600 group-hover:text-teal-700" aria-hidden="true" />
                       Activate LG
                     </button>
                   </GracePeriodTooltip>
@@ -181,13 +181,13 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                       <button
                         onClick={() => handleAction(() => onRelease(lgRecord))}
                         className={classNames(
-                          active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                          'group flex items-center w-full px-4 py-2 text-sm',
+                          active ? 'bg-slate-50 text-slate-900' : 'text-slate-700',
+                          'group flex items-center w-full px-4 py-2 text-sm font-medium rounded-none shadow-none focus:ring-0',
                           isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
                         )}
                         disabled={isGracePeriod}
                       >
-                        <CheckCircle className="mr-3 h-5 w-5 text-green-600 group-hover:text-green-700" aria-hidden="true" />
+                        <CheckCircle className="mr-3 h-4 w-4 text-emerald-600 group-hover:text-emerald-700" aria-hidden="true" />
                         Release LG
                       </button>
                     </GracePeriodTooltip>
@@ -199,13 +199,13 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                       <button
                         onClick={() => handleAction(() => onLiquidate(lgRecord))}
                         className={classNames(
-                          active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                          'group flex items-center w-full px-4 py-2 text-sm',
+                          active ? 'bg-slate-50 text-slate-900' : 'text-slate-700',
+                          'group flex items-center w-full px-4 py-2 text-sm font-medium rounded-none shadow-none focus:ring-0',
                           isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
                         )}
                         disabled={isGracePeriod}
                       >
-                        <FileMinus className="mr-3 h-5 w-5 text-red-600 group-hover:text-red-700" aria-hidden="true" />
+                        <FileMinus className="mr-3 h-4 w-4 text-rose-600 group-hover:text-rose-700" aria-hidden="true" />
                         Liquidate LG
                       </button>
                     </GracePeriodTooltip>
@@ -221,14 +221,35 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                     <button
                       onClick={() => handleAction(() => onChangeOwner(lgRecord))}
                       className={classNames(
-                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700',
-                        'group flex items-center w-full px-4 py-2 text-sm',
+                        active ? 'bg-slate-50 text-slate-900' : 'text-slate-700',
+                        'group flex items-center w-full px-4 py-2 text-sm font-medium rounded-none shadow-none focus:ring-0',
                         isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
                       )}
                       disabled={isGracePeriod}
                     >
-                      <Users className="mr-3 h-5 w-5 text-purple-600 group-hover:text-purple-700" aria-hidden="true" />
+                      <Users className="mr-3 h-4 w-4 text-purple-600 group-hover:text-purple-700" aria-hidden="true" />
                       Change Owner
+                    </button>
+                  </GracePeriodTooltip>
+                )}
+              </MenuItem>
+            )}
+
+            {onChangeCategory && (
+              <MenuItem disabled={isGracePeriod}>
+                {({ active }) => (
+                  <GracePeriodTooltip isGracePeriod={isGracePeriod}>
+                    <button
+                      onClick={() => handleAction(() => onChangeCategory(lgRecord))}
+                      className={classNames(
+                        active ? 'bg-slate-50 text-slate-900' : 'text-slate-700',
+                        'group flex items-center w-full px-4 py-2 text-sm font-medium rounded-none shadow-none focus:ring-0',
+                        isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
+                      )}
+                      disabled={isGracePeriod}
+                    >
+                      <Tag className="mr-3 h-4 w-4 text-indigo-600 group-hover:text-indigo-700" aria-hidden="true" />
+                      Change Category
                     </button>
                   </GracePeriodTooltip>
                 )}
@@ -244,12 +265,12 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                       onClick={() => handleAction(() => onCancelLiquidation(lgRecord))}
                       className={classNames(
                         active ? 'bg-amber-50 text-amber-900' : 'text-amber-700',
-                        'group flex items-center w-full px-4 py-2 text-sm font-semibold',
+                        'group flex items-center w-full px-4 py-2 text-sm font-semibold rounded-none shadow-none focus:ring-0',
                         isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
                       )}
                       disabled={isGracePeriod}
                     >
-                      <ShieldAlert className="mr-3 h-5 w-5 text-amber-600 group-hover:text-amber-700" aria-hidden="true" />
+                      <ShieldAlert className="mr-3 h-4 w-4 text-amber-600 group-hover:text-amber-700" aria-hidden="true" />
                       Cancel Liquidation Demand
                     </button>
                   </GracePeriodTooltip>
@@ -266,12 +287,12 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onRelease, onLiquida
                       onClick={() => handleAction(() => onRecordFunds(lgRecord))}
                       className={classNames(
                         active ? 'bg-emerald-50 text-emerald-900' : 'text-emerald-700',
-                        'group flex items-center w-full px-4 py-2 text-sm font-semibold',
+                        'group flex items-center w-full px-4 py-2 text-sm font-semibold rounded-none shadow-none focus:ring-0',
                         isGracePeriod ? 'opacity-50 cursor-not-allowed' : ''
                       )}
                       disabled={isGracePeriod}
                     >
-                      <DollarSign className="mr-3 h-5 w-5 text-emerald-600 group-hover:text-emerald-700" aria-hidden="true" />
+                      <DollarSign className="mr-3 h-4 w-4 text-emerald-600 group-hover:text-emerald-700" aria-hidden="true" />
                       Record Fund Receipt
                     </button>
                   </GracePeriodTooltip>

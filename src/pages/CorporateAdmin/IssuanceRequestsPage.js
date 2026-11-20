@@ -250,23 +250,23 @@ export default function IssuanceRequestsPage() {
   if (loading) return <div className="p-6"><SkeletonTable rows={6} cols={6} /></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header with Role-Appropriate Actions (Maker vs Checker Governance) */}
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Issuance Requests</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Issuance Requests</h1>
           {isCorporateAdmin && (
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Governance &amp; checker view — inspect request details, approve pending steps, or generate requestor portal invites
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {isEndUser && (
             <button
               type="button"
               onClick={() => navigate('/end-user/issuance/request-new')}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-sm text-sm font-semibold"
+              className="flex items-center gap-1.5 bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition shadow-sm text-sm font-semibold"
             >
               <Plus className="h-4 w-4" />
               New LG Request
@@ -276,7 +276,7 @@ export default function IssuanceRequestsPage() {
             <button
               type="button"
               onClick={() => { setShowInviteModal(true); setGeneratedLink(''); }}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition shadow-sm text-sm font-semibold"
+              className="flex items-center gap-1.5 bg-white text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-xl hover:bg-indigo-50 transition shadow-sm text-sm font-semibold"
             >
               <LinkIcon className="h-4 w-4" />
               Generate Invite
@@ -285,21 +285,21 @@ export default function IssuanceRequestsPage() {
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-3">
-        <div className="flex flex-col md:flex-row gap-3">
+      <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200/80 space-y-2.5">
+        <div className="flex flex-col md:flex-row gap-2.5">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Search by serial, beneficiary, requestor, reference..."
-              className="!pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border py-2 pr-3"
+              className="!pl-10 w-full rounded-xl border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border py-2 pr-3 text-sm"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="w-full md:w-48">
+          <div className="w-full md:w-44">
             <select
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2"
+              className="w-full rounded-xl border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border px-3 py-2 text-sm"
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
             >
@@ -311,7 +311,7 @@ export default function IssuanceRequestsPage() {
           </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${showFilters || activeFilterCount > 0 ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}
+            className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-sm font-medium transition-colors ${showFilters || activeFilterCount > 0 ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'}`}
           >
             <SlidersHorizontal className="w-4 h-4" />
             Filters
@@ -320,7 +320,7 @@ export default function IssuanceRequestsPage() {
             )}
           </button>
           {(activeFilterCount > 0 || searchTerm) && (
-            <button onClick={clearAllFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium">
+            <button onClick={clearAllFilters} className="flex items-center gap-1 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 rounded-xl transition-colors font-medium">
               <X className="w-3.5 h-3.5" /> Clear
             </button>
           )}
@@ -328,56 +328,56 @@ export default function IssuanceRequestsPage() {
 
         {/* Expanded date filter */}
         {showFilters && (
-          <div className="flex flex-wrap gap-4 pt-2 border-t border-gray-100">
+          <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
             <div className="min-w-[140px]">
-              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Created From</label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Created From</label>
               <FormattedDateInput value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white" />
+                className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-sm bg-white" />
             </div>
             <div className="min-w-[140px]">
-              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Created To</label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Created To</label>
               <FormattedDateInput value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white" />
+                className="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-sm bg-white" />
             </div>
           </div>
         )}
       </div>
 
       {/* Result Count */}
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <span>Showing <strong className="text-gray-700">{filteredRequests.length}</strong> of <strong className="text-gray-700">{requests.length}</strong> requests</span>
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <span>Showing <strong className="text-slate-700">{filteredRequests.length}</strong> of <strong className="text-slate-700">{requests.length}</strong> requests</span>
         {sortField !== 'created_at' && (
           <button onClick={() => { setSortField('created_at'); setSortDir('desc'); }} className="text-blue-600 hover:text-blue-700 font-medium">Reset sort</button>
         )}
       </div>
 
-      <div className="bg-white shadow-md rounded-lg overflow-hidden border border-gray-200">
+      <div className="bg-white shadow-sm rounded-2xl overflow-hidden border border-slate-200/80">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50/80">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('serial_number')}>
+                <th className="px-3.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('serial_number')}>
                   <div className="flex items-center gap-1">Serial / Requestor <SortIcon field="serial_number" /></div>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
+                <th className="px-3.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('beneficiary_name')}>
                   <div className="flex items-center gap-1">Beneficiary <SortIcon field="beneficiary_name" /></div>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('lg_type')}>
+                <th className="px-3.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('lg_type')}>
                   <div className="flex items-center gap-1">LG Type <SortIcon field="lg_type" /></div>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('amount')}>
+                <th className="px-3.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('amount')}>
                   <div className="flex items-center gap-1">Amount <SortIcon field="amount" /></div>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-gray-700 transition-colors" onClick={() => toggleSort('status')}>
+                <th className="px-3.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('status')}>
                   <div className="flex items-center gap-1">Status <SortIcon field="status" /></div>
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-3.5 py-2.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-100">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-4 py-10 text-center text-gray-500">
+                  <td colSpan="6" className="px-4 py-8 text-center text-sm text-slate-500">
                     {activeFilterCount > 0 || searchTerm
                       ? 'No requests match your filters. Try adjusting your criteria.'
                       : 'No requests found.'}
@@ -385,58 +385,58 @@ export default function IssuanceRequestsPage() {
                 </tr>
               ) : (
                 filteredRequests.map((req) => (
-                  <tr key={req.id} className="hover:bg-blue-50 transition-colors cursor-pointer" onClick={() => setSelectedRequest(req)}>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-gray-900">{req.serial_number || `#${req.id}`}</div>
-                      <div className="text-xs text-gray-500">{req.requestor_name || "Treasury"}</div>
+                  <tr key={req.id} className="hover:bg-blue-50/40 transition-colors cursor-pointer" onClick={() => setSelectedRequest(req)}>
+                    <td className="px-3.5 py-2.5 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-slate-900">{req.serial_number || `#${req.id}`}</div>
+                      <div className="text-xs text-slate-500">{req.requestor_name || "Treasury"}</div>
                       <div className="text-xs text-blue-600">{req.business_details?.department}</div>
                     </td>
-                    <td className="px-4 py-4 min-w-[160px]">
-                      <div className="text-sm text-gray-900 font-medium">{req.beneficiary_name}</div>
+                    <td className="px-3.5 py-2.5 max-w-[200px]">
+                      <div className="text-sm text-slate-900 font-medium truncate" title={req.beneficiary_name}>{req.beneficiary_name}</div>
                       {req.business_details?.project_name && (
                         <div className="cell-truncate">
-                          <div className="text-xs text-gray-500 truncate" title={req.business_details.project_name}>{req.business_details.project_name}</div>
+                          <div className="text-xs text-slate-500 truncate" title={req.business_details.project_name}>{req.business_details.project_name}</div>
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-4 min-w-[140px]">
-                      <div className="text-sm font-bold text-gray-900">{req.lg_type?.name || '—'}</div>
+                    <td className="px-3.5 py-2.5 max-w-[160px]">
+                      <div className="text-sm font-semibold text-slate-900 truncate" title={req.lg_type?.name || ''}>{req.lg_type?.name || '—'}</div>
                       {req.lg_purpose && (
                         <div className="cell-truncate">
-                          <div className="text-xs text-gray-500 truncate" title={req.lg_purpose}>{req.lg_purpose}</div>
+                          <div className="text-xs text-slate-500 truncate" title={req.lg_purpose}>{req.lg_purpose}</div>
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-gray-900">
+                    <td className="px-3.5 py-2.5 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-slate-900 tabular-nums">
                         {req.currency?.iso_code || ''} {parseFloat(req.amount).toLocaleString()}
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
+                    <td className="px-3.5 py-2.5 whitespace-nowrap">
                       {getStatusBadge(req.status)}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={e => e.stopPropagation()}>
-                      <div className="flex justify-end space-x-2">
+                    <td className="px-3.5 py-2.5 whitespace-nowrap text-right text-sm font-medium" onClick={e => e.stopPropagation()}>
+                      <div className="flex justify-end gap-1.5">
                         {/* Maker Edit / Submit — strictly End User (Maker) only, never Corporate Admin (Checker) */}
                         {isEndUser && !['ISSUED', 'REJECTED', 'INTERNAL_PROCESSING', 'COMPLETED', 'CANCELLED', 'CANCELLATION_REQUESTED', 'EDIT_REQUESTED'].includes(req.status) && !req.locked_for_issuance && (
-                          <button onClick={() => navigate(`edit/${req.id}`)} className="text-amber-600 hover:text-amber-900" title="Edit Request">
-                            <Edit3 className="h-5 w-5" />
+                          <button onClick={() => navigate(`edit/${req.id}`)} className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-50 transition-colors" title="Edit Request">
+                            <Edit3 className="h-4 w-4" />
                           </button>
                         )}
                         {isEndUser && req.status === 'DRAFT' && (
-                          <button onClick={() => handleStatusChange(req.id, 'submit', 'submit')} className="text-blue-600 hover:text-blue-900" title="Submit">
-                            <Play className="h-5 w-5" />
+                          <button onClick={() => handleStatusChange(req.id, 'submit', 'submit')} className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors" title="Submit">
+                            <Play className="h-4 w-4" />
                           </button>
                         )}
 
                         {/* Approve actions — corporate_admin only, for PENDING_APPROVAL requests */}
                         {isCorporateAdmin && req.status === 'PENDING_APPROVAL' && req.pending_approver_users?.map(String).includes(String(currentUserId)) && (
                           <>
-                            <button onClick={() => handleStatusChange(req.id, 'approve', 'approve')} className="text-green-600 hover:text-green-900" title="Approve">
-                              <CheckCircle className="h-5 w-5" />
+                            <button onClick={() => handleStatusChange(req.id, 'approve', 'approve')} className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 transition-colors" title="Approve">
+                              <CheckCircle className="h-4 w-4" />
                             </button>
-                            <button onClick={() => handleStatusChange(req.id, 'reject', 'reject')} className="text-red-600 hover:text-red-900" title="Reject">
-                              <XCircle className="h-5 w-5" />
+                            <button onClick={() => handleStatusChange(req.id, 'reject', 'reject')} className="p-1.5 rounded-lg text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors" title="Reject">
+                              <XCircle className="h-4 w-4" />
                             </button>
                           </>
                         )}
@@ -452,36 +452,38 @@ export default function IssuanceRequestsPage() {
 
       {/* --- PATH B: INVITE MODAL --- */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-gray-900">Generate Unique Invite Link</h3>
-              <button onClick={() => setShowInviteModal(false)} className="text-gray-400 hover:text-gray-600">×</button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-bold text-slate-900">Generate Unique Invite Link</h3>
+              <button onClick={() => setShowInviteModal(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors" aria-label="Close">
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             {!generatedLink ? (
               <form onSubmit={handleGenerateInvite} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Requestor Email</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Requestor Email</label>
                   <input
                     type="email" required
                     placeholder="name@company.com"
-                    className="block w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
                     value={inviteData.email}
                     onChange={e => setInviteData({ ...inviteData, email: e.target.value })}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Link will only work for this email domain.</p>
+                  <p className="text-xs text-slate-500 mt-1">Link will only work for this email domain.</p>
                 </div>
 
-                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-md font-semibold hover:bg-blue-700 transition">
+                <button type="submit" className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm">
                   Create Tokenized Link
                 </button>
               </form>
             ) : (
-              <div className="space-y-6">
-                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                  <p className="text-xs text-gray-400 uppercase font-bold mb-2">Secure Invite URL</p>
-                  <p className="text-sm text-blue-700 font-mono break-all bg-white p-2 border rounded shadow-inner">
+              <div className="space-y-4">
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider mb-1.5">Secure Invite URL</p>
+                  <p className="text-xs text-blue-700 font-mono break-all bg-white p-2.5 border border-slate-200 rounded-lg">
                     {generatedLink}
                   </p>
                 </div>
@@ -491,19 +493,19 @@ export default function IssuanceRequestsPage() {
                       navigator.clipboard.writeText(generatedLink);
                       toast.info("Copied to clipboard!");
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-2.5 rounded-md font-semibold hover:bg-green-700 transition"
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
                   >
                     <Copy className="h-4 w-4" />
                     Copy to Test
                   </button>
                   <button
                     onClick={() => setGeneratedLink('')}
-                    className="px-4 py-2.5 border border-gray-300 rounded-md hover:bg-gray-50 font-medium"
+                    className="px-4 py-2 border border-slate-300 text-slate-700 bg-white rounded-xl hover:bg-slate-50 text-sm font-medium transition-colors"
                   >
                     Back
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 text-center italic">
+                <p className="text-xs text-slate-500 text-center italic">
                   Paste this into a new browser tab to test the direct form access.
                 </p>
               </div>

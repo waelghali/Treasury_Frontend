@@ -515,6 +515,15 @@ export const apiRequest = async (url, method = 'GET', data = null, contentType =
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       if (response.status === 403) {
+        const detailStr = typeof errorData.detail === 'string' ? errorData.detail : '';
+        if (
+          detailStr.toLowerCase().includes('must change your password') &&
+          typeof window !== 'undefined' &&
+          window.location.pathname !== '/force-password-change'
+        ) {
+          await silentRefreshToken().catch(() => false);
+          window.location.href = '/force-password-change';
+        }
         const forbiddenError = new Error(errorData.detail || 'Access to this resource is forbidden.');
         forbiddenError.statusCode = 403;
         forbiddenError.status = 403;

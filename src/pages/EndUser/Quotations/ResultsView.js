@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2, Lock, BarChart2, Copy } from 'lucide-react';
+import { Trophy, Landmark, Clock, ArrowRight, AlertCircle, Mail, ExternalLink, FileText, MessageSquare, CheckCircle2, Check, Printer, Shield, X, Award, RefreshCw, Calendar, Info, XCircle, AlertTriangle, Undo2, Building, User, Users, UserCheck, Layers, Loader2, Lock, BarChart2, Copy, Phone, Ban, Zap } from 'lucide-react';
 import apiClient from '../../../services/apiClient';
 import { getCurrentUserId, getUserRole } from '../../../utils/authUtils';
 import ReTenderModal from '../../../components/Modals/ReTenderModal';
@@ -1234,7 +1234,7 @@ export default function ResultsView({ rfqId: propRfqId }) {
                         {result.is_excluded ? (
                             <div className="flex flex-col items-end gap-1">
                                 <span className="text-xs font-bold text-slate-600 bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 shadow-2xs">
-                                    <span className="text-slate-400">🚫</span>
+                                    <Ban size={12} className="text-slate-400" />
                                     Excluded
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-medium">Leg hidden from bank</span>
@@ -1275,31 +1275,31 @@ export default function ResultsView({ rfqId: propRfqId }) {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8">
+        <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-5">
                 <div>
                     <h3 className="text-xs font-bold uppercase tracking-widest text-blue-600 flex items-center gap-2 mb-1">
                         <Trophy size={14} /> Quotation Results
                     </h3>
                     {rfq && (
                         <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-mono font-bold text-gray-600">{rfq.ref_no}</p>
+                            <p className="text-sm font-mono font-bold text-slate-600">{rfq.ref_no}</p>
                             {rfq.is_manual_deal && (
                                 <span
                                     className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300"
                                     title="Recorded manually / offline with a bank enabled for manual recording (zero bank emails sent)"
                                 >
-                                    📞 Manual / Offline Deal
+                                    <Phone size={10} /> Manual / Offline Deal
                                 </span>
                             )}
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-3 mt-2 sm:mt-0 flex-wrap">
+                <div className="flex items-center gap-2.5 mt-2 sm:mt-0 flex-wrap">
                     {!isCorporateAdmin && (rfq?.status === 'NEEDS_REVISION' || rfq?.status === 'PENDING_APPROVAL') && (
                         <button
                             onClick={() => navigate(`/end-user/quotations/active?revision_rfq_id=${rfq.id}`)}
-                            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-amber-200 cursor-pointer"
+                            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm cursor-pointer"
                             title="Open quotation in builder to edit parameters"
                         >
                             <Undo2 size={13} /> {rfq?.status === 'PENDING_APPROVAL' ? 'Edit Quotation' : 'Revise & Resubmit'}
@@ -1309,17 +1309,17 @@ export default function ResultsView({ rfqId: propRfqId }) {
                         <div className="flex items-center gap-2 flex-wrap">
                             <button
                                 onClick={() => navigate(`/end-user/quotations/active?retrade_rfq_id=${rfq.id}`)}
-                                className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 cursor-pointer"
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm cursor-pointer"
                                 title="Create a linked re-tender retaining parent RFQ reference, with core currency pairs, amounts, direction & requesting entity locked."
                             >
-                                <RefreshCw size={13} /> 🔄 Re-Trade (Locked Specs)
+                                <RefreshCw size={13} /> Re-Trade (Locked Specs)
                             </button>
                             <button
                                 onClick={() => navigate(`/end-user/quotations/active?clone_rfq_id=${rfq.id}`)}
-                                className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold transition-colors shadow-xs cursor-pointer"
                                 title="Pre-fills all trade fields as an unlocked draft without parent link or trade constraints."
                             >
-                                <Copy size={13} /> 📋 Clone as New (Unlocked)
+                                <Copy size={13} /> Clone as New (Unlocked)
                             </button>
                         </div>
                     )}
@@ -1517,24 +1517,24 @@ export default function ResultsView({ rfqId: propRfqId }) {
                                     <button
                                         type="button"
                                         onClick={() => setApprovalReleaseMode('IMMEDIATE')}
-                                        className={`py-2 px-3 rounded-xl border text-center font-bold transition-all cursor-pointer ${
+                                        className={`py-2 px-3 rounded-xl border text-center font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                                             approvalReleaseMode === 'IMMEDIATE'
                                                 ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                                                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                                         }`}
                                     >
-                                        ⚡ Release Immediately
+                                        <Zap size={13} /> Release Immediately
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setApprovalReleaseMode('SCHEDULED')}
-                                        className={`py-2 px-3 rounded-xl border text-center font-bold transition-all cursor-pointer ${
+                                        className={`py-2 px-3 rounded-xl border text-center font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                                             approvalReleaseMode === 'SCHEDULED'
                                                 ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                                                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                                         }`}
                                     >
-                                        🕒 Schedule for Later
+                                        <Clock size={13} /> Schedule for Later
                                     </button>
                                 </div>
 

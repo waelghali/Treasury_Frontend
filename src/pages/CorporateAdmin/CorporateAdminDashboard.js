@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FolderKanban, Users, Settings, TrendingUp, TrendingDown, Clock, BarChart } from 'lucide-react';
+import { FolderKanban, Users, Settings, TrendingUp, TrendingDown, Clock, BarChart, Loader2, AlertCircle } from 'lucide-react';
 import { apiRequest } from 'services/apiService.js';
 import { toast } from 'react-toastify';
 import CorporateMobileAlertsBanner from '../../components/CorporateMobileAlertsBanner';
@@ -36,9 +36,9 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
         return (
             <div className="relative group inline-block">
                 {children}
-                <div className="opacity-0 w-max bg-gray-800 text-white text-xs rounded-lg py-2 px-3 absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
+                <div className="opacity-0 w-max bg-slate-900 text-white text-xs rounded-lg py-1.5 px-2.5 shadow-lg absolute z-10 bottom-full left-1/2 -translate-x-1/2 pointer-events-none group-hover:opacity-100 transition-opacity duration-200">
                     This action is disabled during your subscription's grace period.
-                    <svg className="absolute text-gray-800 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
+                    <svg className="absolute text-slate-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255">
                         <polygon className="fill-current" points="0,0 127.5,127.5 255,0"/>
                     </svg>
                 </div>
@@ -51,21 +51,27 @@ const GracePeriodTooltip = ({ children, isGracePeriod }) => {
 const KPICard = ({ title, value, subValue, subLabel, icon, trend }) => {
   const Icon = icon;
   const TrendIcon = trend === 'up' ? TrendingUp : TrendingDown;
-  const trendColor = trend === 'up' ? 'text-green-600' : 'text-red-600';
-  const iconBg = `p-3 rounded-full ${title.includes('Days') ? 'bg-orange-100' : title.includes('LG Mix') ? 'bg-purple-100' : 'bg-blue-100'}`;
+  const trendColor = trend === 'up' ? 'text-emerald-600' : 'text-rose-600';
+  const iconBg = `p-2.5 rounded-xl shrink-0 ${
+    title.includes('Days')
+      ? 'bg-amber-50 text-amber-600'
+      : title.includes('LG Mix')
+      ? 'bg-violet-50 text-violet-600'
+      : 'bg-blue-50 text-blue-600'
+  }`;
 
   return (
-    <div className="card flex items-center p-3 space-x-4">
-      <div className={`${iconBg} text-blue-600`}>
-        <Icon className="h-6 w-6" />
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3.5 p-4">
+      <div className={iconBg}>
+        <Icon className="h-5 w-5" />
       </div>
-      <div>
-        <p className="text-sm font-medium text-gray-500">{title}</p>
-        <p className="text-2xl font-semibold text-gray-900">{value}</p>
-        <p className="text-xs text-gray-500 flex items-center mt-1">
-          {subValue && <span className="font-semibold mr-1">{subValue}</span>}
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider truncate">{title}</p>
+        <p className="text-2xl font-bold text-slate-900 tabular-nums mt-0.5">{value}</p>
+        <p className="text-xs text-slate-500 flex items-center mt-0.5">
+          {subValue && <span className="font-semibold text-slate-700 mr-1">{subValue}</span>}
           {subLabel}
-          {trend && <TrendIcon className={`h-4 w-4 ml-1 ${trendColor}`} />}
+          {trend && <TrendIcon className={`h-3.5 w-3.5 ml-1 ${trendColor}`} />}
         </p>
       </div>
     </div>
@@ -242,12 +248,9 @@ function CorporateAdminDashboard({ isGracePeriod }) {
 
   if (isLoading) {
     return (
-      <div className="text-center py-8">
-        <svg className="animate-spin h-8 w-8 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p className="text-gray-600 mt-2">Loading Corporate Admin Dashboard...</p>
+      <div className="flex flex-col items-center justify-center py-14">
+        <Loader2 className="animate-spin h-7 w-7 text-blue-600" />
+        <p className="text-sm text-slate-500 mt-2.5">Loading Corporate Admin Dashboard...</p>
       </div>
     );
   }
@@ -255,9 +258,10 @@ function CorporateAdminDashboard({ isGracePeriod }) {
   const lgTypeColorMap = createColorMap([chartData.lgTypeMix.customer_lg_type_mix, chartData.lgTypeMix.global_lg_type_mix]);
 
   return (
-    <div>
+    <div className="space-y-4">
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md relative mb-6" role="alert">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl flex items-center gap-2.5 text-sm" role="alert">
+          <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
           <span className="block sm:inline">{error}</span>
         </div>
       )}
@@ -270,10 +274,10 @@ function CorporateAdminDashboard({ isGracePeriod }) {
         className="mb-6"
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
         
 		{/* Column 1: Average Delivery Days & LG Type Mix */}
-		<div className="flex flex-col space-y-6">
+		<div className="flex flex-col space-y-4">
 		  <KPICard 
 			title="Average Delivery Days" 
 			value={`${kpiData.avgDeliveryDays} days`} 
@@ -283,14 +287,14 @@ function CorporateAdminDashboard({ isGracePeriod }) {
 		  />
 
 		  {/* Main Card Wrapper: Holds everything together visually */}
-		  <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-[420px] flex flex-col overflow-hidden">
+		  <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 h-[335px] flex flex-col overflow-hidden">
 			
 			{/* Part 1: Header & Chart Area (Flexible space) */}
-			<div className="p-6 pb-0 flex-1 min-h-0 flex flex-col">
-			  <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6">
+			<div className="p-4 pb-0 flex-1 min-h-0 flex flex-col">
+			  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
 				  LG Type Mix
-				  <span className="text-[10px] font-normal text-gray-400 ml-2 normal-case tracking-normal">
-					  (Outer: Global | Inner: Your Figures)
+				  <span className="text-[11px] font-normal text-slate-400 ml-1.5 normal-case tracking-normal">
+					  (Outer: Global | Inner: Yours)
 				  </span>
 			  </h3>
 			  
@@ -298,10 +302,10 @@ function CorporateAdminDashboard({ isGracePeriod }) {
 				{isReady && chartData.lgTypeMix.global_lg_type_mix.length > 0 ? (
 				  <ResponsiveContainer width="100%" height="100%">
 					<PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-					  <Pie data={chartData.lgTypeMix.global_lg_type_mix} cx="35%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
+					  <Pie data={chartData.lgTypeMix.global_lg_type_mix} cx="35%" cy="50%" innerRadius={48} outerRadius={66} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
 						{chartData.lgTypeMix.global_lg_type_mix.map((entry, i) => <Cell key={i} fill={lgTypeColorMap[entry.name]} />)}
 					  </Pie>
-					  <Pie data={chartData.lgTypeMix.customer_lg_type_mix} cx="80%" cy="75%" innerRadius={25} outerRadius={40} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
+					  <Pie data={chartData.lgTypeMix.customer_lg_type_mix} cx="80%" cy="72%" innerRadius={20} outerRadius={32} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
 						{chartData.lgTypeMix.customer_lg_type_mix.map((entry, i) => <Cell key={i} fill={lgTypeColorMap[entry.name]} />)}
 					  </Pie>
 					  <Tooltip content={<CustomMultiPieTooltip chartType="lgTypeMix" allData={{ customerData: chartData.lgTypeMix.customer_lg_type_mix, globalData: chartData.lgTypeMix.global_lg_type_mix }} />} />
@@ -309,13 +313,13 @@ function CorporateAdminDashboard({ isGracePeriod }) {
 					</PieChart>
 				  </ResponsiveContainer>
 				) : (
-				  <div className="h-full flex items-center justify-center text-gray-400 italic text-sm">No data available.</div>
+				  <div className="h-full flex items-center justify-center text-slate-400 italic text-sm">No data available.</div>
 				)}
 			  </div>
 			</div>
 
 			{/* Part 2: Separate Legend Area (Fixed at the bottom) */}
-			<div className="p-6 pt-2">
+			<div className="p-4 pt-1">
 			   <CustomUnifiedLegend 
 				  allData={[chartData.lgTypeMix.customer_lg_type_mix, chartData.lgTypeMix.global_lg_type_mix]} 
 			   />
@@ -325,7 +329,7 @@ function CorporateAdminDashboard({ isGracePeriod }) {
 		</div>
 
 		{/* Column 2: Avg Days to Action & Market Share */}
-		<div className="flex flex-col space-y-6">
+		<div className="flex flex-col space-y-4">
 		  <KPICard 
 			title="Avg. Days to Action" 
 			value={`${kpiData.avgDaysToExpiryAction} days`} 
@@ -335,36 +339,36 @@ function CorporateAdminDashboard({ isGracePeriod }) {
 		  />
 
 		  {/* Container for the Chart and Legend - looks like one card to the user */}
-		  <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-[420px] flex flex-col overflow-hidden">
+		  <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 h-[335px] flex flex-col overflow-hidden">
 			
 			{/* Part 1: Header & Chart Area */}
-			<div className="p-6 pb-0 flex-1 min-h-0 flex flex-col">
-			  <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6">
+			<div className="p-4 pb-0 flex-1 min-h-0 flex flex-col">
+			  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
 				  Bank Market Share
-				  <span className="text-[10px] font-normal text-gray-400 ml-2 normal-case tracking-normal">
-					  (Outer: Global | Inner: Your Figures)
+				  <span className="text-[11px] font-normal text-slate-400 ml-1.5 normal-case tracking-normal">
+					  (Outer: Global | Inner: Yours)
 				  </span>
 			  </h3>
 			  <div className="flex-1 min-h-0">
 				{isReady && chartData.bankMarketShare.global_market_share.length > 0 ? (
 				  <ResponsiveContainer width="100%" height="100%">
 					  <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-						<Pie data={chartData.bankMarketShare.global_market_share} cx="35%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
+						<Pie data={chartData.bankMarketShare.global_market_share} cx="35%" cy="50%" innerRadius={48} outerRadius={66} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
 						  {chartData.bankMarketShare.global_market_share.map((entry, i) => <Cell key={i} fill={chartData.bankMarketShare.colorMapping[entry.name]} />)}
 						</Pie>
-						<Pie data={chartData.bankMarketShare.customer_market_share} cx="80%" cy="75%" innerRadius={25} outerRadius={40} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
+						<Pie data={chartData.bankMarketShare.customer_market_share} cx="80%" cy="72%" innerRadius={20} outerRadius={32} paddingAngle={2} dataKey="value" nameKey="name" animationDuration={1000}>
 						  {chartData.bankMarketShare.customer_market_share.map((entry, i) => <Cell key={i} fill={chartData.bankMarketShare.colorMapping[entry.name]} />)}
 						</Pie>
 						<Tooltip content={<CustomMultiPieTooltip chartType="bankMarketShare" allData={{ customerData: chartData.bankMarketShare.customer_market_share, globalData: chartData.bankMarketShare.global_market_share }} />} />
 						{/* Legend is removed from here */}
 					  </PieChart>
 				  </ResponsiveContainer>
-				) : <div className="h-full flex items-center justify-center text-gray-400 italic text-sm">No data available.</div>}
+				) : <div className="h-full flex items-center justify-center text-slate-400 italic text-sm">No data available.</div>}
 			  </div>
 			</div>
 
 			{/* Part 2: Separate Legend Area */}
-			<div className="p-6 pt-2">
+			<div className="p-4 pt-1">
 			   <CustomUnifiedLegend 
 				  allData={[chartData.bankMarketShare.customer_market_share, chartData.bankMarketShare.global_market_share]} 
 				  colorMapping={chartData.bankMarketShare.colorMapping} 
@@ -374,31 +378,31 @@ function CorporateAdminDashboard({ isGracePeriod }) {
 		  </div>
 		</div>
         {/* Column 3: Total Volume & Processing Times */}
-        <div className="flex flex-col space-y-6">
+        <div className="flex flex-col space-y-4">
           <KPICard title="Total LG Volume" value={kpiData.lgVolume} subLabel="LG Records" icon={FolderKanban} />
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-[420px] flex flex-col">
-            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6">
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 h-[335px] flex flex-col">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
                 Average Processing Times by Bank
             </h3>
             <div className="flex-1 min-h-0">
               {isReady && chartData.bankProcessingTimes.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <RechartsBarChart data={chartData.bankProcessingTimes} margin={{ top: 10, right: 10, bottom: 20, left: -20 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9CA3AF', fontSize: 12 }} />
-                  <Tooltip cursor={{ fill: '#F9FAFB' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value) => [Number(value).toFixed(2), "Days"]}/>
-                  <Bar dataKey="value" fill="#2563EB" radius={[4, 4, 0, 0]} barSize={40} animationDuration={1500} />
+                <RechartsBarChart data={chartData.bankProcessingTimes} margin={{ top: 8, right: 8, bottom: 16, left: -22 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} dy={8} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
+                  <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.08)' }} formatter={(value) => [Number(value).toFixed(2), "Days"]}/>
+                  <Bar dataKey="value" fill="#4f46e5" radius={[6, 6, 0, 0]} barSize={36} animationDuration={1500} />
                 </RechartsBarChart>
               </ResponsiveContainer>
-              ) : <div className="h-full flex items-center justify-center text-gray-400 italic text-sm">No data available.</div>}
+              ) : <div className="h-full flex items-center justify-center text-slate-400 italic text-sm">No data available.</div>}
             </div>
           </div>
         </div>
       </div>
       
-      <div className="mt-4 card">
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">Quick Actions</h3>
+      <div className="mt-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4">
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {quickActions.map(action => renderQuickAction(action))}
         </div>
