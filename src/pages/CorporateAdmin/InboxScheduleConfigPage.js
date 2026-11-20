@@ -6,8 +6,16 @@ import { formatDate } from '../../utils/dateFormat';
 import {
     Calendar, Clock, Building2, Check, X, Edit3, Trash2,
     Plus, Save, AlertCircle, RefreshCw, Send, CheckCircle2, Globe,
-    Filter, Search, Layers, ShieldCheck, CheckSquare, Square, Sliders, ArrowLeft
+    Filter, Search, Layers, ShieldCheck, CheckSquare, Square, Sliders, ArrowLeft,
+    FileText, Printer
 } from 'lucide-react';
+
+const REQUEST_TYPE_OPTIONS = [
+    { value: 'LG_POSITION', label: 'LG Position Report', short: 'LG Position', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+    { value: 'BANK_STATEMENT', label: 'Bank Statement & Transactions', short: 'Statement', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    { value: 'CASH_POSITION', label: 'Daily Cash Balance', short: 'Cash Balance', badge: 'bg-teal-50 text-teal-700 border-teal-200' },
+];
+const REQUEST_TYPE_META = Object.fromEntries(REQUEST_TYPE_OPTIONS.map(o => [o.value, o]));
 
 export default function InboxScheduleConfigPage() {
     const navigate = useNavigate();
@@ -22,6 +30,7 @@ export default function InboxScheduleConfigPage() {
 
     // Single Edit Modal
     const [editingBank, setEditingBank] = useState(null);
+    const [requestType, setRequestType] = useState('LG_POSITION');
     const [frequency, setFrequency] = useState('MONTHLY');
     const [dayOfMonth, setDayOfMonth] = useState(1);
     const [dayOfWeek, setDayOfWeek] = useState(0);
@@ -33,6 +42,7 @@ export default function InboxScheduleConfigPage() {
 
     // Bulk Edit Modal
     const [showBulkModal, setShowBulkModal] = useState(false);
+    const [bulkRequestType, setBulkRequestType] = useState('LG_POSITION');
     const [bulkFrequency, setBulkFrequency] = useState('MONTHLY');
     const [bulkDayOfMonth, setBulkDayOfMonth] = useState(1);
     const [bulkDayOfWeek, setBulkDayOfWeek] = useState(0);
@@ -40,6 +50,10 @@ export default function InboxScheduleConfigPage() {
     const [bulkBody, setBulkBody] = useState('');
     const [bulkIsActive, setBulkIsActive] = useState(true);
     const [savingBulk, setSavingBulk] = useState(false);
+
+    // Standing Instruction Letter Modal
+    const [letterModalData, setLetterModalData] = useState(null);
+    const [loadingLetterBankId, setLoadingLetterBankId] = useState(null);
 
     // Bank Domain Quick Edit
     const [editingDomainBankId, setEditingDomainBankId] = useState(null);
@@ -72,13 +86,16 @@ export default function InboxScheduleConfigPage() {
 
             if (!matchesQuery) return false;
 
+            const hasAnyActiveSched = (bank.schedule && bank.schedule.is_active) ||
+                Object.values(bank.schedules_by_type || {}).some(s => s && s.is_active);
+
             // Category Filter
             if (activeFilter === 'RELATIONSHIP') {
                 return bank.has_relationship;
             } else if (activeFilter === 'SCHEDULED') {
-                return bank.schedule && bank.schedule.is_active;
+                return hasAnyActiveSched;
             } else if (activeFilter === 'UNSCHEDULED') {
-                return !bank.schedule || !bank.schedule.is_active;
+                return !hasAnyActiveSched;
             }
             return true; // ALL
         });
@@ -87,7 +104,7 @@ export default function InboxScheduleConfigPage() {
     // Summary counts
     const counts = useMemo(() => {
         const rel = banks.filter(b => b.has_relationship).length;
-        const sched = banks.filter(b => b.schedule && b.schedule.is_active).length;
+        const sched = banks.filter(b => (b.schedule && b.schedule.is_active) || Object.values(b.schedules_by_type || {}).some(s => s && s.is_active)).length;
         const unsched = banks.length - sched;
         return { total: banks.length, relationship: rel, scheduled: sched, unscheduled: unsched };
     }, [banks]);
@@ -116,11 +133,12 @@ export default function InboxScheduleConfigPage() {
     };
 
     // Single Edit
-    const openEditModal = (bank) => {
-        setEditingBank(bank);
-        const sched = bank.schedule;
+    const applyModalFieldsFromSched = (bank, targetType) => {
+        const sched = (bank.schedules_by_type && bank.schedules_by_type[targetType]) ||
+            (bank.schedule && (bank.schedule.request_type || 'LG_POSITION') === targetType ? bank.schedule : null);
+        setRequestType(targetType);
         if (sched) {
-            setFrequency(sched.frequency || 'MONTHLY');
+            setFrequency(sched.frequency || (targetType === 'LG_POSITION' ? 'MONTHLY' : 'DAILY'));
             setDayOfMonth(sched.day_of_month || 1);
             setDayOfWeek(sched.day_of_week || 0);
             setRecipientEmails(
@@ -132,7 +150,7 @@ export default function InboxScheduleConfigPage() {
             setCustomBody(sched.custom_body || '');
             setIsActive(sched.is_active ?? true);
         } else {
-            setFrequency('MONTHLY');
+            setFrequency(targetType === 'LG_POSITION' ? 'MONTHLY' : 'DAILY');
             setDayOfMonth(1);
             setDayOfWeek(0);
             setRecipientEmails('');
@@ -140,6 +158,12 @@ export default function InboxScheduleConfigPage() {
             setCustomBody('');
             setIsActive(true);
         }
+    };
+
+    const openEditModal = (bank, initialType = null) => {
+        setEditingBank(bank);
+        const defaultType = initialType || (bank.schedule && bank.schedule.request_type) || 'LG_POSITION';
+        applyModalFieldsFromSched(bank, defaultType);
     };
 
     const handleSaveSingleConfig = async (e) => {
@@ -153,7 +177,7 @@ export default function InboxScheduleConfigPage() {
 
             const payload = {
                 bank_id: editingBank.id,
-                request_type: 'LG_POSITION',
+                request_type: requestType || 'LG_POSITION',
                 is_active: isActive,
                 frequency,
                 day_of_month: frequency === 'MONTHLY' ? parseInt(dayOfMonth) : null,
@@ -168,7 +192,7 @@ export default function InboxScheduleConfigPage() {
             setEditingBank(null);
             await loadData();
         } catch (e) {
-            toast.error(e.detail || 'Failed saving schedule configuration');
+            toast.error(e.message || e.detail || 'Failed saving schedule configuration');
         } finally {
             setSaving(false);
         }
@@ -185,7 +209,7 @@ export default function InboxScheduleConfigPage() {
         try {
             const payload = {
                 bank_ids: selectedBankIds,
-                request_type: 'LG_POSITION',
+                request_type: bulkRequestType || 'LG_POSITION',
                 is_active: bulkIsActive,
                 frequency: bulkFrequency,
                 day_of_month: bulkFrequency === 'MONTHLY' ? parseInt(bulkDayOfMonth) : null,
@@ -200,10 +224,36 @@ export default function InboxScheduleConfigPage() {
             setSelectedBankIds([]);
             await loadData();
         } catch (e) {
-            toast.error(e.detail || 'Failed to apply bulk schedule');
+            toast.error(e.message || e.detail || 'Failed to apply bulk schedule');
         } finally {
             setSavingBulk(false);
         }
+    };
+
+    const handleOpenStandingLetter = async (bank) => {
+        setLoadingLetterBankId(bank.id);
+        try {
+            const data = await apiRequest(`/inbox/standing-instruction-letter/${bank.id}`, 'GET');
+            setLetterModalData(data);
+        } catch (e) {
+            toast.error(e.message || 'Failed to generate standing instruction letter');
+        } finally {
+            setLoadingLetterBankId(null);
+        }
+    };
+
+    const handlePrintStandingLetter = () => {
+        if (!letterModalData?.html_letter) return;
+        const win = window.open('', '_blank', 'width=920,height=780');
+        if (!win) {
+            toast.warning('Please allow pop-ups to print or save the Standing Instruction Letter as PDF.');
+            return;
+        }
+        win.document.open();
+        win.document.write(letterModalData.html_letter);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { win.print(); }, 350);
     };
 
     const handleDeleteConfig = async (configId, bankName) => {
@@ -249,9 +299,9 @@ export default function InboxScheduleConfigPage() {
                         <Calendar className="w-6 h-6" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Position Request Schedules</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">Automated Bank Request Schedules</h1>
                         <p className="text-sm text-gray-500">
-                            Configure automated recurring emails to banks requesting official LG position reports.
+                            Configure automated recurring emails for LG positions, bank statements, and daily cash balances, or generate Standing Instruction Letters.
                         </p>
                     </div>
                 </div>
@@ -442,6 +492,11 @@ export default function InboxScheduleConfigPage() {
                                                         Facility Active
                                                     </span>
                                                 )}
+                                                {bank.bank_account_count > 0 && (
+                                                    <span className="text-[10.5px] font-bold px-2 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-full">
+                                                        {bank.bank_account_count} Account{bank.bank_account_count !== 1 ? 's' : ''}
+                                                    </span>
+                                                )}
                                             </div>
 
                                             {/* Domain mapping inline */}
@@ -491,19 +546,34 @@ export default function InboxScheduleConfigPage() {
                                             </div>
 
                                             {/* Schedule summary */}
-                                            <div className="text-xs text-gray-500 flex items-center gap-2 pt-0.5">
-                                                <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                {sched ? (
+                                            <div className="text-xs text-gray-500 flex items-start gap-2 pt-0.5">
+                                                <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
+                                                {Object.keys(bank.schedules_by_type || {}).length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {Object.values(bank.schedules_by_type).map((s) => {
+                                                            const meta = REQUEST_TYPE_META[s.request_type] || REQUEST_TYPE_OPTIONS[0];
+                                                            return (
+                                                                <span
+                                                                    key={s.id}
+                                                                    onClick={() => openEditModal(bank, s.request_type)}
+                                                                    className={`cursor-pointer inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-medium ${meta.badge}`}
+                                                                    title="Click to edit this schedule"
+                                                                >
+                                                                    <strong>{meta.short}:</strong> {s.frequency}
+                                                                    {!s.is_active && <span className="text-gray-400">(Paused)</span>}
+                                                                    {s.last_sent_at && (
+                                                                        <span className="opacity-75">· {formatDate(s.last_sent_at)}</span>
+                                                                    )}
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : sched ? (
                                                     <span>
                                                         <strong className="text-gray-800">{sched.frequency}:</strong>{' '}
                                                         {sched.frequency === 'MONTHLY' && `Day ${sched.day_of_month} of every month at 08:00 AM`}
                                                         {sched.frequency === 'WEEKLY' && `Every ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][sched.day_of_week || 0]} at 08:00 AM`}
                                                         {sched.frequency === 'DAILY' && 'Every Day at 08:00 AM'}
-                                                        {sched.last_sent_at && (
-                                                            <span className="text-gray-400 ml-2">
-                                                                (Last sent: {formatDate(sched.last_sent_at)})
-                                                            </span>
-                                                        )}
                                                     </span>
                                                 ) : (
                                                     <span className="text-gray-400 italic">No automated recurring schedule set.</span>
@@ -514,6 +584,16 @@ export default function InboxScheduleConfigPage() {
 
                                     {/* Action Buttons */}
                                     <div className="flex items-center gap-2 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleOpenStandingLetter(bank)}
+                                            disabled={loadingLetterBankId === bank.id}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition"
+                                            title="Generate Standing Instruction Letter for Bank RM to enable daily email statements"
+                                        >
+                                            {loadingLetterBankId === bank.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5 text-slate-500" />}
+                                            <span>RM Letter</span>
+                                        </button>
                                         {sched ? (
                                             <>
                                                 <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${
@@ -526,14 +606,14 @@ export default function InboxScheduleConfigPage() {
                                                 <button
                                                     onClick={() => openEditModal(bank)}
                                                     className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
-                                                    title="Edit Schedule"
+                                                    title="Edit / Add Schedule"
                                                 >
                                                     <Edit3 className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteConfig(sched.id, bank.name)}
                                                     className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition"
-                                                    title="Remove Schedule"
+                                                    title="Remove Primary Schedule"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -577,6 +657,19 @@ export default function InboxScheduleConfigPage() {
                         </div>
 
                         <div className="space-y-3 text-xs">
+                            <div>
+                                <label className="block font-bold text-gray-700 uppercase mb-1">Request Type</label>
+                                <select
+                                    value={requestType}
+                                    onChange={(e) => applyModalFieldsFromSched(editingBank, e.target.value)}
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                                >
+                                    {REQUEST_TYPE_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <div>
                                 <label className="block font-bold text-gray-700 uppercase mb-1">Frequency</label>
                                 <select
@@ -698,6 +791,19 @@ export default function InboxScheduleConfigPage() {
 
                         <div className="space-y-3 text-xs">
                             <div>
+                                <label className="block font-bold text-gray-700 uppercase mb-1">Request Type</label>
+                                <select
+                                    value={bulkRequestType}
+                                    onChange={(e) => setBulkRequestType(e.target.value)}
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                                >
+                                    {REQUEST_TYPE_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
                                 <label className="block font-bold text-gray-700 uppercase mb-1">Frequency</label>
                                 <select
                                     value={bulkFrequency}
@@ -777,6 +883,58 @@ export default function InboxScheduleConfigPage() {
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+            {/* ─── MODAL: Standing Instruction Letter for Bank RM ─── */}
+            {letterModalData && (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl max-w-4xl w-full p-6 space-y-4 shadow-2xl border border-gray-200 max-h-[90vh] flex flex-col">
+                        <div className="flex items-center justify-between pb-3 border-b border-gray-100 shrink-0">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-blue-600" />
+                                    Standing Instruction Letter — {letterModalData.bank_name}
+                                </h3>
+                                <p className="text-xs text-gray-500">
+                                    Send this signed corporate letter to your Relationship Manager to enable daily email delivery to{' '}
+                                    <span className="font-mono font-semibold text-blue-700">{letterModalData.target_inbox_email}</span>.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setLetterModalData(null)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-auto border border-gray-200 rounded-lg bg-gray-50 p-2">
+                            <iframe
+                                title="Standing Instruction Letter Preview"
+                                srcDoc={letterModalData.html_letter}
+                                className="w-full h-[520px] bg-white rounded border border-gray-200"
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setLetterModalData(null)}
+                                className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+                            >
+                                Close
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handlePrintStandingLetter}
+                                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow"
+                            >
+                                <Printer className="w-4 h-4" />
+                                Print / Save as PDF
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

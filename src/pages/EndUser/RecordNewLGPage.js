@@ -6,6 +6,8 @@ import { ChevronDown, ChevronUp, Upload, Scan, Save, AlertCircle, XCircle, Loade
 import { toast } from 'react-toastify';
 import moment from 'moment';
 import FormattedDateInput from 'components/FormattedDateInput';
+import useUnsavedChangesGuard from '../../utils/useUnsavedChangesGuard';
+import AmountInWordsHint from '../../components/Common/AmountInWordsHint';
 
 // A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -325,6 +327,22 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  const hasUnsavedLgDraft = Boolean(
+    !isLoading &&
+    !isSaving &&
+    (
+      formData.issuer_name?.trim() ||
+      formData.lg_number?.trim() ||
+      formData.lg_amount ||
+      formData.description_purpose?.trim() ||
+      formData.other_conditions?.trim() ||
+      formData.notes?.trim() ||
+      formData.ai_scan_file ||
+      formData.internal_supporting_document_file
+    )
+  );
+  useUnsavedChangesGuard(hasUnsavedLgDraft);
   const [error, setError] = useState('');
   const [errorField, setErrorField] = useState('');
   const errorBannerRef = useRef(null);
@@ -1395,6 +1413,14 @@ function RecordNewLGPage({ onLogout, isGracePeriod }) {
               <div className="mb-2">
                 <label htmlFor="lg_amount" className={labelClassNames}>LG Amount {requiredSpan}</label>
                 <input type="number" name="lg_amount" id="lg_amount" value={formData.lg_amount} onChange={handleChange} required min="0.01" step="0.01" className={inputClassNames} disabled={isFormDisabled || isGracePeriod} />
+                <AmountInWordsHint
+                  amount={formData.lg_amount}
+                  currencyCode={
+                    dropdownData.currencies.find(
+                      (c) => String(c.id) === String(formData.lg_currency_id)
+                    )?.iso_code || ''
+                  }
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
                 <div className="mb-2">

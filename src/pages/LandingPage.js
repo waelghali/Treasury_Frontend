@@ -902,7 +902,7 @@ function LandingPage() {
 
                   <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap items-center gap-5 text-sm">
                     <a
-                      href="https://wa.me/201200557551?text=Hello%20Grow%20Team%2C%20I%20would%20like%20to%20book%20a%2020-minute%20walkthrough."
+                      href="https://wa.me/201001113532?text=Hello%20Grow%20Team%2C%20I%20would%20like%20to%20book%20a%2020-minute%20walkthrough."
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center font-semibold text-emerald-700 hover:text-emerald-800"
@@ -967,7 +967,7 @@ function LandingPage() {
                           </p>
                           <div className="mt-6 flex flex-wrap justify-center gap-3">
                             <a
-                              href={`https://wa.me/201200557551?text=${encodeURIComponent(
+                              href={`https://wa.me/201001113532?text=${encodeURIComponent(
                                 `Hi Grow Team, this is ${submittedInfo.name} from ${submittedInfo.company}. I just requested a 20-min walkthrough (${submittedInfo.topic}).`
                               )}`}
                               target="_blank"
@@ -1209,7 +1209,7 @@ function LandingPage() {
                   </li>
                   <li>
                     <a
-                      href="https://wa.me/201200557551"
+                      href="https://wa.me/201001113532"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="hover:text-white transition-colors"

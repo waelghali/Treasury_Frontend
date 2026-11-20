@@ -3,6 +3,7 @@ import { X, DollarSign, Building2, Calendar, FileText, CheckCircle } from 'lucid
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import FormattedDateInput from 'components/FormattedDateInput';
+import AmountInWordsHint from '../Common/AmountInWordsHint';
 
 export default function RecordLiquidationFundsModal({ lg, onClose, onSuccess }) {
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -139,6 +140,7 @@ export default function RecordLiquidationFundsModal({ lg, onClose, onSuccess }) 
                 onChange={(e) => setLiquidatedAmount(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono font-bold focus:ring-2 focus:ring-emerald-500"
               />
+              <AmountInWordsHint amount={liquidatedAmount} currencyCode={lg?.currency_code || 'USD'} />
             </div>
             <div>
               <label className="text-xs font-bold text-slate-700 uppercase block mb-1">

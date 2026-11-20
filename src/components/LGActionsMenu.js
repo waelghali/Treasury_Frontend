@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
+import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
 import { EllipsisVertical, CalendarPlus, Users, CheckCircle, FileMinus, MinusCircle, Eye, Edit, PlayCircle, ShieldAlert, DollarSign, Tag } from 'lucide-react';
 import { toast } from 'react-toastify';
 import moment from 'moment';
@@ -64,15 +64,11 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onChangeCategory, on
         </MenuButton>
       </div>
 
-      <Transition
-        enter="transition ease-out duration-100"
-        enterFrom="transform opacity-0 scale-95"
-        enterTo="transform opacity-100 scale-100"
-        leave="transition ease-in duration-75"
-        leaveFrom="transform opacity-100 scale-100"
-        leaveTo="transform opacity-0 scale-95"
+      <MenuItems
+        transition
+        anchor={{ to: 'bottom end', gap: 6 }}
+        className="w-56 rounded-xl shadow-xl bg-white border border-slate-200 focus:outline-none z-[200] overflow-hidden transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0"
       >
-        <MenuItems className="origin-top-right absolute right-0 mt-1.5 w-56 rounded-xl shadow-xl bg-white border border-slate-200 focus:outline-none z-10 overflow-hidden">
           <div className="py-1">
             <MenuItem>
               {({ active }) => (
@@ -301,7 +297,6 @@ const LGActionsMenu = ({ lgRecord, onExtend, onChangeOwner, onChangeCategory, on
             )}
           </div>
         </MenuItems>
-      </Transition>
     </Menu>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import FormattedDateInput from 'components/FormattedDateInput';
@@ -8,7 +8,8 @@ import {
     Inbox, Mail, Send, RefreshCw, CheckCircle2, AlertTriangle, AlertCircle,
     FileText, Calendar, Building2, ChevronDown, ChevronUp, Check, X, XCircle,
     Eye, Download, Loader2, Sparkles, Filter, Search, ArrowUpRight,
-    Paperclip, ShieldCheck, ShieldAlert, Archive, HelpCircle, Layers, Settings
+    Paperclip, ShieldCheck, ShieldAlert, Archive, HelpCircle, Layers, Settings,
+    Wallet, Lock, Upload, Copy, FolderSync, Key, Plus, Trash2
 } from 'lucide-react';
 
 const CLASSIFICATION_CONFIG = {
@@ -25,6 +26,13 @@ const CLASSIFICATION_CONFIG = {
         bg: '#ecfdf5',
         border: '#a7f3d0',
         icon: Layers
+    },
+    CASH_POSITION_SNAPSHOT: {
+        label: 'Cash Balance',
+        color: '#0f766e',
+        bg: '#f0fdfa',
+        border: '#99f6e4',
+        icon: Wallet
     },
     PROGRESS_REPORT: {
         label: 'Progress Report',
@@ -63,6 +71,38 @@ const SIGNAL_DEFINITIONS = {
         bg: 'bg-purple-50',
         border: 'border-purple-200',
         formatDetail: (d) => `Matched to Outbound Request #${d.outbound_id || ''} (${d.request_type || 'LG_POSITION'}) — "${d.subject || ''}"`
+    },
+    reference_match: {
+        title: 'Exact Reference Code Match',
+        icon: ArrowUpRight,
+        color: 'text-purple-700',
+        bg: 'bg-purple-50',
+        border: 'border-purple-200',
+        formatDetail: (d) => `Matched reference ${d.reference || ''} (${d.request_type || ''}) — "${d.subject || ''}"`
+    },
+    inline_balance_detected: {
+        title: 'Inline Cash Balances Detected',
+        icon: Wallet,
+        color: 'text-teal-600',
+        bg: 'bg-teal-50',
+        border: 'border-teal-200',
+        formatDetail: (d) => `Extracted ${d.accounts_found || 1} balance snapshot(s) in ${(d.currencies || ['EGP']).join(', ')}`
+    },
+    pdf_password_required: {
+        title: 'Password-Protected PDF Attachment',
+        icon: Lock,
+        color: 'text-amber-600',
+        bg: 'bg-amber-50',
+        border: 'border-amber-200',
+        formatDetail: (d) => d.reason || 'Encrypted PDF statement — enter password on confirmation or save on Bank Account'
+    },
+    attachment_inspection: {
+        title: 'Attachment Content Analysis',
+        icon: Layers,
+        color: 'text-indigo-600',
+        bg: 'bg-indigo-50',
+        border: 'border-indigo-200',
+        formatDetail: (d) => `Detected ${d.detected_type || 'Statement'} (${Array.isArray(d.matched_columns) ? d.matched_columns.join(', ') : ''})`
     },
     subject_keyword_match: {
         title: 'Subject Keyword Match',
@@ -132,6 +172,8 @@ const SIGNAL_DEFINITIONS = {
 
 export default function InboxPage() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const basePrefix = location.pathname.startsWith('/corporate-admin') ? '/corporate-admin' : '/end-user';
 
     // State
     const [items, setItems] = useState([]);
@@ -140,9 +182,11 @@ export default function InboxPage() {
     const [loading, setLoading] = useState(true);
     const [polling, setPolling] = useState(false);
     const [actioningId, setActioningId] = useState(null);
+    const [cashPositions, setCashPositions] = useState(null);
+    const [showCashPanel, setShowCashPanel] = useState(true);
 
     // Filters
-    const [activeTab, setActiveTab] = useState('ALL'); // ALL, LG_POSITION_REPORT, BANK_STATEMENT, PROGRESS_REPORT, UNCLASSIFIED, ACTIONED
+    const [activeTab, setActiveTab] = useState('ALL'); // ALL, LG_POSITION_REPORT, BANK_STATEMENT, CASH_POSITION_SNAPSHOT, PROGRESS_REPORT, UNCLASSIFIED, ACTIONED
     const [selectedBank, setSelectedBank] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -151,6 +195,10 @@ export default function InboxPage() {
     const [confirmModalItem, setConfirmModalItem] = useState(null);
     const [confirmBankId, setConfirmBankId] = useState('');
     const [confirmPositionDate, setConfirmPositionDate] = useState('');
+    const [confirmPdfPassword, setConfirmPdfPassword] = useState('');
+    const [savePdfPassword, setSavePdfPassword] = useState(false);
+    const [pdfPasswordRequired, setPdfPasswordRequired] = useState(false);
+    const [confirmBalances, setConfirmBalances] = useState([]);
     const [showRawSignals, setShowRawSignals] = useState(false);
     const [expandedSignalKeys, setExpandedSignalKeys] = useState({});
     
@@ -158,13 +206,28 @@ export default function InboxPage() {
     const [previewData, setPreviewData] = useState(null);
     const [loadingPreviewId, setLoadingPreviewId] = useState(null);
 
-    // Request Position Modal
+    // Request Position / Statement / Balance Modal
     const [showRequestModal, setShowRequestModal] = useState(false);
+    const [reqType, setReqType] = useState('LG_POSITION');
     const [reqBankId, setReqBankId] = useState('');
     const [reqPositionDate, setReqPositionDate] = useState(new Date().toISOString().split('T')[0]);
+    const [reqPeriodStart, setReqPeriodStart] = useState(new Date(Date.now() - 86400000).toISOString().split('T')[0]);
+    const [reqPeriodEnd, setReqPeriodEnd] = useState(new Date().toISOString().split('T')[0]);
     const [reqCustomEmails, setReqCustomEmails] = useState('');
     const [reqNotes, setReqNotes] = useState('');
     const [sendingRequest, setSendingRequest] = useState(false);
+
+    // Watched-Folder Sync Modal
+    const [showSyncModal, setShowSyncModal] = useState(false);
+    const [syncTab, setSyncTab] = useState('drop'); // 'drop' | 'watcher'
+    const [syncFile, setSyncFile] = useState(null);
+    const [syncBankId, setSyncBankId] = useState('');
+    const [syncPdfPassword, setSyncPdfPassword] = useState('');
+    const [syncingFile, setSyncingFile] = useState(false);
+    const [syncTokens, setSyncTokens] = useState([]);
+    const [newTokenLabel, setNewTokenLabel] = useState('Treasury Workstation Sync');
+    const [createdPlaintextToken, setCreatedPlaintextToken] = useState(null);
+    const [creatingToken, setCreatingToken] = useState(false);
 
     // Reclassify Popover State
     const [reclassifyItemId, setReclassifyItemId] = useState(null);
@@ -174,6 +237,7 @@ export default function InboxPage() {
         fetchBanks();
         fetchStats();
         fetchItems();
+        fetchCashPositions();
     }, []);
 
     // Refetch items when filters change
@@ -196,6 +260,24 @@ export default function InboxPage() {
             setStats(data);
         } catch (e) {
             console.error('Error loading stats:', e);
+        }
+    };
+
+    const fetchCashPositions = async () => {
+        try {
+            const data = await apiRequest('/inbox/cash-positions');
+            setCashPositions(data);
+        } catch (e) {
+            console.error('Error loading live cash positions:', e);
+        }
+    };
+
+    const fetchSyncTokens = async () => {
+        try {
+            const data = await apiRequest('/inbox/sync-tokens');
+            setSyncTokens(data || []);
+        } catch (e) {
+            console.error('Error loading sync tokens:', e);
         }
     };
 
@@ -233,6 +315,7 @@ export default function InboxPage() {
             toast.success(res.message || 'Mailbox polled successfully.');
             await fetchStats();
             await fetchItems();
+            await fetchCashPositions();
         } catch (e) {
             toast.error(e.detail || 'Polling failed. Check your IMAP settings.');
         } finally {
@@ -312,6 +395,27 @@ export default function InboxPage() {
         setConfirmModalItem(item);
         setConfirmBankId(item.matched_bank_id ? String(item.matched_bank_id) : '');
         setConfirmPositionDate(item.received_at ? item.received_at.split('T')[0] : new Date().toISOString().split('T')[0]);
+        setConfirmPdfPassword('');
+        setSavePdfPassword(false);
+        setPdfPasswordRequired(
+            Boolean(item.classification_signals?.pdf_password_required) ||
+            (item.error_message || '').includes('PDF_PASSWORD_REQUIRED')
+        );
+        if (item.classification === 'CASH_POSITION_SNAPSHOT') {
+            const extracted = Array.isArray(item.extracted_balances_json) ? item.extracted_balances_json : [];
+            setConfirmBalances(
+                extracted.length > 0
+                    ? extracted.map(b => ({
+                        account_number: b.account_number || '',
+                        currency: b.currency || 'EGP',
+                        available_balance: b.available_balance ?? '',
+                        ledger_balance: b.ledger_balance ?? b.available_balance ?? '',
+                    }))
+                    : [{ account_number: '', currency: 'EGP', available_balance: '', ledger_balance: '' }]
+            );
+        } else {
+            setConfirmBalances([]);
+        }
     };
 
     const executeConfirmAction = async () => {
@@ -322,12 +426,27 @@ export default function InboxPage() {
             const payload = {};
             if (confirmBankId) payload.override_bank_id = parseInt(confirmBankId);
             if (confirmPositionDate) payload.override_position_date = confirmPositionDate;
+            if (confirmPdfPassword && confirmPdfPassword.trim()) {
+                payload.pdf_password = confirmPdfPassword.trim();
+                payload.save_pdf_password = Boolean(savePdfPassword);
+            }
+            if (confirmModalItem.classification === 'CASH_POSITION_SNAPSHOT' && confirmBalances.length > 0) {
+                payload.override_balances = confirmBalances
+                    .filter(b => b.available_balance !== '' && b.available_balance !== null)
+                    .map(b => ({
+                        account_number: b.account_number || null,
+                        currency: (b.currency || 'EGP').toUpperCase(),
+                        available_balance: parseFloat(b.available_balance),
+                        ledger_balance: b.ledger_balance !== '' && b.ledger_balance !== null ? parseFloat(b.ledger_balance) : null,
+                    }));
+            }
 
             const res = await apiRequest(`/inbox/items/${confirmModalItem.id}/confirm`, 'POST', payload);
             toast.success(res.message || 'Action executed successfully!');
             setConfirmModalItem(null);
             fetchStats();
             fetchItems();
+            fetchCashPositions();
 
             // If an LG Reconciliation Session was created, offer immediate navigation
             if (res.session_id) {
@@ -343,9 +462,28 @@ export default function InboxPage() {
                     </div>,
                     { autoClose: 8000 }
                 );
+            } else if (res.statement_id) {
+                toast.info(
+                    <div>
+                        <span>Bank Statement #{res.statement_id} ingested.</span>{' '}
+                        <button
+                            onClick={() => navigate(`${basePrefix}/reconciliation/workspace/${res.statement_id}`)}
+                            className="font-bold underline ml-2 text-emerald-800"
+                        >
+                            Open Statement Workspace
+                        </button>
+                    </div>,
+                    { autoClose: 8000 }
+                );
             }
         } catch (e) {
-            toast.error(e.detail || 'Execution failed. Check file format or bank assignment.');
+            const msg = e.message || e.detail || 'Execution failed. Check file format or bank assignment.';
+            if (msg.includes('PDF_PASSWORD_REQUIRED')) {
+                setPdfPasswordRequired(true);
+                toast.warning('This PDF statement is password-protected. Please enter the PDF password below.');
+            } else {
+                toast.error(msg);
+            }
         } finally {
             setActioningId(null);
         }
@@ -361,8 +499,10 @@ export default function InboxPage() {
         try {
             const payload = {
                 bank_id: parseInt(reqBankId),
-                request_type: 'LG_POSITION',
+                request_type: reqType || 'LG_POSITION',
                 position_date: reqPositionDate,
+                statement_period_start: reqType === 'BANK_STATEMENT' ? reqPeriodStart : undefined,
+                statement_period_end: reqType === 'BANK_STATEMENT' ? reqPeriodEnd : undefined,
                 custom_notes: reqNotes || undefined
             };
             if (reqCustomEmails && reqCustomEmails.trim()) {
@@ -370,14 +510,87 @@ export default function InboxPage() {
             }
 
             await apiRequest('/inbox/request-position', 'POST', payload);
-            toast.success('LG Position request email sent successfully!');
+            toast.success('Bank request email sent successfully!');
             setShowRequestModal(false);
             setReqNotes('');
             setReqCustomEmails('');
         } catch (e) {
-            toast.error(e.detail || 'Failed sending position request email.');
+            toast.error(e.message || e.detail || 'Failed sending request email.');
         } finally {
             setSendingRequest(false);
+        }
+    };
+
+    const handleSyncDropUpload = async (e) => {
+        e.preventDefault();
+        if (!syncFile) {
+            toast.warning('Please select a bank statement file.');
+            return;
+        }
+        setSyncingFile(true);
+        try {
+            const fd = new FormData();
+            fd.append('file', syncFile);
+            if (syncBankId) fd.append('bank_id', syncBankId);
+            if (syncPdfPassword && syncPdfPassword.trim()) fd.append('pdf_password', syncPdfPassword.trim());
+            fd.append('auto_execute', 'true');
+
+            const res = await apiRequest('/inbox/sync-drop', 'POST', fd);
+            if (res.status === 'DUPLICATE_SKIPPED') {
+                toast.info(res.message);
+            } else {
+                toast.success(res.message || 'File synced into Smart Inbox!');
+            }
+            setSyncFile(null);
+            setSyncPdfPassword('');
+            setShowSyncModal(false);
+            await Promise.all([fetchStats(), fetchItems(), fetchCashPositions()]);
+        } catch (err) {
+            toast.error(err.message || 'Folder sync upload failed');
+        } finally {
+            setSyncingFile(false);
+        }
+    };
+
+    const handleCreateSyncToken = async (e) => {
+        e.preventDefault();
+        setCreatingToken(true);
+        try {
+            const res = await apiRequest('/inbox/sync-tokens', 'POST', { label: newTokenLabel || 'Treasury Workstation Sync' });
+            setCreatedPlaintextToken(res.plaintext_token);
+            await fetchSyncTokens();
+            toast.success('Sync token created. Copy it now — it will only be shown once.');
+        } catch (err) {
+            toast.error(err.message || 'Failed creating sync token');
+        } finally {
+            setCreatingToken(false);
+        }
+    };
+
+    const handleRevokeSyncToken = async (tokenId) => {
+        try {
+            await apiRequest(`/inbox/sync-tokens/${tokenId}`, 'DELETE');
+            await fetchSyncTokens();
+            toast.info('Sync token revoked.');
+        } catch (err) {
+            toast.error(err.message || 'Failed revoking token');
+        }
+    };
+
+    const handleDownloadWatcherScript = async () => {
+        try {
+            const hint = createdPlaintextToken || 'PASTE_YOUR_GWS_SYNC_TOKEN_HERE';
+            const blob = await apiRequest(`/inbox/sync-watcher-script?token_hint=${encodeURIComponent(hint)}`, 'GET', null, {}, 'blob');
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Start-GrowFolderSync.ps1';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (err) {
+            toast.error(err.message || 'Failed downloading watcher script');
         }
     };
 
@@ -427,7 +640,7 @@ export default function InboxPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-end sm:self-auto">
                     <button
                         onClick={() => navigate('/corporate-admin/inbox/schedule')}
                         className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-blue-600 transition shadow-xs"
@@ -435,6 +648,18 @@ export default function InboxPage() {
                     >
                         <Settings className="w-4 h-4 text-gray-500" />
                         <span>Schedules</span>
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            setShowSyncModal(true);
+                            fetchSyncTokens();
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition shadow-xs"
+                        title="Drop portal-downloaded bank statements or configure Windows Watched Folder"
+                    >
+                        <FolderSync className="w-4 h-4 text-teal-600" />
+                        <span>Folder Sync</span>
                     </button>
 
                     <button
@@ -451,14 +676,97 @@ export default function InboxPage() {
                         className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition"
                     >
                         <Send className="w-3.5 h-3.5" />
-                        <span>Request Position</span>
+                        <span>Request Bank Data</span>
                     </button>
                 </div>
             </div>
 
+            {/* ─── Live Multi-Bank Cash Position Banner ─── */}
+            {cashPositions && (
+                <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    <div
+                        onClick={() => setShowCashPanel(!showCashPanel)}
+                        className="px-5 py-3.5 bg-gradient-to-r from-teal-50 via-emerald-50/50 to-white border-b border-teal-100 flex flex-wrap items-center justify-between gap-3 cursor-pointer"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-teal-600 text-white rounded-lg">
+                                <Wallet className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-sm font-bold text-gray-900">Live Multi-Bank Cash Position</h3>
+                                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">
+                                        {cashPositions.banks_covered_count || 0} Bank(s) · {cashPositions.total_accounts_count || 0} Account(s)
+                                    </span>
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                    Consolidated from bank statement emails, inline body balances, PDFs &amp; watched-folder drops
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            {Object.values(cashPositions.totals_by_currency || {}).map((tot) => (
+                                <div key={tot.currency} className="px-3 py-1 bg-white border border-teal-200 rounded-lg text-right">
+                                    <span className="text-[10px] font-bold text-teal-700 uppercase block">{tot.currency}</span>
+                                    <span className="text-sm font-extrabold text-gray-900 font-mono">
+                                        {Number(tot.available_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            ))}
+                            {showCashPanel ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        </div>
+                    </div>
+
+                    {showCashPanel && (
+                        <div className="p-4">
+                            {(cashPositions.accounts || []).length === 0 ? (
+                                <p className="text-xs text-gray-500 text-center py-2">
+                                    No live cash balance snapshots yet. Confirm a Bank Statement or Cash Balance email (or drop a downloaded file via Folder Sync) to populate live balances.
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {cashPositions.accounts.map((acct, idx) => (
+                                        <div key={`${acct.bank_id}-${acct.account_number}-${acct.currency}-${idx}`} className="p-3 rounded-lg border border-gray-200 bg-gray-50/70 flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <div className="text-xs font-bold text-gray-900 truncate">{acct.bank_name}</div>
+                                                <div className="text-[11px] font-mono text-gray-500 truncate">{acct.account_number}</div>
+                                                <div className="flex items-center gap-1.5 mt-1">
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white border border-gray-200 text-gray-600 font-medium">
+                                                        {acct.source_channel}
+                                                    </span>
+                                                    <span className={`text-[10px] font-semibold ${acct.is_stale ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                                        {acct.freshness_hours}h ago
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <div className="text-[10px] font-bold text-teal-700">{acct.currency}</div>
+                                                <div className="text-sm font-extrabold font-mono text-gray-900">
+                                                    {Number(acct.available_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </div>
+                                                {acct.statement_id && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => navigate(`${basePrefix}/reconciliation/workspace/${acct.statement_id}`)}
+                                                        className="text-[10px] text-blue-600 hover:underline font-semibold"
+                                                    >
+                                                        Workspace
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* ─── Stats KPI Row ─── */}
             {stats && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                     <div
                         onClick={() => handleTabClick('ALL')}
                         className={`cursor-pointer p-3.5 rounded-xl border transition flex flex-col justify-between ${
@@ -502,6 +810,21 @@ export default function InboxPage() {
                             <Layers className="w-3.5 h-3.5 text-emerald-500" />
                         </div>
                         <div className="text-2xl font-bold text-emerald-700 mt-2">{stats.bank_statement_count}</div>
+                    </div>
+
+                    <div
+                        onClick={() => handleTabClick('CASH_POSITION_SNAPSHOT')}
+                        className={`cursor-pointer p-3.5 rounded-xl border transition flex flex-col justify-between ${
+                            activeTab === 'CASH_POSITION_SNAPSHOT'
+                                ? 'border-teal-500 bg-teal-50/70 shadow-sm ring-1 ring-teal-400'
+                                : 'border-gray-200 bg-white hover:border-teal-200 hover:bg-teal-50/20'
+                        }`}
+                    >
+                        <div className="flex items-center justify-between text-xs font-semibold text-teal-700 uppercase tracking-wider">
+                            <span>Balances</span>
+                            <Wallet className="w-3.5 h-3.5 text-teal-600" />
+                        </div>
+                        <div className="text-2xl font-bold text-teal-700 mt-2">{stats.cash_position_count || 0}</div>
                     </div>
 
                     <div
@@ -730,6 +1053,14 @@ export default function InboxPage() {
                                                     NIL / Zero Position
                                                 </span>
                                             )}
+
+                                            {/* Watched Folder Sync Badge */}
+                                            {item.ingestion_channel === 'WATCHED_FOLDER' && (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200 rounded-md">
+                                                    <FolderSync className="w-3 h-3 text-teal-600" />
+                                                    Folder Sync
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="text-xs text-gray-500 flex items-center gap-1">
@@ -767,6 +1098,18 @@ export default function InboxPage() {
                                                 <p className="text-sm text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mt-2">
                                                     <strong>System Action:</strong> {item.action_summary}
                                                 </p>
+                                            )}
+
+                                            {Array.isArray(item.extracted_balances_json) && item.extracted_balances_json.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    {item.extracted_balances_json.map((bal, bIdx) => (
+                                                        <span key={bIdx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-teal-50 border border-teal-200 text-xs font-mono text-teal-900">
+                                                            <Wallet className="w-3.5 h-3.5 text-teal-600" />
+                                                            {bal.account_number ? `${bal.account_number} · ` : ''}
+                                                            <strong>{bal.currency || 'EGP'} {Number(bal.available_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             )}
 
                                             {item.error_message && (
@@ -888,6 +1231,14 @@ export default function InboxPage() {
                                                             View
                                                         </button>
                                                     )}
+                                                    {item.action_reference_type === 'BankStatement' && (
+                                                        <button
+                                                            onClick={() => navigate(`${basePrefix}/reconciliation/workspace/${item.action_reference_id}`)}
+                                                            className="underline font-bold text-emerald-800 ml-1"
+                                                        >
+                                                            Open Workspace
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ) : item.classification === 'LG_POSITION_REPORT' ? (
                                                 <button
@@ -905,10 +1256,20 @@ export default function InboxPage() {
                                             ) : item.classification === 'BANK_STATEMENT' ? (
                                                 <button
                                                     onClick={() => openConfirmModal(item)}
-                                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm transition"
+                                                    disabled={actioningId === item.id}
+                                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm transition disabled:opacity-50"
                                                 >
                                                     <Layers className="w-3.5 h-3.5" />
                                                     Confirm Statement Ingestion
+                                                </button>
+                                            ) : item.classification === 'CASH_POSITION_SNAPSHOT' ? (
+                                                <button
+                                                    onClick={() => openConfirmModal(item)}
+                                                    disabled={actioningId === item.id}
+                                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-teal-600 rounded-lg hover:bg-teal-700 shadow-sm transition disabled:opacity-50"
+                                                >
+                                                    <Wallet className="w-3.5 h-3.5" />
+                                                    Confirm Cash Balances
                                                 </button>
                                             ) : item.classification === 'PROGRESS_REPORT' ? (
                                                 <button
@@ -946,11 +1307,15 @@ export default function InboxPage() {
             {/* ─── MODAL: Confirm & Execute Action ─── */}
             {confirmModalItem && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-gray-200">
+                    <div className="bg-white rounded-xl max-w-2xl w-full p-6 space-y-4 shadow-xl border border-gray-200 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                                 <Sparkles className="w-5 h-5 text-blue-600" />
-                                Confirm Downstream Action
+                                {confirmModalItem.classification === 'BANK_STATEMENT'
+                                    ? 'Confirm Bank Statement Ingestion'
+                                    : confirmModalItem.classification === 'CASH_POSITION_SNAPSHOT'
+                                    ? 'Confirm Cash Balance Snapshot'
+                                    : 'Confirm Downstream Action'}
                             </h3>
                             <button onClick={() => setConfirmModalItem(null)} className="text-gray-400 hover:text-gray-600">
                                 <X className="w-5 h-5" />
@@ -962,47 +1327,140 @@ export default function InboxPage() {
                                 <>
                                     The bank confirmed a <strong className="text-amber-800">NIL / Zero Position</strong> (No active guarantees as of requested date). Confirming will create a Reconciliation Session and match all active system LGs against zero bank records.
                                 </>
+                            ) : confirmModalItem.classification === 'BANK_STATEMENT' ? (
+                                <>
+                                    Ingesting statement from <strong>{confirmModalItem.sender_email}</strong> into Bank Reconciliation, running auto-matching, and updating your Live Cash Position.
+                                </>
+                            ) : confirmModalItem.classification === 'CASH_POSITION_SNAPSHOT' ? (
+                                <>
+                                    Review or edit the extracted balance figures from <strong>{confirmModalItem.sender_email}</strong> below before updating Live Cash Positions.
+                                </>
                             ) : (
                                 <>
                                     You are about to process the position report from <strong>{confirmModalItem.sender_email}</strong>.
-                                    This will create a new <strong>Reconciliation Session</strong> and automatically parse & match all LG records.
+                                    This will create a new <strong>Reconciliation Session</strong> and automatically parse &amp; match all LG records.
                                 </>
                             )}
                         </p>
 
                         <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                                    Issuing Bank <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    value={confirmBankId}
-                                    onChange={(e) => setConfirmBankId(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
-                                >
-                                    <option value="">Select Bank...</option>
-                                    {banks.map((b) => (
-                                        <option key={b.id} value={b.id}>
-                                            {b.name} {b.email_domain ? `(@${b.email_domain})` : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                                        Bank <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={confirmBankId}
+                                        onChange={(e) => setConfirmBankId(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                    >
+                                        <option value="">Select Bank...</option>
+                                        {banks.map((b) => (
+                                            <option key={b.id} value={b.id}>
+                                                {b.name} {b.email_domain ? `(@${b.email_domain})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                                    Position Snapshot Date <span className="text-red-500">*</span>
-                                </label>
-                                <FormattedDateInput
-                                    value={confirmPositionDate}
-                                    onChange={(e) => setConfirmPositionDate(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                />
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                                        As-Of / Snapshot Date <span className="text-red-500">*</span>
+                                    </label>
+                                    <FormattedDateInput
+                                        value={confirmPositionDate}
+                                        onChange={(e) => setConfirmPositionDate(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
                             </div>
 
                             {confirmModalItem.primary_attachment_name && (
                                 <div className="text-xs text-gray-600 pt-1">
                                     <strong>Attachment:</strong> {confirmModalItem.primary_attachment_name}
+                                </div>
+                            )}
+
+                            {confirmModalItem.classification === 'BANK_STATEMENT' &&
+                                ((confirmModalItem.primary_attachment_type || '').toUpperCase() === 'PDF' || pdfPasswordRequired) && (
+                                <div className={`p-3 rounded-lg border space-y-2 ${pdfPasswordRequired ? 'bg-amber-50 border-amber-300' : 'bg-white border-gray-200'}`}>
+                                    <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                                        <Lock className="w-3.5 h-3.5 text-amber-600" />
+                                        {pdfPasswordRequired ? 'PDF Password Required to Unlock' : 'Statement PDF Password (if encrypted)'}
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={confirmPdfPassword}
+                                        onChange={(e) => setConfirmPdfPassword(e.target.value)}
+                                        placeholder="Enter static PDF statement password"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono bg-white"
+                                    />
+                                    <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={savePdfPassword}
+                                            onChange={(e) => setSavePdfPassword(e.target.checked)}
+                                        />
+                                        Save this password on the Bank Account for future automated statements
+                                    </label>
+                                </div>
+                            )}
+
+                            {confirmModalItem.classification === 'CASH_POSITION_SNAPSHOT' && (
+                                <div className="space-y-2 pt-1">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-bold text-gray-700 uppercase">Extracted Balances</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setConfirmBalances(prev => [...prev, { account_number: '', currency: 'EGP', available_balance: '', ledger_balance: '' }])}
+                                            className="inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:underline"
+                                        >
+                                            <Plus className="w-3.5 h-3.5" /> Add Row
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {confirmBalances.map((row, idx) => (
+                                            <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded border border-gray-200 text-xs">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Account #"
+                                                    value={row.account_number}
+                                                    onChange={(e) => setConfirmBalances(prev => prev.map((r, i) => i === idx ? { ...r, account_number: e.target.value } : r))}
+                                                    className="col-span-4 px-2 py-1.5 border rounded font-mono"
+                                                />
+                                                <select
+                                                    value={row.currency}
+                                                    onChange={(e) => setConfirmBalances(prev => prev.map((r, i) => i === idx ? { ...r, currency: e.target.value } : r))}
+                                                    className="col-span-2 px-2 py-1.5 border rounded font-bold bg-white"
+                                                >
+                                                    {['EGP', 'USD', 'EUR', 'GBP', 'SAR', 'AED'].map(c => <option key={c} value={c}>{c}</option>)}
+                                                </select>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="Available"
+                                                    value={row.available_balance}
+                                                    onChange={(e) => setConfirmBalances(prev => prev.map((r, i) => i === idx ? { ...r, available_balance: e.target.value } : r))}
+                                                    className="col-span-3 px-2 py-1.5 border rounded font-mono"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="Ledger"
+                                                    value={row.ledger_balance}
+                                                    onChange={(e) => setConfirmBalances(prev => prev.map((r, i) => i === idx ? { ...r, ledger_balance: e.target.value } : r))}
+                                                    className="col-span-2 px-2 py-1.5 border rounded font-mono"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setConfirmBalances(prev => prev.filter((_, i) => i !== idx))}
+                                                    className="col-span-1 text-rose-500 hover:text-rose-700 flex justify-center"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -1020,14 +1478,18 @@ export default function InboxPage() {
                                 className="inline-flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow"
                             >
                                 {actioningId !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                                Confirm & Run Matching
+                                {confirmModalItem.classification === 'BANK_STATEMENT'
+                                    ? 'Ingest Statement & Match'
+                                    : confirmModalItem.classification === 'CASH_POSITION_SNAPSHOT'
+                                    ? 'Save Live Cash Balances'
+                                    : 'Confirm & Run Matching'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ─── MODAL: Request Position from Bank ─── */}
+            {/* ─── MODAL: Request Bank Data (LG Position / Statement / Cash Balance) ─── */}
             {showRequestModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <form
@@ -1037,7 +1499,7 @@ export default function InboxPage() {
                         <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                                 <Send className="w-5 h-5 text-blue-600" />
-                                Request LG Position from Bank
+                                Request Data from Bank
                             </h3>
                             <button type="button" onClick={() => setShowRequestModal(false)} className="text-gray-400 hover:text-gray-600">
                                 <X className="w-5 h-5" />
@@ -1045,10 +1507,25 @@ export default function InboxPage() {
                         </div>
 
                         <p className="text-sm text-gray-500">
-                            Sends an official bilingual request email to the bank trade finance team. When the bank replies, Smart Inbox automatically matches the thread at High confidence.
+                            Sends an official bilingual request email with a tracking reference code. Replies automatically match and update your dashboard.
                         </p>
 
                         <div className="space-y-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                                    Request Type <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={reqType}
+                                    onChange={(e) => setReqType(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-sm font-semibold"
+                                >
+                                    <option value="LG_POSITION">LG Position Report (POS-...)</option>
+                                    <option value="BANK_STATEMENT">Bank Account Statement (STM-...)</option>
+                                    <option value="CASH_POSITION">Daily Cash Balance (BAL-...)</option>
+                                </select>
+                            </div>
+
                             <div>
                                 <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
                                     Target Bank <span className="text-red-500">*</span>
@@ -1068,17 +1545,40 @@ export default function InboxPage() {
                                 </select>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
-                                    Position Date <span className="text-red-500">*</span>
-                                </label>
-                                <FormattedDateInput
-                                    required
-                                    value={reqPositionDate}
-                                    onChange={(e) => setReqPositionDate(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                                />
-                            </div>
+                            {reqType === 'BANK_STATEMENT' ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Period Start</label>
+                                        <FormattedDateInput
+                                            required
+                                            value={reqPeriodStart}
+                                            onChange={(e) => setReqPeriodStart(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Period End</label>
+                                        <FormattedDateInput
+                                            required
+                                            value={reqPeriodEnd}
+                                            onChange={(e) => setReqPeriodEnd(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
+                                        As-Of Date <span className="text-red-500">*</span>
+                                    </label>
+                                    <FormattedDateInput
+                                        required
+                                        value={reqPositionDate}
+                                        onChange={(e) => setReqPositionDate(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">
@@ -1435,6 +1935,182 @@ export default function InboxPage() {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* ─── MODAL: Watched-Folder Auto-Sync & Direct Drop ─── */}
+            {showSyncModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl max-w-2xl w-full p-6 space-y-4 shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                    <FolderSync className="w-5 h-5 text-teal-600" />
+                                    Watched-Folder Sync (Portal-Only Banks)
+                                </h3>
+                                <p className="text-xs text-gray-500">
+                                    For banks without automated emails or APIs — download statements normally on your office PC and auto-sync into Grow with zero bank credential sharing.
+                                </p>
+                            </div>
+                            <button type="button" onClick={() => setShowSyncModal(false)} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="flex gap-2 bg-gray-100 p-1 rounded-lg text-xs font-bold">
+                            <button
+                                type="button"
+                                onClick={() => setSyncTab('drop')}
+                                className={`flex-1 py-2 rounded-md transition ${syncTab === 'drop' ? 'bg-white text-teal-700 shadow-xs' : 'text-gray-600'}`}
+                            >
+                                Direct File Drop
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSyncTab('watcher')}
+                                className={`flex-1 py-2 rounded-md transition ${syncTab === 'watcher' ? 'bg-white text-teal-700 shadow-xs' : 'text-gray-600'}`}
+                            >
+                                Windows Auto-Watcher Setup
+                            </button>
+                        </div>
+
+                        {syncTab === 'drop' ? (
+                            <form onSubmit={handleSyncDropUpload} className="space-y-4 text-sm">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                                        Bank Statement File (.xlsx, .csv, .pdf, .mt940, .sta, .xml)
+                                    </label>
+                                    <input
+                                        type="file"
+                                        accept=".xlsx,.xls,.xlsb,.csv,.pdf,.mt940,.sta,.940,.xml,.txt"
+                                        onChange={(e) => setSyncFile(e.target.files[0])}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-gray-50"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                                            Bank (Auto-detected if blank)
+                                        </label>
+                                        <select
+                                            value={syncBankId}
+                                            onChange={(e) => setSyncBankId(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white"
+                                        >
+                                            <option value="">Auto-detect from filename...</option>
+                                            {banks.map(b => (
+                                                <option key={b.id} value={b.id}>{b.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                                            PDF Password (if encrypted)
+                                        </label>
+                                        <input
+                                            type="password"
+                                            value={syncPdfPassword}
+                                            onChange={(e) => setSyncPdfPassword(e.target.value)}
+                                            placeholder="Optional"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end gap-2 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowSyncModal(false)}
+                                        className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={!syncFile || syncingFile}
+                                        className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-teal-600 rounded-lg hover:bg-teal-700 disabled:opacity-50"
+                                    >
+                                        {syncingFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                        Sync &amp; Process Statement
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <div className="space-y-4 text-xs">
+                                <form onSubmit={handleCreateSyncToken} className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={newTokenLabel}
+                                        onChange={(e) => setNewTokenLabel(e.target.value)}
+                                        placeholder="Workstation label (e.g. Treasurer PC)"
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={creatingToken}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 disabled:opacity-50"
+                                    >
+                                        <Key className="w-3.5 h-3.5" />
+                                        Generate Token
+                                    </button>
+                                </form>
+
+                                {createdPlaintextToken && (
+                                    <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-lg space-y-1.5">
+                                        <div className="font-bold text-emerald-900">Copy your new Sync Token (shown once):</div>
+                                        <div className="flex items-center justify-between gap-2 bg-white p-2 rounded border border-emerald-200 font-mono text-xs break-all">
+                                            <span>{createdPlaintextToken}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(createdPlaintextToken);
+                                                    toast.success('Copied token!');
+                                                }}
+                                                className="p-1 text-emerald-700 hover:bg-emerald-100 rounded shrink-0"
+                                            >
+                                                <Copy className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-3">
+                                    <div>
+                                        <div className="font-bold text-slate-800">1-Click Windows Folder Watcher Script</div>
+                                        <div className="text-slate-500">Watches <span className="font-mono">%USERPROFILE%\GrowSync</span> and auto-uploads new statements.</div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleDownloadWatcherScript}
+                                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 shrink-0"
+                                    >
+                                        <Download className="w-3.5 h-3.5" />
+                                        Download .ps1
+                                    </button>
+                                </div>
+
+                                {syncTokens.length > 0 && (
+                                    <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg">
+                                        {syncTokens.map(tok => (
+                                            <div key={tok.id} className="px-3 py-2 flex items-center justify-between">
+                                                <div>
+                                                    <div className="font-bold text-gray-800">{tok.label}</div>
+                                                    <div className="text-gray-500 font-mono">{tok.token_prefix}… · {tok.files_synced_count} file(s) synced</div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRevokeSyncToken(tok.id)}
+                                                    className="text-rose-600 hover:bg-rose-50 px-2 py-1 rounded font-semibold"
+                                                >
+                                                    Revoke
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

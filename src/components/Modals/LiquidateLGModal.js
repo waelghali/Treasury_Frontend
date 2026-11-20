@@ -6,6 +6,7 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
+import AmountInWordsHint from '../Common/AmountInWordsHint';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -217,6 +218,10 @@ const LiquidateLGModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) => {
                                                             placeholder="e.g., 50000"
                                                             className={`mt-1 block w-full px-3 py-2 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 ${errors.newAmount && touched.newAmount ? 'border-rose-500' : 'border-slate-300'}`}
                                                             disabled={isGracePeriod}
+                                                        />
+                                                        <AmountInWordsHint
+                                                            amount={values.newAmount}
+                                                            currencyCode={lgRecord?.lg_currency?.iso_code || ''}
                                                         />
                                                         <ErrorMessage name="newAmount" component="div" className="text-rose-600 text-xs mt-1" />
                                                     </div>

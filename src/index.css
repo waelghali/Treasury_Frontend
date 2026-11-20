@@ -7,6 +7,14 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+/* Align financial figures, dates, and live countdown digits vertically without jitter */
+table td,
+input[type="number"],
+.tabular-nums,
+[data-numeric="true"] {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Base styles for common elements */
 @layer base {
   :where(input[type="text"], input[type="email"], input[type="password"], input[type="number"], textarea, select) {

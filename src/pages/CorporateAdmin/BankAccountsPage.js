@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
 import {
-    Plus, Trash2, Edit, Building2, CreditCard, Check, X, Star, Loader2
+    Plus, Trash2, Edit, Building2, CreditCard, Check, X, Star, Loader2, Lock, Zap
 } from 'lucide-react';
 import CopyBadge from '../../components/CopyBadge';
 import { SkeletonTable } from '../../components/SkeletonLoader';
@@ -16,7 +16,9 @@ export default function BankAccountsPage() {
     const [editingAccount, setEditingAccount] = useState(null);
     const [form, setForm] = useState({
         bank_id: '', entity_id: '', account_name: '', account_number: '',
-        customer_number: '', branch_name: '', iban: '', is_default: false
+        customer_number: '', branch_name: '', iban: '', currency_code: 'EGP',
+        statement_pdf_password: '', clear_statement_pdf_password: false,
+        auto_ingest_statements: false, is_default: false
     });
 
     const loadData = async () => {
@@ -41,7 +43,12 @@ export default function BankAccountsPage() {
 
     const openCreate = () => {
         setEditingAccount(null);
-        setForm({ bank_id: '', entity_id: '', account_name: '', account_number: '', customer_number: '', branch_name: '', iban: '', is_default: false });
+        setForm({
+            bank_id: '', entity_id: '', account_name: '', account_number: '',
+            customer_number: '', branch_name: '', iban: '', currency_code: 'EGP',
+            statement_pdf_password: '', clear_statement_pdf_password: false,
+            auto_ingest_statements: false, is_default: false
+        });
         setShowModal(true);
     };
 
@@ -55,6 +62,10 @@ export default function BankAccountsPage() {
             customer_number: acct.customer_number || '',
             branch_name: acct.branch_name || '',
             iban: acct.iban || '',
+            currency_code: acct.currency_code || 'EGP',
+            statement_pdf_password: '',
+            clear_statement_pdf_password: false,
+            auto_ingest_statements: Boolean(acct.auto_ingest_statements),
             is_default: acct.is_default || false,
         });
         setShowModal(true);
@@ -67,10 +78,22 @@ export default function BankAccountsPage() {
         }
         try {
             const payload = {
-                ...form,
                 bank_id: parseInt(form.bank_id),
                 entity_id: form.entity_id ? parseInt(form.entity_id) : null,
+                account_name: form.account_name,
+                account_number: form.account_number,
+                customer_number: form.customer_number,
+                branch_name: form.branch_name,
+                iban: form.iban,
+                currency_code: form.currency_code || 'EGP',
+                auto_ingest_statements: Boolean(form.auto_ingest_statements),
+                is_default: Boolean(form.is_default),
             };
+            if (form.statement_pdf_password && form.statement_pdf_password.trim()) {
+                payload.statement_pdf_password = form.statement_pdf_password.trim();
+            } else if (editingAccount && form.clear_statement_pdf_password) {
+                payload.clear_statement_pdf_password = true;
+            }
             if (editingAccount) {
                 await apiRequest(`/issuance/bank-accounts/${editingAccount.id}`, 'PUT', payload);
                 toast.success('Bank account updated');
@@ -145,11 +168,24 @@ export default function BankAccountsPage() {
                                     <div key={a.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                                         <div className="flex items-center gap-6 flex-1">
                                             <div className="min-w-[200px]">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                     <span className="font-bold text-slate-800">{a.account_name}</span>
+                                                    <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
+                                                        {a.currency_code || 'EGP'}
+                                                    </span>
                                                     {a.is_default && (
                                                         <span className="flex items-center gap-1 text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">
                                                             <Star size={10} /> Default
+                                                        </span>
+                                                    )}
+                                                    {a.has_statement_pdf_password && (
+                                                        <span className="flex items-center gap-1 text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold" title="Static PDF e-statement unlock password saved">
+                                                            <Lock size={10} /> PDF Unlock Saved
+                                                        </span>
+                                                    )}
+                                                    {a.auto_ingest_statements && (
+                                                        <span className="flex items-center gap-1 text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold" title="High-confidence bank statements auto-ingest without manual confirmation">
+                                                            <Zap size={10} /> Zero-Touch
                                                         </span>
                                                     )}
                                                 </div>
@@ -259,11 +295,59 @@ export default function BankAccountsPage() {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">IBAN</label>
-                                <input value={form.iban} onChange={e => setForm({ ...form, iban: e.target.value })}
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono" placeholder="Optional" />
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase block mb-1">IBAN</label>
+                                    <input value={form.iban} onChange={e => setForm({ ...form, iban: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono" placeholder="Optional" />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Currency</label>
+                                    <select value={form.currency_code} onChange={e => setForm({ ...form, currency_code: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold bg-white">
+                                        {['EGP', 'USD', 'EUR', 'GBP', 'SAR', 'AED'].map(ccy => (
+                                            <option key={ccy} value={ccy}>{ccy}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
+
+                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                                <label className="text-xs font-bold text-slate-600 uppercase flex items-center gap-1.5">
+                                    <Lock size={13} className="text-emerald-600" />
+                                    E-Statement PDF Password (Optional)
+                                </label>
+                                <input
+                                    type="password"
+                                    value={form.statement_pdf_password}
+                                    onChange={e => setForm({ ...form, statement_pdf_password: e.target.value, clear_statement_pdf_password: false })}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-white"
+                                    placeholder={editingAccount?.has_statement_pdf_password ? '•••••••• (Saved — enter new to replace)' : 'Static PDF unlock password (e.g. CIF or corporate code)'}
+                                    autoComplete="new-password"
+                                />
+                                <p className="text-[11px] text-slate-500">
+                                    Static password used by the bank to encrypt emailed PDF statements — never your online banking login password.
+                                </p>
+                                {editingAccount?.has_statement_pdf_password && (
+                                    <label className="flex items-center gap-2 text-xs text-rose-600 font-medium cursor-pointer pt-1">
+                                        <input
+                                            type="checkbox"
+                                            checked={form.clear_statement_pdf_password}
+                                            onChange={e => setForm({ ...form, clear_statement_pdf_password: e.target.checked, statement_pdf_password: '' })}
+                                        />
+                                        Clear saved PDF password
+                                    </label>
+                                )}
+                            </div>
+
+                            <label className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-200 cursor-pointer hover:bg-indigo-100 transition-colors">
+                                <input type="checkbox" checked={form.auto_ingest_statements} onChange={e => setForm({ ...form, auto_ingest_statements: e.target.checked })}
+                                    className="w-4 h-4 accent-indigo-600" />
+                                <div>
+                                    <span className="text-sm font-bold text-indigo-900">Zero-Touch Auto-Ingest</span>
+                                    <p className="text-xs text-indigo-700">Automatically ingest HIGH-confidence emailed statements &amp; balances from this bank</p>
+                                </div>
+                            </label>
 
                             <label className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors">
                                 <input type="checkbox" checked={form.is_default} onChange={e => setForm({ ...form, is_default: e.target.checked })}

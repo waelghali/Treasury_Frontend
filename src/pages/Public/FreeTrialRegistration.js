@@ -388,7 +388,7 @@ function FreeTrialRegistration() {
 
                 <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
                   <a
-                    href={`https://wa.me/201200557551?text=${encodeURIComponent(
+                    href={`https://wa.me/201001113532?text=${encodeURIComponent(
                       `Hello Grow Team, this is ${submittedState.name} from ${submittedState.company} (${submittedState.email}). I just requested a Free Trial (#1 Priority: ${submittedState.primaryTitle}) and would love quick activation.`
                     )}`}
                     target="_blank"
@@ -703,7 +703,7 @@ function FreeTrialRegistration() {
           onClick={() => setShowTermsModal(false)}
         >
           <div
-            className="bg-white text-slate-900 rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[80vh] flex flex-col"
+            className="bg-white text-slate-900 rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">

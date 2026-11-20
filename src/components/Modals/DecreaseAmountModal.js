@@ -6,6 +6,7 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import { apiRequest } from '../../services/apiService';
 import { toast } from 'react-toastify';
+import AmountInWordsHint from '../Common/AmountInWordsHint';
 
 // NEW: A reusable component to provide a tooltip for disabled elements during the grace period.
 const GracePeriodTooltip = ({ children, isGracePeriod }) => {
@@ -203,6 +204,7 @@ const DecreaseAmountModal = ({ lgRecord, onClose, onSuccess, isGracePeriod }) =>
                                                             )}
                                                             disabled={isGracePeriod || isSubmitting}
                                                         />
+                                                        <AmountInWordsHint amount={values.decreaseAmount} currencyCode={currencyCode || ''} />
                                                         <ErrorMessage name="decreaseAmount" component="div" className="text-rose-600 text-xs mt-1" />
 
                                                         {decreaseAmount > 0 && decreaseAmount < currentAmount && (

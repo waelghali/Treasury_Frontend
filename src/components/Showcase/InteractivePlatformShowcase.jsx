@@ -3808,7 +3808,7 @@ export default function InteractivePlatformShowcase({
                 </p>
                 <div className="mt-5 flex flex-col gap-2">
                   <a
-                    href={`https://wa.me/201200557551?text=${encodeURIComponent(
+                    href={`https://wa.me/201001113532?text=${encodeURIComponent(
                       `Hello Grow Team, this is ${bookSubmitted.name} from ${bookSubmitted.company}. I just explored ${bookSubmitted.moduleTitle} on /demo and would like to pick a time for a 20-minute walkthrough.`
                     )}`}
                     target="_blank"

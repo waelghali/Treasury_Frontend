@@ -11,6 +11,8 @@ import { useTranslation } from 'react-i18next';
 import { COUNTRIES_FOR_SELECT as COUNTRIES, countryNameToCode } from '../../constants/countries';
 import FormattedDateInput from 'components/FormattedDateInput';
 import { formatDate } from '../../utils/dateFormat';
+import useUnsavedChangesGuard from '../../utils/useUnsavedChangesGuard';
+import AmountInWordsHint from '../../components/Common/AmountInWordsHint';
 
 // ──────────────────────────────────────────────
 // CONSTANTS
@@ -61,6 +63,7 @@ export default function IssuanceRequestForm() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [hasUserEdited, setHasUserEdited] = useState(false);
     const [currentStep, setCurrentStep] = useState(0);
     const [slideDir, setSlideDir] = useState('right');
 
@@ -140,6 +143,7 @@ export default function IssuanceRequestForm() {
             return;
         }
         lastAttachedFileRef.current = { file, type: docType, name: file.name };
+        setHasUserEdited(true);
         setPendingFiles(prev => [...prev, { file, type: docType, name: file.name }]);
         if (docType === 'SPECIAL_WORDING' && !isPublic) {
             runSpecialWordingPreview(file);
@@ -147,6 +151,7 @@ export default function IssuanceRequestForm() {
     };
 
     const removeFile = (index) => {
+        setHasUserEdited(true);
         setPendingFiles(prev => {
             const removed = prev[index];
             const next = prev.filter((_, i) => i !== index);
@@ -553,6 +558,7 @@ export default function IssuanceRequestForm() {
     }, [isPublic, token]);
 
     const applyBeneficiarySuggestion = (suggestion) => {
+        setHasUserEdited(true);
         setFormData(prev => ({
             ...prev,
             beneficiary_name: suggestion.beneficiary_name || prev.beneficiary_name,
@@ -606,6 +612,7 @@ export default function IssuanceRequestForm() {
     };
 
     const handleChange = (e) => {
+        if (!loading) setHasUserEdited(true);
         const { name, value, type, checked } = e.target;
         let newValue = type === 'checkbox' ? checked : value;
 
@@ -637,6 +644,21 @@ export default function IssuanceRequestForm() {
 
     const selectedLgType = lgTypes.find(t => t.id?.toString() === formData.lg_type_id?.toString());
     const isAdvancePayment = selectedLgType && selectedLgType.name.toLowerCase().includes('advance');
+
+    const hasNewIssuanceInput = Boolean(
+        formData.amount ||
+        formData.beneficiary_name?.trim() ||
+        formData.lg_purpose?.trim() ||
+        formData.reference_number?.trim() ||
+        formData.other_conditions?.trim() ||
+        pendingFiles.length > 0
+    );
+    useUnsavedChangesGuard(
+        !loading &&
+        !submitting &&
+        !isSuccess &&
+        ((initialEditDraftId || isTrialSandbox) ? hasUserEdited : hasNewIssuanceInput)
+    );
 
     // ──────────────────────────────────────────────
     // DUPLICATE REFERENCE CHECK (useEffect-based)
@@ -1792,13 +1814,31 @@ export default function IssuanceRequestForm() {
                         {...extraProps}
                     />
                 ) : (
-                    <input
-                        type={type} name={name} value={formData[name] || ''} onChange={handleChange}
-                        required={required} placeholder={placeholder}
-                        className={inputClasses(false)}
-                        {...numberProps}
-                        {...extraProps}
-                    />
+                    <>
+                        <input
+                            type={type} name={name} value={formData[name] || ''} onChange={handleChange}
+                            required={required} placeholder={placeholder}
+                            className={inputClasses(false)}
+                            {...numberProps}
+                            {...extraProps}
+                        />
+                        {(name === 'amount' || name === 'reference_amount') && (
+                            <AmountInWordsHint
+                                amount={formData[name]}
+                                currencyCode={
+                                    currencies.find(
+                                        (c) =>
+                                            String(c.id) ===
+                                            String(
+                                                name === 'amount'
+                                                    ? formData.currency_id
+                                                    : formData.reference_currency_id
+                                            )
+                                    )?.iso_code || ''
+                                }
+                            />
+                        )}
+                    </>
                 )}
             </div>
         );
@@ -2705,7 +2745,10 @@ export default function IssuanceRequestForm() {
                 </div>
 
                 {/* ─── STEP CONTENT ─── */}
-                <form onSubmit={(e) => e.preventDefault()}>
+                <form
+                    onSubmit={(e) => e.preventDefault()}
+                    onChangeCapture={() => { if (!loading) setHasUserEdited(true); }}
+                >
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-8 mb-6">
                         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
                             {React.createElement(STEP_ICONS[currentStep], { className: 'w-5 h-5 text-blue-500' })}

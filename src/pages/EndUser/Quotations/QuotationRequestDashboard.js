@@ -9,6 +9,7 @@ import { getCurrentUser } from '../../../utils/authUtils';
 import ResultsView from './ResultsView';
 import CorporateMobileAlertsBanner from '../../../components/CorporateMobileAlertsBanner';
 import FormattedDateInput from 'components/FormattedDateInput';
+import AmountInWordsHint from '../../../components/Common/AmountInWordsHint';
 
 const MAX_PAIRS = 4;
 
@@ -3683,6 +3684,7 @@ export default function QuotationRequestDashboard() {
                                                     EGP
                                                 </span>
                                             </div>
+                                            <AmountInWordsHint amount={formData.amount} currencyCode="EGP" />
                                             {formData.amount !== '' && formData.amount !== undefined && parseFloat(formData.amount) <= 0 && (
                                                 <p className="text-[10px] text-rose-600 font-semibold mt-1 flex items-center gap-1">
                                                     <AlertCircle size={11} /> Amount must be a positive value greater than 0
@@ -3708,6 +3710,7 @@ export default function QuotationRequestDashboard() {
                                                     EGP
                                                 </span>
                                             </div>
+                                            <AmountInWordsHint amount={formData.minTicketAmount} currencyCode="EGP" />
                                         </div>
                                     </div>
 
@@ -4049,6 +4052,7 @@ export default function QuotationRequestDashboard() {
                                                     {activePair.buyCurrency || 'USD'}
                                                 </span>
                                             </div>
+                                            <AmountInWordsHint amount={activePair.amount} currencyCode={activePair.buyCurrency || 'USD'} />
                                             {activePair.amount !== '' && activePair.amount !== undefined && parseFloat(activePair.amount) <= 0 && (
                                                 <p className="text-[10px] text-rose-600 font-semibold mt-1 flex items-center gap-1">
                                                     <AlertCircle size={11} /> Amount must be a positive value greater than 0

@@ -88,17 +88,23 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
   const [showRecordFundsModal, setShowRecordFundsModal] = useState(false);
   const [selectedLgForRecordFunds, setSelectedLgForRecordFunds] = useState(null);
 
-  const [sortColumn, setSortColumn] = useState('custody_serial');
-  const [sortDirection, setSortDirection] = useState('asc');
+  const [sortColumn, setSortColumn] = useState(() => queryParams.get('sort') || 'custody_serial');
+  const [sortDirection, setSortDirection] = useState(() =>
+    queryParams.get('dir') === 'desc' ? 'desc' : 'asc'
+  );
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatuses, setSelectedStatuses] = useState([]);
-  const [showCriticalOnly, setShowCriticalOnly] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(() => queryParams.get('q') || '');
+  const [selectedStatuses, setSelectedStatuses] = useState(() =>
+    queryParams.get('status') ? queryParams.get('status').split(',').filter(Boolean) : []
+  );
+  const [showCriticalOnly, setShowCriticalOnly] = useState(() => queryParams.get('critical') === '1');
 
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTypes, setSelectedTypes] = useState([]);
-  const [selectedCategories, setSelectedCategories] = useState(
-    filterByCategory ? [filterByCategory] : []
+  const [selectedDate, setSelectedDate] = useState(() => queryParams.get('date') || '');
+  const [selectedTypes, setSelectedTypes] = useState(() =>
+    queryParams.get('type') ? queryParams.get('type').split(',').filter(Boolean) : []
+  );
+  const [selectedCategories, setSelectedCategories] = useState(() =>
+    filterByCategory ? filterByCategory.split(',').filter(Boolean) : []
   );
   const [lgCategories, setLgCategories] = useState([]);
   const [categoryModalState, setCategoryModalState] = useState({
@@ -108,9 +114,44 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
   useEffect(() => {
     if (filterByCategory) {
-      setSelectedCategories([filterByCategory]);
+      const parsedCats = filterByCategory.split(',').filter(Boolean);
+      setSelectedCategories((prev) =>
+        prev.join(',') === parsedCats.join(',') ? prev : parsedCats
+      );
     }
   }, [filterByCategory]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filterByOwnerId) params.set('ownerId', filterByOwnerId);
+    if (searchTerm) params.set('q', searchTerm);
+    if (selectedStatuses.length > 0) params.set('status', selectedStatuses.join(','));
+    if (showCriticalOnly) params.set('critical', '1');
+    if (selectedDate) params.set('date', selectedDate);
+    if (selectedTypes.length > 0) params.set('type', selectedTypes.join(','));
+    if (selectedCategories.length > 0) params.set('category', selectedCategories.join(','));
+    if (sortColumn && sortColumn !== 'custody_serial') params.set('sort', sortColumn);
+    if (sortDirection && sortDirection !== 'asc') params.set('dir', sortDirection);
+
+    const nextStr = params.toString();
+    const nextSearch = nextStr ? `?${nextStr}` : '';
+    if (nextSearch !== location.search) {
+      navigate({ pathname: location.pathname, search: nextSearch }, { replace: true });
+    }
+  }, [
+    filterByOwnerId,
+    searchTerm,
+    selectedStatuses,
+    showCriticalOnly,
+    selectedDate,
+    selectedTypes,
+    selectedCategories,
+    sortColumn,
+    sortDirection,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
 
   const [allLgRecords, setAllLgRecords] = useState([]);
 
@@ -192,7 +233,7 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
 
   const handleViewDetails = (lgRecordId) => {
     const detailsPath = isCorporateAdminView ? `/corporate-admin/lg-records/${lgRecordId}` : `/end-user/lg-records/${lgRecordId}`;
-    navigate(detailsPath);
+    navigate(detailsPath, { state: { returnTo: `${location.pathname}${location.search}` } });
   };
 
   // Helper to stop propagation for interactive elements inside the clickable row
@@ -419,12 +460,6 @@ function LGRecordList({ onLogout, isCorporateAdminView = false, isGracePeriod })
     setSelectedDate('');
     setSelectedTypes([]);
     setSelectedCategories([]);
-    if (filterByCategory) {
-      navigate(
-        filterByOwnerId ? `${location.pathname}?ownerId=${filterByOwnerId}` : location.pathname,
-        { replace: true }
-      );
-    }
   };
 
   const criticalCount = useMemo(

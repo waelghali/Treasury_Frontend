@@ -2255,10 +2255,10 @@ export default function IssuedLGsPage() {
 
                             {/* Desktop View: Table (>= md) */}
                             <div className="hidden md:block bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-                                <div className="overflow-x-auto">
+                                <div className="overflow-auto max-h-[72vh]">
                                     <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="bg-slate-50/80 border-b border-slate-200">
+                                        <thead className="sticky top-0 z-20 bg-slate-50 shadow-[0_1px_0_0_rgba(226,232,240,1)]">
+                                            <tr className="bg-slate-50 border-b border-slate-200">
                                                 <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('internal_serial')}>
                                                     <div className="flex items-center gap-1">Serial # <SortIcon field="internal_serial" /></div>
                                                 </th>

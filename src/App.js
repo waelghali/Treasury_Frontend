@@ -28,6 +28,7 @@ import AuthWrapper from './components/AuthWrapper';
 import ProtectedLayout from './components/ProtectedLayout';
 import LegalArtifactModal from './components/LegalArtifactModal';
 import ErrorBoundary from './components/ErrorBoundary';
+import OfflineStatusBanner from './components/Common/OfflineStatusBanner';
 
 import SystemOwnerRoutes from './routes/SystemOwnerRoutes.js';
 import CorporateAdminRoutes from './routes/CorporateAdminRoutes.js';
@@ -604,6 +605,7 @@ function App() {
     <HelmetProvider>
     <BrowserRouter>
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 font-sans text-gray-800 dark:text-gray-100 antialiased transition-colors duration-200">
+        <OfflineStatusBanner />
         <ErrorBoundary>
           <AppContent
             showSessionModal={showSessionModal}

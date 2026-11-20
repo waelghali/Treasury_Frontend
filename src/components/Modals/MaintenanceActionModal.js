@@ -3,6 +3,7 @@ import { Loader2, Send, X, Calendar, TrendingUp, Pencil, Zap, CheckCircle } from
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import moment from 'moment';
 import FormattedDateInput from 'components/FormattedDateInput';
+import AmountInWordsHint from '../Common/AmountInWordsHint';
 
 const DISPLAY_DATE_FORMAT = 'DD-MMM-YYYY';
 const API_DATE_FORMAT = 'YYYY-MM-DD';
@@ -193,6 +194,7 @@ const MaintenanceActionModal = ({ isOpen, actionType, lg, onClose, onSubmit, sub
                                                 <input type="number" step="0.01" value={formData.new_amount || ''} placeholder={`e.g. ${currentAmount + 5000}`}
                                                     onChange={e => setFormData({ ...formData, new_amount: e.target.value })}
                                                     className="w-full px-3 py-2.5 border border-slate-300 shadow-sm rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-shadow" />
+                                                <AmountInWordsHint amount={formData.new_amount} currencyCode={currency} />
                                             </div>
                                         )}
 

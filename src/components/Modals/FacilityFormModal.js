@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiRequest } from '../../services/apiService';
 import COUNTRIES from '../../constants/countries';
 import FormattedDateInput from 'components/FormattedDateInput';
+import AmountInWordsHint from '../Common/AmountInWordsHint';
 import {
   X, Plus, Trash2, ShieldCheck, Loader2, Building2,
   Calendar, Hash, Percent, Clock, Globe, Search,
@@ -358,6 +359,9 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
     </button>
   );
 
+  const selectedFacilityCurrencyCode =
+    (currencies || []).find((c) => String(c.id) === String(formData.currency_id))?.iso_code || '';
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xl w-full max-w-7xl max-h-[92vh] h-full flex flex-col overflow-hidden">
@@ -482,6 +486,10 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
 
 
                   </div>
+                  <AmountInWordsHint
+                    amount={formData.total_limit_amount}
+                    currencyCode={selectedFacilityCurrencyCode}
+                  />
                 </div>
               </div>
 
@@ -704,6 +712,10 @@ export default function FacilityFormModal({ facility, onClose, onSuccess }) {
                             </div>
 
                           </div>
+                          <AmountInWordsHint
+                            amount={sl.limit_amount}
+                            currencyCode={selectedFacilityCurrencyCode}
+                          />
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4">

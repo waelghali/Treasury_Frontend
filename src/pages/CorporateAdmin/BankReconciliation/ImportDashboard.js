@@ -3,7 +3,7 @@ import {
     Upload, FileText, CheckCircle2,
     AlertCircle, Landmark, ArrowRight,
     Calendar, Coins, Database, Trash2,
-    RefreshCw, AlertTriangle, Sparkles
+    RefreshCw, AlertTriangle, Sparkles, Lock, Wallet
 } from 'lucide-react';
 import { apiRequest } from '../../../services/apiService';
 import { isCachedTrialSession } from '../../../components/Trial/useTrialExperience';
@@ -32,9 +32,11 @@ const ImportDashboard = () => {
         closing_balance: '',
         start_date: '',
         end_date: '',
+        pdf_password: '',
     });
     const [file, setFile] = useState(null);
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [cashPositions, setCashPositions] = useState(null);
     const [isTrialSandbox] = useState(() => {
         try {
             const u = JSON.parse(localStorage.getItem('user') || '{}');
@@ -61,12 +63,22 @@ const ImportDashboard = () => {
             setIsLoading(true);
             await Promise.all([
                 fetchStatements(),
-                fetchBanks()
+                fetchBanks(),
+                fetchCashPositions()
             ]);
             setIsLoading(false);
         };
         initialize();
     }, []);
+
+    const fetchCashPositions = async () => {
+        try {
+            const data = await apiRequest('/reconciliation/cash-positions', 'GET');
+            setCashPositions(data);
+        } catch (err) {
+            console.warn("Failed to fetch live cash positions", err);
+        }
+    };
 
     const fetchBanks = async () => {
         try {
@@ -122,6 +134,7 @@ const ImportDashboard = () => {
         if (formData.closing_balance) data.append('closing_balance', formData.closing_balance);
         if (formData.start_date) data.append('start_date', formData.start_date);
         if (formData.end_date) data.append('end_date', formData.end_date);
+        if (formData.pdf_password) data.append('pdf_password', formData.pdf_password);
 
         try {
             const result = await apiRequest('/reconciliation/statements/upload', 'POST', data);
@@ -141,10 +154,11 @@ const ImportDashboard = () => {
                 console.warn('Header drift check skipped:', driftErr);
             }
 
-            setFormData({ bank_id: formData.bank_id || 1, opening_balance: '', closing_balance: '', start_date: '', end_date: '' });
+            setFormData({ bank_id: formData.bank_id || 1, opening_balance: '', closing_balance: '', start_date: '', end_date: '', pdf_password: '' });
             setFile(null);
             setShowAdvanced(false);
             fetchStatements();
+            fetchCashPositions();
         } catch (err) {
             setUploadError(err.message);
         } finally {
@@ -168,6 +182,38 @@ const ImportDashboard = () => {
                     View Unified Master Ledger
                 </button>
             </div>
+
+            {cashPositions && cashPositions.total_accounts_count > 0 && (
+                <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 text-white rounded-2xl p-5 shadow-md border border-teal-500/20">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-teal-500/20 text-teal-300 rounded-xl">
+                                <Wallet className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <div className="text-[11px] uppercase tracking-wider text-teal-300 font-bold">
+                                    Live Multi-Bank Cash Position
+                                </div>
+                                <div className="text-xs text-slate-300">
+                                    {cashPositions.banks_covered_count} bank(s) · {cashPositions.total_accounts_count} account(s) synced via Inbox, Folder Sync &amp; Uploads
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                            {Object.values(cashPositions.totals_by_currency || {}).map((tot) => (
+                                <div key={tot.currency} className="px-3.5 py-2 rounded-xl bg-white/10 border border-white/15">
+                                    <span className="text-[10px] uppercase tracking-wider text-teal-200 font-bold block">
+                                        {tot.currency} ({tot.account_count})
+                                    </span>
+                                    <span className="text-base font-extrabold text-white font-mono">
+                                        {Number(tot.available_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Upload Form */}
@@ -198,20 +244,41 @@ const ImportDashboard = () => {
                             </div>
 
                             <div className="pt-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Statement File (CSV/Excel)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Statement File (Excel / CSV / PDF / MT940)</label>
                                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition-colors cursor-pointer group">
                                     <div className="space-y-1 text-center">
                                         <FileText className="mx-auto h-12 w-12 text-gray-400 group-hover:text-blue-500 transition-colors" />
                                         <div className="flex text-sm text-gray-600">
                                             <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
                                                 <span>{file ? file.name : "Drop file or click to browse"}</span>
-                                                <input type="file" className="sr-only" onChange={(e) => setFile(e.target.files[0])} />
+                                                <input
+                                                    type="file"
+                                                    accept=".pdf,.mt940,.sta,.940,.xml,.csv,.xlsx,.xls,.xlsb"
+                                                    className="sr-only"
+                                                    onChange={(e) => setFile(e.target.files[0])}
+                                                />
                                             </label>
                                         </div>
-                                        <p className="text-xs text-gray-500">System will auto-detect columns & balances</p>
+                                        <p className="text-xs text-gray-500">Excel, CSV, SWIFT MT940/CAMT.053, or PDF (plain/encrypted)</p>
                                     </div>
                                 </div>
                             </div>
+
+                            {file && file.name && file.name.toLowerCase().endsWith('.pdf') && (
+                                <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg space-y-1.5">
+                                    <label className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                                        <Lock className="w-3.5 h-3.5 text-amber-600" />
+                                        Statement PDF Password (if encrypted)
+                                    </label>
+                                    <input
+                                        type="password"
+                                        className="w-full px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-sm font-mono"
+                                        placeholder="Leave blank if unlocked or saved on Bank Account"
+                                        value={formData.pdf_password}
+                                        onChange={(e) => setFormData({ ...formData, pdf_password: e.target.value })}
+                                    />
+                                </div>
+                            )}
 
                             <button
                                 type="button"

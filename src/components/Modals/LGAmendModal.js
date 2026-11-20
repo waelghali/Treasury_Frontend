@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import moment from 'moment';
 import { apiRequest } from '../../services/apiService';
 import FormattedDateInput from 'components/FormattedDateInput';
+import AmountInWordsHint from '../Common/AmountInWordsHint';
 
 const buttonBaseClassNames = "inline-flex items-center px-4 py-2 text-sm font-semibold rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200";
 
@@ -231,6 +232,7 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                         {...extraProps}
                     />
                 ) : (
+                    <>
                     <input
                         type={type}
                         name={name}
@@ -246,6 +248,13 @@ const LGAmendModal = ({ lgRecord, onClose, onSuccess }) => {
                         )}
                         {...extraProps}
                     />
+                    {name === 'lg_amount' && (
+                        <AmountInWordsHint
+                            amount={inputValue}
+                            currencyCode={lgRecord?.lg_currency?.iso_code || ''}
+                        />
+                    )}
+                </>
                 )}
                 {hasBeenChanged && (
                     <span className="absolute top-0 right-0 mt-0.5 mr-0.5 px-2 py-0.5 text-[11px] font-semibold text-amber-800 bg-amber-100 border border-amber-200 rounded-full">

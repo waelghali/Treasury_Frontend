@@ -3,7 +3,7 @@
 
 import { toast } from 'react-toastify';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { apiRequest, API_BASE_URL, getAuthToken } from '../../services/apiService';
 import { Loader2, AlertCircle, ArrowLeft, Users, CalendarPlus, FileMinus, CheckCircle, MinusCircle, Eye, Edit, PlayCircle, Sparkles, Clock, Truck, Building, FileText, ShieldCheck, Tag } from 'lucide-react';
 import moment from 'moment';
@@ -60,6 +60,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
     const { id } = useParams();
     const navigateToLgList = isCorporateAdminView ? '/corporate-admin/lg-records' : '/end-user/lg-records';
     const navigate = useNavigate();
+    const location = useLocation();
     const [lgRecord, setLgRecord] = useState(null);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -574,7 +575,7 @@ function LGDetailsPage({ isCorporateAdminView = false, isGracePeriod }) {
             <div className="mb-2.5">
                 <button
                     type="button"
-                    onClick={() => navigate(navigateToLgList)}
+                    onClick={() => navigate(location.state?.returnTo || navigateToLgList)}
                     className="inline-flex items-center text-slate-500 hover:text-slate-900 transition-colors duration-150 text-sm font-medium shadow-none"
                 >
                     <ArrowLeft className="h-4 w-4 mr-1.5" />

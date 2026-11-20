@@ -12,26 +12,41 @@ import { SkeletonTable } from '../../components/SkeletonLoader';
 import FormattedDateInput from 'components/FormattedDateInput';
 
 export default function IssuanceRequestsPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'ALL');
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get('from') || '');
+  const [dateTo, setDateTo] = useState(() => searchParams.get('to') || '');
   const [sortField, setSortField] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
   const [showFilters, setShowFilters] = useState(false);
-  const navigate = useNavigate();
 
   const [selectedRequestForExecution, setSelectedRequestForExecution] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
 
-  const location = useLocation();
-  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const paramRequestId = searchParams.get('request_id') || searchParams.get('id');
   const openRequestId = location.state?.openRequestId || paramRequestId;
   const executeRequestId = location.state?.executeRequestId;
+
+  useEffect(() => {
+    if (paramRequestId) return;
+    const params = new URLSearchParams();
+    if (statusFilter && statusFilter !== 'ALL') params.set('status', statusFilter);
+    if (searchTerm) params.set('q', searchTerm);
+    if (dateFrom) params.set('from', dateFrom);
+    if (dateTo) params.set('to', dateTo);
+    const nextStr = params.toString();
+    const nextSearch = nextStr ? `?${nextStr}` : '';
+    if (nextSearch !== location.search) {
+      navigate({ pathname: location.pathname, search: nextSearch }, { replace: true });
+    }
+  }, [paramRequestId, statusFilter, searchTerm, dateFrom, dateTo, location.pathname, location.search, navigate]);
 
   // Auto-open requested modal if passed via navigation state or URL query parameter
   useEffect(() => {
@@ -352,9 +367,9 @@ export default function IssuanceRequestsPage() {
       </div>
 
       <div className="bg-white shadow-sm rounded-2xl overflow-hidden border border-slate-200/80">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[72vh]">
           <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50/80">
+            <thead className="sticky top-0 z-20 bg-slate-50 shadow-[0_1px_0_0_rgba(226,232,240,1)]">
               <tr>
                 <th className="px-3.5 py-2.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none group/th hover:text-slate-700 transition-colors" onClick={() => toggleSort('serial_number')}>
                   <div className="flex items-center gap-1">Serial / Requestor <SortIcon field="serial_number" /></div>
